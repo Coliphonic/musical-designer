@@ -119,7 +119,11 @@ function handleApi(req, res, parts, user) {
         try {
           const d = JSON.parse(fs.readFileSync(path.join(SHOWS_DIR, f), 'utf8'));
           if (!canAccess(d, user)) return;
-          list.push({ id: f.replace(/\.json$/, ''), title: d.title || 'Untitled', updated: d.updated || 0, owner: d.owner || null, shared: !!(d.owner && d.owner !== user.id) });
+          list.push({
+            id: f.replace(/\.json$/, ''), title: d.title || 'Untitled', updated: d.updated || 0,
+            mode: d.mode || 'full', status: d.status || 'active', owner: d.owner || null,
+            collaborators: d.collaborators || [], shared: !!(d.owner && d.owner !== user.id),
+          });
         } catch (_) { /* skip */ }
       });
       list.sort((a, b) => b.updated - a.updated);
@@ -144,6 +148,21 @@ function handleApi(req, res, parts, user) {
   let existing = null;
   try { existing = JSON.parse(fs.readFileSync(fileFor(sid), 'utf8')); } catch (_) { existing = null; }
   if (existing && !canAccess(existing, user)) return sendJSON(res, 403, { error: 'forbidden' });
+
+  // Sub-action: PUT /api/shows/:id/share — owner sets the collaborator list.
+  if (parts[3] === 'share') {
+    if (req.method !== 'PUT') return sendJSON(res, 405, { error: 'method' });
+    if (!existing) return sendJSON(res, 404, { error: 'not found' });
+    if (existing.owner && existing.owner !== user.id) return sendJSON(res, 403, { error: 'owner only' });
+    return readBody(req, (body) => {
+      let data; try { data = JSON.parse(body || '{}'); } catch (_) { data = {}; }
+      const ids = loadUsers().map((u) => u.id);
+      existing.collaborators = (Array.isArray(data.collaborators) ? data.collaborators : [])
+        .filter((cid) => cid !== user.id && ids.indexOf(cid) >= 0);
+      try { fs.writeFileSync(fileFor(sid), JSON.stringify(existing)); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
+      sendJSON(res, 200, { ok: true, collaborators: existing.collaborators });
+    });
+  }
 
   if (req.method === 'GET') {
     if (!existing) return sendJSON(res, 404, { error: 'not found' });
@@ -176,6 +195,13 @@ http
 
     // Auth endpoints are always reachable.
     if (p.startsWith('/api/auth')) { handleAuth(req, res, p.split('/').filter(Boolean).slice(1)); return; }
+
+    // User directory (for the share picker) requires a valid session.
+    if (p === '/api/users') {
+      const user = currentUser(req);
+      if (!user) return sendJSON(res, 401, { error: 'unauth' });
+      return sendJSON(res, 200, loadUsers().map((u) => ({ id: u.id, name: u.name })));
+    }
 
     // Shows API requires a valid session.
     if (p.startsWith('/api/shows')) {

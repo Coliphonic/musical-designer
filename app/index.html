@@ -19,6 +19,10 @@
     </div>
 
     <nav class="sb-nav">
+      <button class="sb-item" data-page="library" title="Library">
+        <span class="sb-icon">▤</span>
+        <span class="sb-label">Library</span>
+      </button>
       <button class="sb-item" data-page="board" title="Board">
         <span class="sb-icon">⊞</span>
         <span class="sb-label">Board</span>
@@ -75,6 +79,18 @@
   <!-- Main content -->
   <div id="app-root" class="app-root">
 
+    <!-- Library page -->
+    <div id="page-library" class="page" style="display:none">
+      <div class="lib-header">
+        <h1 class="lib-title">Library</h1>
+        <div class="lib-actions">
+          <label class="lib-archtoggle"><input type="checkbox" id="lib-show-archived" /> Show archived</label>
+          <button class="pbtn primary" id="lib-new">+ New show</button>
+        </div>
+      </div>
+      <div id="lib-grid" class="lib-grid"></div>
+    </div>
+
     <!-- Board page -->
     <div id="page-board" class="page">
       <div class="board-header">
@@ -125,7 +141,16 @@
           <button data-mode="oneact">One-act (90 min)</button>
         </div>
       </div>
+      <div class="fld">
+        <span class="fl">Status</span>
+        <div class="seg" id="ssm-status-seg">
+          <button data-status="draft">Draft</button>
+          <button data-status="active" class="active">Active</button>
+          <button data-status="archived">Archived</button>
+        </div>
+      </div>
       <div class="modal-btns">
+        <button id="ssm-share" class="pbtn" style="margin-right:auto">Share…</button>
         <button id="ssm-cancel" class="pbtn">Cancel</button>
         <button id="ssm-save" class="pbtn primary">Save</button>
       </div>
@@ -150,6 +175,19 @@
       <div class="modal-btns">
         <button id="nsm-cancel" class="pbtn">Cancel</button>
         <button id="nsm-create" class="pbtn primary">Create show</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Share modal -->
+  <div id="share-modal" class="modal-overlay" style="display:none">
+    <div class="modal-box">
+      <h3 class="modal-title">Share show</h3>
+      <p class="share-sub" id="share-sub">Choose who can open and edit this show.</p>
+      <div id="share-list" class="share-list"></div>
+      <div class="modal-btns">
+        <button id="share-cancel" class="pbtn">Cancel</button>
+        <button id="share-save" class="pbtn primary">Save sharing</button>
       </div>
     </div>
   </div>

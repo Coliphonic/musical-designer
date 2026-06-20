@@ -30,6 +30,9 @@ const state = {
   readonly: true,
   loading: false,
   projects: [],
+  users: [],
+  me: null,
+  status: 'active',
   mode: 'full',
   view: 'full',
   page: 'board',
@@ -114,6 +117,7 @@ function openProject(id, afterOpen) {
     state.scriptHeader = Object.assign({}, shDefaults, d.scriptHeader || {});
     state.title = d.title || 'Untitled show';
     state.mode = d.mode || 'full';
+    state.status = d.status || 'active';
     state.projectId = id;
     state.showKey = null;
     state.readonly = false;
@@ -127,7 +131,7 @@ function openProject(id, afterOpen) {
 
 function serialize() {
   return JSON.stringify({
-    title: state.title, mode: state.mode, updated: Date.now(),
+    title: state.title, mode: state.mode, status: state.status || 'active', updated: Date.now(),
     cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
     characters: state.characters,
     titlePage: state.titlePage,
@@ -168,6 +172,140 @@ function deleteProject() {
     if (state.projects.length) openProject(state.projects[0].id); else openReference('fiddler');
   }));
 }
+// ---- Library / file management -------------------------------------------
+function relTime(ts) {
+  if (!ts) return '—';
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60); if (m < 60) return m + (m === 1 ? ' min ago' : ' mins ago');
+  const h = Math.floor(m / 60); if (h < 24) return h + (h === 1 ? ' hr ago' : ' hrs ago');
+  const d = Math.floor(h / 24); if (d === 1) return 'yesterday';
+  if (d < 30) return d + ' days ago';
+  const mo = Math.floor(d / 30); if (mo < 12) return mo + (mo === 1 ? ' mo ago' : ' mos ago');
+  return Math.floor(mo / 12) + ' yr ago';
+}
+function userName(id) { const u = (state.users || []).find((x) => x.id === id); return u ? u.name : id; }
+function isOwner(p) { return !p.owner || (state.me && p.owner === state.me.id); }
+
+function buildLibraryPage() {
+  const grid = document.getElementById('lib-grid');
+  if (!grid) return;
+  const archChk = document.getElementById('lib-show-archived');
+  const showArchived = archChk && archChk.checked;
+  grid.innerHTML = '';
+  let items = (state.projects || []).slice();
+  if (!showArchived) items = items.filter((p) => (p.status || 'active') !== 'archived');
+  if (!items.length) {
+    grid.appendChild(el('div', { class: 'lib-empty', text: showArchived ? 'No shows yet.' : 'No active shows yet. Click “+ New show” to start.' }));
+    return;
+  }
+  items.forEach((p) => grid.appendChild(libCard(p)));
+}
+
+function libCard(p) {
+  const card = el('div', { class: 'lib-card' + (state.projectId === p.id ? ' current' : '') });
+  card.addEventListener('click', () => { closeCardMenu(); openProject(p.id, () => navigateTo('board')); });
+
+  const top = el('div', { class: 'lib-card-top' });
+  top.appendChild(el('span', { class: 'lib-card-title', text: p.title || 'Untitled' }));
+  const dots = el('button', { class: 'lib-card-dots', title: 'Actions', text: '⋯' });
+  dots.addEventListener('click', (e) => { e.stopPropagation(); openCardMenu(p, dots); });
+  top.appendChild(dots);
+  card.appendChild(top);
+
+  const meta = el('div', { class: 'lib-card-meta' });
+  meta.appendChild(el('span', { class: 'lib-fmt', text: p.mode === 'oneact' ? 'One-act' : 'Full length' }));
+  meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
+  meta.appendChild(el('span', { class: 'lib-updated', text: relTime(p.updated) }));
+  card.appendChild(meta);
+
+  const tags = el('div', { class: 'lib-card-tags' });
+  const status = p.status || 'active';
+  tags.appendChild(el('span', { class: 'lib-badge lib-status-' + status, text: status.charAt(0).toUpperCase() + status.slice(1) }));
+  if (p.shared) tags.appendChild(el('span', { class: 'lib-badge lib-shared', text: 'Shared by ' + userName(p.owner) }));
+  else if ((p.collaborators || []).length) tags.appendChild(el('span', { class: 'lib-badge lib-shared', text: 'Shared · ' + p.collaborators.length }));
+  card.appendChild(tags);
+  return card;
+}
+
+function closeCardMenu() { const m = document.getElementById('lib-card-menu'); if (m) m.remove(); }
+function openCardMenu(p, anchor) {
+  closeCardMenu();
+  const menu = el('div', { class: 'lib-menu', id: 'lib-card-menu' });
+  const add = (label, fn, danger) => {
+    const b = el('button', { class: 'lib-menu-item' + (danger ? ' danger' : ''), text: label });
+    b.addEventListener('click', (e) => { e.stopPropagation(); closeCardMenu(); fn(); });
+    menu.appendChild(b);
+  };
+  add('Open', () => openProject(p.id, () => navigateTo('board')));
+  if (isOwner(p)) add('Share…', () => openShareModal(p.id));
+  add('Duplicate', () => duplicateShowById(p.id));
+  const status = p.status || 'active';
+  add(status === 'archived' ? 'Unarchive' : 'Archive', () => setShowStatus(p.id, status === 'archived' ? 'active' : 'archived'));
+  if (isOwner(p)) add('Delete', () => deleteShowById(p.id, p.title), true);
+
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.top = (r.bottom + 4) + 'px';
+  menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
+}
+
+// Update one show's status without disturbing the currently open project.
+function setShowStatus(id, status) {
+  if (state.projectId === id) { state.status = status; doSave(); buildLibraryPage(); return; }
+  fetch('/api/shows/' + id).then((r) => r.json()).then((d) => {
+    d.status = status; d.updated = d.updated || Date.now();
+    return fetch('/api/shows/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
+  }).then(() => loadProjects().then(buildLibraryPage));
+}
+function duplicateShowById(id) {
+  fetch('/api/shows/' + id).then((r) => r.json()).then((d) => {
+    const body = JSON.stringify({ title: (d.title || 'Untitled') + ' (copy)', mode: d.mode, status: 'draft', updated: Date.now(), cards: d.cards || [], characters: d.characters || {}, titlePage: d.titlePage, scriptHeader: d.scriptHeader });
+    return fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+  }).then(() => loadProjects().then(buildLibraryPage));
+}
+function deleteShowById(id, title) {
+  if (!confirm('Delete "' + (title || 'this show') + '"? This cannot be undone.')) return;
+  fetch('/api/shows/' + id, { method: 'DELETE' }).then(() => {
+    if (state.projectId === id) { state.projectId = null; }
+    loadProjects().then(buildLibraryPage);
+  });
+}
+
+// ---- Sharing --------------------------------------------------------------
+let _shareId = null;
+function openShareModal(id) {
+  _shareId = id;
+  const p = (state.projects || []).find((x) => x.id === id);
+  if (!p) return;
+  if (!isOwner(p)) { alert('Only the owner can change sharing.'); return; }
+  const list = document.getElementById('share-list');
+  list.innerHTML = '';
+  const collab = p.collaborators || [];
+  const others = (state.users || []).filter((u) => !state.me || u.id !== state.me.id);
+  if (!others.length) {
+    list.appendChild(el('div', { class: 'share-empty', text: 'No other accounts yet. Create one on the server with: node users.js add <name> <password>' }));
+  } else {
+    others.forEach((u) => {
+      const row = el('label', { class: 'share-row' });
+      const cb = el('input'); cb.type = 'checkbox'; cb.value = u.id; cb.checked = collab.indexOf(u.id) >= 0;
+      row.appendChild(cb);
+      row.appendChild(el('span', { class: 'share-name', text: u.name }));
+      list.appendChild(row);
+    });
+  }
+  document.getElementById('share-modal').style.display = '';
+}
+function closeShareModal() { document.getElementById('share-modal').style.display = 'none'; _shareId = null; }
+function saveSharing() {
+  if (!_shareId) { closeShareModal(); return; }
+  const ids = Array.from(document.querySelectorAll('#share-list input:checked')).map((c) => c.value);
+  const id = _shareId;
+  fetch('/api/shows/' + id + '/share', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collaborators: ids }) })
+    .then((r) => r.json()).then(() => { closeShareModal(); loadProjects().then(() => { if (state.page === 'library') buildLibraryPage(); }); })
+    .catch(() => { closeShareModal(); });
+}
+
 function setSaveInd(s) {
   const e = document.getElementById('save-ind'); if (!e) return;
   e.textContent = s === 'saving' ? 'Saving…' : s === 'saved' ? 'Saved ✓' : s === 'ref' ? 'Reference · read-only' : s === 'error' ? 'Save failed' : '';
@@ -198,9 +336,14 @@ function showShowPopover() {
   closeRow.appendChild(closeBtn);
   pop.appendChild(closeRow);
 
+  const libLink = el('button', { class: 'sp-item sp-liblink', text: '▤  Library' });
+  libLink.addEventListener('click', (e) => { e.stopPropagation(); closeShowPopover(); navigateTo('library'); });
+  pop.appendChild(libLink);
+
   if (state.projects && state.projects.length) {
-    pop.appendChild(el('div', { class: 'sp-label', text: 'My shows' }));
-    state.projects.forEach((p) => {
+    const recents = state.projects.filter((p) => (p.status || 'active') !== 'archived').slice(0, 5);
+    pop.appendChild(el('div', { class: 'sp-label', text: 'Recent' }));
+    recents.forEach((p) => {
       const row = el('div', { class: 'sp-item-row' });
       const item = el('button', { class: 'sp-item' + (state.projectId === p.id ? ' active' : '') });
       item.textContent = p.title || 'Untitled';
@@ -250,6 +393,10 @@ function openShowSettingsModal() {
   document.getElementById('ssm-title').value = state.title || '';
   const currentMode = state.mode === 'oneact' ? 'oneact' : 'full';
   document.querySelectorAll('#ssm-mode-seg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === currentMode));
+  const currentStatus = state.status || 'active';
+  document.querySelectorAll('#ssm-status-seg button').forEach((b) => b.classList.toggle('active', b.dataset.status === currentStatus));
+  const shareBtn = document.getElementById('ssm-share');
+  if (shareBtn) shareBtn.style.display = (state.projectId && !state.readonly && isOwner({ owner: (state.projects.find((p) => p.id === state.projectId) || {}).owner })) ? '' : 'none';
   const saveBtn = document.getElementById('ssm-save');
   const titleInput = document.getElementById('ssm-title');
   const modeSeg = document.getElementById('ssm-mode-seg');
@@ -273,10 +420,14 @@ function saveShowSettings() {
   const title = document.getElementById('ssm-title').value.trim() || state.title || 'Untitled show';
   const activeBtn = document.querySelector('#ssm-mode-seg button.active');
   const mode = activeBtn ? activeBtn.dataset.mode : state.mode;
+  const statusBtn = document.querySelector('#ssm-status-seg button.active');
+  const status = statusBtn ? statusBtn.dataset.status : (state.status || 'active');
   state.title = title;
   state.mode = mode;
+  state.status = status;
   closeShowSettingsModal();
   renderShowBtn();
+  scheduleSave();
   render();
 }
 
@@ -986,6 +1137,7 @@ function navigateTo(page, sceneId) {
   document.querySelectorAll('.sb-item').forEach((b) => {
     b.classList.toggle('active', b.dataset.page === page);
   });
+  if (page === 'library') buildLibraryPage();
   if (page === 'titlepage') buildTitlePagesFull();
   if (page === 'manuscript') buildManuscriptPage(sceneId);
   if (page === 'characters') buildCharactersPage();
@@ -2246,7 +2398,20 @@ function initControls() {
   document.querySelectorAll('#ssm-mode-seg button').forEach((b) => {
     b.addEventListener('click', () => { document.querySelectorAll('#ssm-mode-seg button').forEach((x) => x.classList.toggle('active', x === b)); });
   });
+  document.querySelectorAll('#ssm-status-seg button').forEach((b) => {
+    b.addEventListener('click', () => { document.querySelectorAll('#ssm-status-seg button').forEach((x) => x.classList.toggle('active', x === b)); });
+  });
+  document.getElementById('ssm-share').addEventListener('click', () => { if (state.projectId) { closeShowSettingsModal(); openShareModal(state.projectId); } });
   document.getElementById('show-settings-modal').addEventListener('click', (e) => { if (e.target.id === 'show-settings-modal') closeShowSettingsModal(); });
+
+  // Library page controls
+  document.getElementById('lib-new').addEventListener('click', () => openNewShowModal());
+  document.getElementById('lib-show-archived').addEventListener('change', () => buildLibraryPage());
+
+  // Share modal
+  document.getElementById('share-cancel').addEventListener('click', closeShareModal);
+  document.getElementById('share-save').addEventListener('click', saveSharing);
+  document.getElementById('share-modal').addEventListener('click', (e) => { if (e.target.id === 'share-modal') closeShareModal(); });
 
   // new show modal
   document.querySelectorAll('#nsm-mode-seg button').forEach((b) => {
@@ -2287,6 +2452,9 @@ function initControls() {
   }
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      const shm = document.getElementById('share-modal');
+      if (shm && shm.style.display !== 'none') { closeShareModal(); return; }
+      closeCardMenu();
       const ssm = document.getElementById('show-settings-modal');
       if (ssm && ssm.style.display !== 'none') { closeShowSettingsModal(); return; }
       const modal = document.getElementById('new-show-modal');
@@ -2295,6 +2463,8 @@ function initControls() {
     }
   });
   document.addEventListener('click', (e) => {
+    const menu = document.getElementById('lib-card-menu');
+    if (menu && !menu.contains(e.target)) closeCardMenu();
     const pop = document.getElementById('show-popover');
     if (pop && !pop.contains(e.target) && !document.getElementById('sb-show-btn').contains(e.target)) {
       closeShowPopover();
@@ -2306,9 +2476,11 @@ function initControls() {
 initControls();
 // Identify the signed-in user (server gates the page, so this should succeed).
 fetch('/api/auth/me').then((r) => (r.ok ? r.json() : null)).then((u) => {
-  const el = document.getElementById('sb-username');
-  if (el && u && u.name) el.textContent = u.name;
+  state.me = u || null;
+  const nameEl = document.getElementById('sb-username');
+  if (nameEl && u && u.name) nameEl.textContent = u.name;
 }).catch(() => {});
+fetch('/api/users').then((r) => (r.ok ? r.json() : [])).then((list) => { state.users = list || []; }).catch(() => {});
 document.body.classList.toggle('sb-open', state.sidebarOpen);
 navigateTo('board');
 loadProjects().then(() => {
