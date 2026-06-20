@@ -51,9 +51,6 @@ html, body {
 .pbtn:disabled { opacity: 0.4; cursor: default; }
 .pbtn.danger { color: #a32d2d; }
 .pbtn.danger:hover:not(:disabled) { background: #fbeaea; }
-.saveind { font-size: 11.5px; color: var(--faint); margin-left: 2px; min-width: 60px; }
-.saveind.ref { color: #99551d; }
-.saveind.err { color: #a32d2d; }
 
 .stats { display: flex; gap: 8px; margin-left: auto; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; min-width: 58px; }
@@ -271,6 +268,10 @@ textarea.lyrictext { min-height: 120px; font-family: ui-monospace, Menlo, Consol
   color: var(--muted); background: var(--btn); padding: 2px 14px; border-radius: 20px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
+/* Section tags live on the always-white print sheets, so keep them light even in
+   dark mode (the dark var(--btn)/var(--muted) pill is unreadable on white). */
+.ms-viewport .lw-section-tag,
+#pdf-print-root .lw-section-tag { background: #efeefe; color: #534ab7; }
 
 /* Manuscript page */
 .ms-zoom-wrap { display: flex; align-items: center; gap: 4px; }
@@ -287,21 +288,41 @@ body.dark .ms-body { background: var(--bg); }
 
 /* Header settings drawer */
 .ms-hd-drawer { width: 0; overflow: hidden; background: var(--panel); border-left: 1px solid var(--line); transition: width 0.22s ease; flex-shrink: 0; display: flex; flex-direction: column; }
-.ms-hd-drawer.open { width: 280px; }
-.ms-hd-inner { width: 280px; padding: 16px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto; }
-.ms-hd-titlebar { display: flex; align-items: center; justify-content: space-between; }
+.ms-hd-drawer.open { width: 288px; }
+.ms-hd-inner { width: 288px; flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 0 16px 22px; }
+/* Sticky title so it stays put while the options scroll */
+.ms-hd-titlebar { position: sticky; top: 0; z-index: 2; background: var(--panel); display: flex; align-items: center; justify-content: space-between; padding: 14px 0 10px; border-bottom: 1px solid var(--line); }
 .ms-hd-title { font-size: 13px; font-weight: 600; color: var(--ink); }
-.ms-hd-close { border: 0; background: transparent; font-size: 15px; color: var(--muted); cursor: pointer; padding: 2px 4px; border-radius: 5px; line-height: 1; }
-.ms-hd-close:hover { background: var(--hover); }
-.ms-hd-row { display: flex; flex-direction: column; gap: 5px; }
-.ms-hd-divider { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
-.ms-hd-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); font-weight: 600; }
+.ms-hd-close { border: 0; background: transparent; font-size: 15px; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 5px; line-height: 1; }
+.ms-hd-close:hover { background: var(--hover); color: var(--ink); }
+
+.ms-hd-section-head { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; margin-top: 4px; }
+.ms-hd-divider { border: none; border-top: 1px solid var(--line); margin: 2px 0; }
+
+/* Stacked rows (inputs that need a label above) */
+.ms-hd-row { display: flex; flex-direction: column; gap: 6px; }
+.ms-hd-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
+
+/* Compact inline toggle rows — label left, checkbox right */
+.ms-hd-toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 0; cursor: pointer; user-select: none; }
+.ms-hd-toggle-label { font-size: 13px; color: var(--ink); font-weight: 500; }
+.ms-hd-toggle input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--energy); flex-shrink: 0; margin: 0; }
+
+/* Subgroup of header options — dims when header is off */
+.ms-hd-subgroup { display: flex; flex-direction: column; gap: 12px; }
+.ms-hd-subgroup.dimmed { opacity: 0.4; pointer-events: none; }
+
 .ms-hd-fmt-wrap { display: flex; flex-direction: column; gap: 6px; }
 .ms-hd-fmt-input { font-size: 12px; }
 .ms-hd-tokens { display: flex; gap: 5px; flex-wrap: wrap; }
 .ms-hd-token { font-size: 11px; font-family: 'Courier Prime', monospace; background: var(--btn); border: 1px solid var(--line); border-radius: 5px; padding: 3px 8px; cursor: pointer; color: var(--ink); }
-.ms-hd-token:hover { background: var(--hover); }
-.ms-hd-preview-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); font-weight: 600; }
+.ms-hd-token:hover { background: var(--hover); border-color: var(--energy); }
+
+/* Make the alignment seg fill the drawer width (no stray empty space) */
+.ms-hd-row .seg { display: flex; width: 100%; }
+.ms-hd-row .seg button { flex: 1; }
+
+.ms-hd-preview-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
 .ms-hd-preview { font-family: 'Courier Prime', 'Courier New', Courier, monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; color: var(--ink); min-height: 32px; display: block; width: 100%; box-sizing: border-box; }
 .ms-sheet-hdr-text { flex: 1; }
 
@@ -551,6 +572,7 @@ body.sb-open .sb-appname { opacity: 1; }
 .sb-show-btn {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
   width: 100%;
   padding: 7px 8px;
@@ -566,34 +588,46 @@ body.sb-open .sb-appname { opacity: 1; }
   white-space: nowrap;
   overflow: hidden;
 }
+body.sb-open .sb-show-btn { justify-content: flex-start; }
 .sb-show-btn:hover { background: #2e2d2a; color: #f0ebe0; }
 .sb-show-name {
-  flex: 1;
+  flex: 0 0 0;
+  max-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   opacity: 0;
-  transition: opacity var(--sb-transition);
+  transition: flex var(--sb-transition), max-width var(--sb-transition), opacity var(--sb-transition);
   font-size: 12px;
 }
-body.sb-open .sb-show-name { opacity: 1; }
+body.sb-open .sb-show-name { flex: 1; max-width: 200px; opacity: 1; }
 .sb-show-caret {
-  font-size: 18px;
-  opacity: 0;
-  transition: opacity var(--sb-transition);
+  display: flex;
+  align-items: center;
+  opacity: 0.5;
+  transition: opacity var(--sb-transition), transform 0.22s ease;
   flex-shrink: 0;
-  line-height: 1;
+  transform: rotate(180deg); /* chevron points up when closed (click slides menu up) */
 }
+.sb-show-caret svg { display: block; }
 body.sb-open .sb-show-caret { opacity: 0.5; }
-.sb-saveind {
-  display: block;
-  text-align: right;
-  padding: 1px 10px 4px;
+.sb-show-btn.pop-open .sb-show-caret { transform: rotate(0deg); } /* points down when open (click closes) */
+.sb-save-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: #6b6477;
+  box-shadow: 0 0 0 0 rgba(0,0,0,0);
+  transition: background 0.2s, box-shadow 0.2s, opacity var(--sb-transition);
   opacity: 0;
-  transition: opacity var(--sb-transition);
-  font-size: 11px;
-  white-space: nowrap;
 }
-body.sb-open .sb-saveind { opacity: 1; }
+body.sb-open .sb-save-dot { opacity: 1; }
+.sb-save-dot.saved { background: #8b82e8; box-shadow: 0 0 5px 0 rgba(139,130,232,0.55); }
+.sb-save-dot.unsaved,
+.sb-save-dot.ref { background: #6b6477; }
+.sb-save-dot.saving { background: #8b82e8; animation: sb-dot-pulse 1s ease-in-out infinite; }
+.sb-save-dot.err { background: #e0564f; box-shadow: 0 0 5px 0 rgba(224,86,79,0.6); }
+@keyframes sb-dot-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 
 /* Show-switcher popover */
 .sp-close-row {
@@ -783,9 +817,12 @@ body.sb-open .sb-toggle .sb-toggle-panel { opacity: 0.18; }
 /* Manuscript + Title Pages */
 #page-manuscript, #page-titlepage { display: flex; flex-direction: column; }
 
-/* ms-wrap contains the scrollable body + the drawer side by side */
-.ms-wrap { flex: 1; display: flex; overflow: hidden; position: relative; }
-.ms-wrap .ms-body { flex: 1; overflow-y: auto; background: #888; }
+/* ms-wrap contains the scrollable body + the drawer side by side.
+   min-height/min-width:0 stops the flex item from growing to its content
+   height — otherwise the whole wrap (and the side drawer) balloons to the
+   full manuscript height and the drawer scrolls off-screen. */
+.ms-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; overflow: hidden; position: relative; }
+.ms-wrap .ms-body { flex: 1; min-width: 0; overflow-y: auto; background: #888; }
 body.dark .ms-body { background: var(--bg); }
 .ms-toolbar {
   display: flex;
@@ -836,7 +873,9 @@ body.dark .ms-mode-btn:hover { background: #050504; }
 .ms-print-btn:hover { background: #e4e1fb; }
 body.dark .ms-print-btn { background: #211d33; border-color: #5a5080; color: #b8aef0; }
 body.dark .ms-print-btn:hover { background: #2a2542; }
-#ms-body { }
+/* Outer manuscript container: a non-scrolling flex column so .ms-wrap fills it
+   and only the inner sheet body scrolls — keeps the side drawer pinned. */
+#ms-body { display: flex; flex-direction: column; overflow: hidden; }
 
 /* Edit mode ─────────────────────────────────── */
 .ms-edit-doc {

@@ -396,8 +396,9 @@ function saveSharing() {
 
 function setSaveInd(s) {
   const e = document.getElementById('save-ind'); if (!e) return;
-  e.textContent = s === 'saving' ? 'Saving…' : s === 'saved' ? 'Saved ✓' : s === 'ref' ? 'Reference · read-only' : s === 'error' ? 'Save failed' : '';
-  e.className = 'saveind sb-saveind' + (s === 'ref' ? ' ref' : '') + (s === 'error' ? ' err' : '');
+  const cls = s === 'saving' ? 'saving' : s === 'saved' ? 'saved' : s === 'ref' ? 'ref' : s === 'error' ? 'err' : 'unsaved';
+  e.className = 'sb-save-dot ' + cls;
+  e.title = s === 'saving' ? 'Saving…' : s === 'saved' ? 'Saved' : s === 'ref' ? 'Reference · read-only' : s === 'error' ? 'Save failed' : 'Unsaved changes';
 }
 function renderShowBtn() {
   const nameEl = document.getElementById('sb-show-name');
@@ -407,12 +408,15 @@ function renderShowBtn() {
 function closeShowPopover() {
   const pop = document.getElementById('show-popover');
   if (pop) pop.remove();
+  const btn = document.getElementById('sb-show-btn');
+  if (btn) btn.classList.remove('pop-open');
 }
 
 function showShowPopover() {
   if (document.getElementById('show-popover')) { closeShowPopover(); return; }
   const btn = document.getElementById('sb-show-btn');
   if (!btn) return;
+  btn.classList.add('pop-open');
 
   const pop = el('div', { class: 'show-popover', id: 'show-popover' });
 
@@ -465,6 +469,17 @@ function showShowPopover() {
 
   [newBtn, dupBtn, delBtn].forEach((b) => actions.appendChild(b));
   pop.appendChild(actions);
+
+  // Account / sign out
+  pop.appendChild(el('div', { class: 'sp-divider' }));
+  if (state.me && state.me.name) pop.appendChild(el('div', { class: 'sp-label', text: 'Signed in as ' + state.me.name }));
+  const signOut = el('button', { class: 'sp-item sp-signout', text: '⏻  Sign out' });
+  signOut.addEventListener('click', (e) => {
+    e.stopPropagation();
+    closeShowPopover();
+    fetch('/api/auth/logout', { method: 'POST' }).then(() => { window.location.href = '/login.html'; }).catch(() => { window.location.href = '/login.html'; });
+  });
+  pop.appendChild(signOut);
 
   document.body.appendChild(pop);
 }
@@ -1648,32 +1663,47 @@ function buildHeaderDrawer(onUpdate) {
   const drawer = el('div', { class: 'ms-hd-drawer', id: 'ms-hd-drawer' });
   const inner = el('div', { class: 'ms-hd-inner' });
 
-  // Title bar
+  // Sticky title bar
   const titleBar = el('div', { class: 'ms-hd-titlebar' });
-  titleBar.appendChild(el('span', { class: 'ms-hd-title', text: 'Header settings' }));
+  titleBar.appendChild(el('span', { class: 'ms-hd-title', text: 'Page setup' }));
   const closeBtn = el('button', { class: 'ms-hd-close', text: '✕', title: 'Close' });
   closeBtn.addEventListener('click', () => { drawer.classList.remove('open'); });
   titleBar.appendChild(closeBtn);
   inner.appendChild(titleBar);
 
-  const row = (label, control) => {
+  // Helpers: stacked row (label above a control) and inline toggle (label + checkbox)
+  const stacked = (label, control) => {
     const r = el('div', { class: 'ms-hd-row' });
     r.appendChild(el('label', { class: 'ms-hd-label', text: label }));
     r.appendChild(control);
     return r;
   };
+  const toggle = (label, checked, onChange) => {
+    const cb = el('input', { type: 'checkbox' });
+    cb.checked = checked;
+    const r = el('label', { class: 'ms-hd-toggle' });
+    r.appendChild(el('span', { class: 'ms-hd-toggle-label', text: label }));
+    r.appendChild(cb);
+    cb.addEventListener('change', () => onChange(cb.checked));
+    return { row: r, cb };
+  };
+  const sectionHead = (t) => el('div', { class: 'ms-hd-section-head', text: t });
 
-  // Enable toggle
-  const enabledCb = el('input', { type: 'checkbox' });
-  enabledCb.checked = sh.enabled;
-  enabledCb.addEventListener('change', () => { sh.enabled = enabledCb.checked; scheduleSave(); onUpdate(); });
-  inner.appendChild(row('Show header', enabledCb));
+  // ── Running header ───────────────────────────────────────────────
+  inner.appendChild(sectionHead('Running header'));
+
+  // Subgroup holds the detail options; it dims when the header is turned off.
+  const sub = el('div', { class: 'ms-hd-subgroup' });
+  const syncDim = () => sub.classList.toggle('dimmed', !sh.enabled);
+
+  const enabled = toggle('Show header on pages', sh.enabled, (v) => { sh.enabled = v; syncDim(); scheduleSave(); onUpdate(); updatePreview(); });
+  inner.appendChild(enabled.row);
 
   // Format template
   const fmtWrap = el('div', { class: 'ms-hd-fmt-wrap' });
   const fmtIn = el('input', { class: 'fi ms-hd-fmt-input', type: 'text', value: sh.format || '' });
   fmtIn.placeholder = '{title} – {date} – {page}.';
-  fmtIn.addEventListener('input', () => { sh.format = fmtIn.value; scheduleSave(); onUpdate(); });
+  fmtIn.addEventListener('input', () => { sh.format = fmtIn.value; scheduleSave(); onUpdate(); updatePreview(); });
   fmtWrap.appendChild(fmtIn);
   const tokens = el('div', { class: 'ms-hd-tokens' });
   ['{title}', '{date}', '{page}'].forEach((tok) => {
@@ -1684,18 +1714,18 @@ function buildHeaderDrawer(onUpdate) {
       fmtIn.selectionStart = fmtIn.selectionEnd = s + tok.length;
       fmtIn.focus();
       sh.format = fmtIn.value;
-      scheduleSave(); onUpdate();
+      scheduleSave(); onUpdate(); updatePreview();
     });
     tokens.appendChild(chip);
   });
   fmtWrap.appendChild(tokens);
-  inner.appendChild(row('Format', fmtWrap));
+  sub.appendChild(stacked('Format', fmtWrap));
 
   // Revision date
   const dateIn = el('input', { class: 'fi', type: 'text', value: sh.revisionDate || '' });
   dateIn.placeholder = '3/30/18, DRAFT, Workshop…';
-  dateIn.addEventListener('input', () => { sh.revisionDate = dateIn.value; scheduleSave(); onUpdate(); });
-  inner.appendChild(row('Revision / date', dateIn));
+  dateIn.addEventListener('input', () => { sh.revisionDate = dateIn.value; scheduleSave(); onUpdate(); updatePreview(); });
+  sub.appendChild(stacked('Revision / date', dateIn));
 
   // Alignment
   const alignSeg = el('div', { class: 'seg' });
@@ -1706,39 +1736,31 @@ function buildHeaderDrawer(onUpdate) {
       sh.alignment = a;
       alignSeg.querySelectorAll('button').forEach((btn) => btn.classList.remove('active'));
       b.classList.add('active');
-      scheduleSave(); onUpdate();
+      scheduleSave(); onUpdate(); updatePreview();
     });
     alignSeg.appendChild(b);
   });
-  inner.appendChild(row('Alignment', alignSeg));
+  sub.appendChild(stacked('Alignment', alignSeg));
 
   // First page toggle
-  const fpCb = el('input', { type: 'checkbox' });
-  fpCb.checked = sh.firstPage;
-  fpCb.addEventListener('change', () => { sh.firstPage = fpCb.checked; scheduleSave(); onUpdate(); });
-  inner.appendChild(row('Show on page 1', fpCb));
+  const fp = toggle('Show on first page', sh.firstPage, (v) => { sh.firstPage = v; scheduleSave(); onUpdate(); });
+  sub.appendChild(fp.row);
 
   // Preview
   const preview = el('div', { class: 'ms-hd-preview' });
-  const updatePreview = () => {
+  function updatePreview() {
     const text = (sh.format || '')
       .replace('{title}', (state.title || 'Untitled Show').toUpperCase())
       .replace('{date}', sh.revisionDate || '')
       .replace('{page}', '8');
-    preview.textContent = sh.enabled ? text : '(disabled)';
+    preview.textContent = text || ' ';
     preview.style.textAlign = sh.alignment || 'right';
-    preview.style.opacity = sh.enabled ? '1' : '0.4';
-  };
+  }
   updatePreview();
-  // patch onUpdate to also refresh preview
-  const origOnUpdate = onUpdate;
-  onUpdate = () => { origOnUpdate(); updatePreview(); };
-  // re-wire listeners to use new onUpdate — simpler: just refresh preview on all events too
-  [enabledCb, fmtIn, dateIn, fpCb].forEach((el_) => el_.addEventListener('input', updatePreview));
-  [enabledCb, fpCb].forEach((el_) => el_.addEventListener('change', updatePreview));
-  alignSeg.querySelectorAll('button').forEach((b) => b.addEventListener('click', updatePreview));
-  inner.appendChild(el('div', { class: 'ms-hd-preview-label', text: 'Preview' }));
-  inner.appendChild(preview);
+  sub.appendChild(stacked('Preview', preview));
+
+  inner.appendChild(sub);
+  syncDim();
 
   drawer.appendChild(inner);
   return drawer;
@@ -1993,6 +2015,7 @@ function buildManuscriptPage(sceneId) {
   const drawer = buildHeaderDrawer(() => { if (msMode === 'layout') rebuildSheets(); else rebuildEdit(); });
   const drawerInner = drawer.querySelector('.ms-hd-inner');
   drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
+  drawerInner.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Show in document' }));
   const mkDrawerToggle = (label, key, defaultVal) => {
     if (state.msOptions[key] === undefined) state.msOptions[key] = defaultVal !== false;
     const cb = el('input', { type: 'checkbox' });
@@ -2002,15 +2025,14 @@ function buildManuscriptPage(sceneId) {
       saveMsOpts();
       if (msMode === 'layout') rebuildSheets(); else rebuildEdit();
     });
-    const r = el('div', { class: 'ms-hd-row' });
-    r.appendChild(el('label', { class: 'ms-hd-label', text: label }));
+    const r = el('label', { class: 'ms-hd-toggle' });
+    r.appendChild(el('span', { class: 'ms-hd-toggle-label', text: label }));
     r.appendChild(cb);
     return r;
   };
   drawerInner.appendChild(mkDrawerToggle('Show title', 'showTitle', false));
   drawerInner.appendChild(mkDrawerToggle('Act headers', 'showActHeaders', true));
-  drawerInner.appendChild(mkDrawerToggle('Section tags', 'showSectionTags', true));
-  drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
+  drawerInner.appendChild(mkDrawerToggle('Section tags', 'showSectionTags', false));
 
   const applyZoom = () => {
     const vp = msWrap.querySelector('.ms-viewport');
@@ -2475,11 +2497,6 @@ function initControls() {
     if (e.key === 'Enter') { const title = document.getElementById('nsm-title').value.trim() || 'Untitled show'; closeNewShowModal(); createProject(title, _nsmMode); }
   });
   document.getElementById('new-show-modal').addEventListener('click', (e) => { if (e.target.id === 'new-show-modal') closeNewShowModal(); });
-
-  const logoutBtn = document.getElementById('sb-logout');
-  if (logoutBtn) logoutBtn.addEventListener('click', () => {
-    fetch('/api/auth/logout', { method: 'POST' }).then(() => { window.location.href = '/login.html'; }).catch(() => { window.location.href = '/login.html'; });
-  });
 
   const sbToggle = document.getElementById('sb-toggle');
   if (sbToggle) sbToggle.addEventListener('click', () => {
