@@ -33,6 +33,7 @@ const state = {
   users: [],
   me: null,
   status: 'active',
+  folder: '',
   mode: 'full',
   view: 'full',
   page: 'board',
@@ -97,6 +98,7 @@ function openReference(key) {
   state.title = show.title;
   state.projectId = null;
   state.readonly = true;
+  state.folder = '';
   state.mode = show.form === 'one-act-90' ? 'oneact' : 'full';
   closeDetail();
   state.loading = false;
@@ -118,6 +120,7 @@ function openProject(id, afterOpen) {
     state.title = d.title || 'Untitled show';
     state.mode = d.mode || 'full';
     state.status = d.status || 'active';
+    state.folder = d.folder || '';
     state.projectId = id;
     state.showKey = null;
     state.readonly = false;
@@ -131,7 +134,7 @@ function openProject(id, afterOpen) {
 
 function serialize() {
   return JSON.stringify({
-    title: state.title, mode: state.mode, status: state.status || 'active', updated: Date.now(),
+    title: state.title, mode: state.mode, status: state.status || 'active', folder: state.folder || '', updated: Date.now(),
     cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
     characters: state.characters,
     titlePage: state.titlePage,
@@ -151,7 +154,7 @@ function doSave() {
     .then(() => { setSaveInd('saved'); loadProjects(); }).catch(() => setSaveInd('error'));
 }
 function loadProjects() {
-  return fetch('/api/shows').then((r) => r.json()).then((list) => { state.projects = list || []; renderShowBtn(); }).catch(() => {});
+  return fetch('/api/shows').then((r) => r.json()).then((list) => { state.projects = list || []; renderShowBtn(); if (state.page === 'library') buildLibraryPage(); }).catch(() => {});
 }
 function newProject() { openNewShowModal(); }
 function duplicateProject() {
@@ -187,19 +190,67 @@ function relTime(ts) {
 function userName(id) { const u = (state.users || []).find((x) => x.id === id); return u ? u.name : id; }
 function isOwner(p) { return !p.owner || (state.me && p.owner === state.me.id); }
 
+function existingFolders() {
+  const set = {};
+  (state.projects || []).forEach((p) => { const f = (p.folder || '').trim(); if (f) set[f] = true; });
+  return Object.keys(set).sort((a, b) => a.localeCompare(b));
+}
+
+function libSection(name, builders) {
+  const sec = el('div', { class: 'lib-section' });
+  if (name) {
+    const head = el('div', { class: 'lib-section-head' });
+    head.appendChild(el('span', { class: 'lib-folder-ico', text: '▸' }));
+    head.appendChild(el('span', { class: 'lib-section-name', text: name }));
+    head.appendChild(el('span', { class: 'lib-section-count', text: builders.length }));
+    sec.appendChild(head);
+  }
+  const grid = el('div', { class: 'lib-grid-inner' });
+  builders.forEach((fn) => grid.appendChild(fn()));
+  sec.appendChild(grid);
+  return sec;
+}
+
 function buildLibraryPage() {
-  const grid = document.getElementById('lib-grid');
-  if (!grid) return;
+  const host = document.getElementById('lib-grid');
+  if (!host) return;
   const archChk = document.getElementById('lib-show-archived');
   const showArchived = archChk && archChk.checked;
-  grid.innerHTML = '';
+  host.innerHTML = '';
   let items = (state.projects || []).slice();
   if (!showArchived) items = items.filter((p) => (p.status || 'active') !== 'archived');
+
+  const ungrouped = items.filter((p) => !(p.folder || '').trim());
+  const folders = {};
+  items.filter((p) => (p.folder || '').trim()).forEach((p) => { const f = p.folder.trim(); (folders[f] = folders[f] || []).push(p); });
+
   if (!items.length) {
-    grid.appendChild(el('div', { class: 'lib-empty', text: showArchived ? 'No shows yet.' : 'No active shows yet. Click “+ New show” to start.' }));
-    return;
+    host.appendChild(el('div', { class: 'lib-empty', text: showArchived ? 'No shows yet.' : 'No active shows yet. Click “+ New show” to start.' }));
+  } else {
+    if (ungrouped.length) host.appendChild(libSection(null, ungrouped.map((p) => () => libCard(p))));
+    Object.keys(folders).sort((a, b) => a.localeCompare(b)).forEach((f) => host.appendChild(libSection(f, folders[f].map((p) => () => libCard(p)))));
   }
-  items.forEach((p) => grid.appendChild(libCard(p)));
+
+  // Reference shows — read-only examples, always in their own folder.
+  const refKeys = Object.keys(SHOWS);
+  if (refKeys.length) host.appendChild(libSection('Reference', refKeys.map((k) => () => libRefCard(k))));
+}
+
+function libRefCard(key) {
+  const r = SHOWS[key];
+  const card = el('div', { class: 'lib-card lib-card-ref' });
+  card.addEventListener('click', () => { closeCardMenu(); openReference(key); navigateTo('board'); });
+  const top = el('div', { class: 'lib-card-top' });
+  top.appendChild(el('span', { class: 'lib-card-title', text: r.title }));
+  card.appendChild(top);
+  const meta = el('div', { class: 'lib-card-meta' });
+  meta.appendChild(el('span', { class: 'lib-fmt', text: r.form === 'two-act' ? 'Two-act' : (r.form ? r.form.replace(/-/g, ' ') : 'Reference') }));
+  if (r.year) { meta.appendChild(el('span', { class: 'lib-dot', text: '·' })); meta.appendChild(el('span', { text: String(r.year) })); }
+  card.appendChild(meta);
+  const tags = el('div', { class: 'lib-card-tags' });
+  tags.appendChild(el('span', { class: 'lib-badge lib-ref-badge', text: 'Reference' }));
+  card.appendChild(tags);
+  return card;
 }
 
 function libCard(p) {
@@ -240,6 +291,7 @@ function openCardMenu(p, anchor) {
   add('Open', () => openProject(p.id, () => navigateTo('board')));
   if (isOwner(p)) add('Share…', () => openShareModal(p.id));
   add('Duplicate', () => duplicateShowById(p.id));
+  add('Move to folder…', () => openFolderModal(p.id));
   const status = p.status || 'active';
   add(status === 'archived' ? 'Unarchive' : 'Archive', () => setShowStatus(p.id, status === 'archived' ? 'active' : 'archived'));
   if (isOwner(p)) add('Delete', () => deleteShowById(p.id, p.title), true);
@@ -258,6 +310,42 @@ function setShowStatus(id, status) {
     return fetch('/api/shows/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
   }).then(() => loadProjects().then(buildLibraryPage));
 }
+// Move a show into a folder ('' = top level), without disturbing the open project.
+function setShowFolder(id, folder) {
+  if (state.projectId === id) { state.folder = folder; doSave(); loadProjects().then(buildLibraryPage); return; }
+  fetch('/api/shows/' + id).then((r) => r.json()).then((d) => {
+    d.folder = folder; d.updated = d.updated || Date.now();
+    return fetch('/api/shows/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d) });
+  }).then(() => loadProjects().then(buildLibraryPage));
+}
+
+// ---- Folder picker --------------------------------------------------------
+let _folderId = null;
+function openFolderModal(id) {
+  _folderId = id;
+  const p = (state.projects || []).find((x) => x.id === id);
+  const cur = p ? (p.folder || '').trim() : '';
+  const list = document.getElementById('folder-list');
+  list.innerHTML = '';
+  const none = el('button', { class: 'folder-opt' + (!cur ? ' active' : ''), text: 'No folder (top level)' });
+  none.addEventListener('click', () => applyFolder(''));
+  list.appendChild(none);
+  existingFolders().forEach((f) => {
+    const b = el('button', { class: 'folder-opt' + (f === cur ? ' active' : ''), text: f });
+    b.addEventListener('click', () => applyFolder(f));
+    list.appendChild(b);
+  });
+  document.getElementById('folder-new').value = '';
+  document.getElementById('folder-modal').style.display = '';
+}
+function closeFolderModal() { document.getElementById('folder-modal').style.display = 'none'; _folderId = null; }
+function applyFolder(folder) { const id = _folderId; closeFolderModal(); if (id) setShowFolder(id, folder); }
+function createFolderAndMove() {
+  const name = (document.getElementById('folder-new').value || '').trim();
+  if (!name) { closeFolderModal(); return; }
+  applyFolder(name);
+}
+
 function duplicateShowById(id) {
   fetch('/api/shows/' + id).then((r) => r.json()).then((d) => {
     const body = JSON.stringify({ title: (d.title || 'Untitled') + ' (copy)', mode: d.mode, status: 'draft', updated: Date.now(), cards: d.cards || [], characters: d.characters || {}, titlePage: d.titlePage, scriptHeader: d.scriptHeader });
@@ -362,14 +450,6 @@ function showShowPopover() {
       row.appendChild(dots);
       pop.appendChild(row);
     });
-  }
-
-  pop.appendChild(el('div', { class: 'sp-label', text: 'Reference' }));
-  for (const k in SHOWS) {
-    const item = el('button', { class: 'sp-item' + (!state.projectId && state.showKey === k ? ' active' : '') });
-    item.textContent = SHOWS[k].title;
-    item.addEventListener('click', (e) => { e.stopPropagation(); closeShowPopover(); openReference(k); });
-    pop.appendChild(item);
   }
 
   pop.appendChild(el('div', { class: 'sp-divider' }));
@@ -2408,6 +2488,12 @@ function initControls() {
   document.getElementById('lib-new').addEventListener('click', () => openNewShowModal());
   document.getElementById('lib-show-archived').addEventListener('change', () => buildLibraryPage());
 
+  // Folder picker modal
+  document.getElementById('folder-cancel').addEventListener('click', closeFolderModal);
+  document.getElementById('folder-create').addEventListener('click', createFolderAndMove);
+  document.getElementById('folder-new').addEventListener('keydown', (e) => { if (e.key === 'Enter') createFolderAndMove(); });
+  document.getElementById('folder-modal').addEventListener('click', (e) => { if (e.target.id === 'folder-modal') closeFolderModal(); });
+
   // Share modal
   document.getElementById('share-cancel').addEventListener('click', closeShareModal);
   document.getElementById('share-save').addEventListener('click', saveSharing);
@@ -2452,6 +2538,8 @@ function initControls() {
   }
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      const fm = document.getElementById('folder-modal');
+      if (fm && fm.style.display !== 'none') { closeFolderModal(); return; }
       const shm = document.getElementById('share-modal');
       if (shm && shm.style.display !== 'none') { closeShareModal(); return; }
       closeCardMenu();
