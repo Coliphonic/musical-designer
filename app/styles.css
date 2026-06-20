@@ -388,16 +388,33 @@ body.dark .ms-body { background: var(--bg); }
 /* FD Action: SpaceBefore="12" */
 .ms-sheet-content .lw-action       { margin-top: 12pt; text-align: left; }
 
-/* Print */
+/* Print export root — built off-screen, revealed only when printing */
+#pdf-print-root { display: none; }
+
 @media print {
   @page { size: letter; margin: 0; }
+
+  html, body { margin: 0 !important; padding: 0 !important; background: #fff !important; }
 
   /* When PDF export root is present, show only that */
   body:has(#pdf-print-root) > *:not(#pdf-print-root) { display: none !important; }
   #pdf-print-root { display: block !important; }
   #pdf-print-root .ms-viewport { zoom: 1 !important; gap: 0 !important; padding: 0 !important; display: block !important; }
-  #pdf-print-root .ms-sheet { box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; break-after: page; }
-  #pdf-print-root .ms-sheet:last-child { break-after: avoid; }
+  /* Exact letter sizing in inches avoids px→page rounding (blank pages / right-edge clipping) */
+  #pdf-print-root .ms-sheet {
+    width: 8.5in;
+    height: 11in;
+    min-height: 0;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  #pdf-print-root .ms-sheet:last-child { break-after: avoid; page-break-after: avoid; }
   #pdf-print-root [contenteditable] { outline: none; }
 }
 

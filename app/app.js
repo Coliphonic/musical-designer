@@ -883,20 +883,6 @@ function buildLyricPreview(c) {
 }
 
 // ---- manuscript view (paginated) ----
-const MS_LINES = 56;
-const MS_HDR_LINES = 4;
-
-function tokenCost(tok) {
-  if (!tok || tok.type === 'blank') return 1;
-  if (tok.type === 'act-header') return 3;
-  if (tok.type === 'scene-header') return 2;
-  if (tok.type === 'song-num') return 2;
-  if (tok.type === 'ms-divider') return 3;
-  if (tok.type === 'section') return tok.subtype === 'act' ? 3 : tok.subtype === 'scene' || tok.subtype === 'song-num' ? 2 : 1;
-  if (tok.type === 'cue') return 2;    // lw-char has margin-top: 12pt = 1 extra line
-  if (tok.type === 'action') return 2; // lw-action has margin-top: 12pt = 1 extra line
-  return 1;
-}
 
 function buildContentTokens(sceneId) {
   const toks = [];
@@ -970,9 +956,43 @@ function buildContentTokens(sceneId) {
 }
 
 function paginateTokens(toks) {
+  // Measure real rendered height against an off-screen sheet sized exactly like
+  // the print page. This avoids the old line-count estimate, which undercounted
+  // lines that wrap (long lyrics/dialogue) and caused pages to overflow — words
+  // getting clipped or pushed onto a stray extra page when printed.
+  const rig = el('div', { class: 'ms-sheet' });
+  rig.style.cssText = 'position:absolute; left:-99999px; top:0; visibility:hidden; height:11in; min-height:0;';
+  const hdr = renderSheetHeader(1, 1);
+  rig.appendChild(hdr);
+  const probe = el('div', { class: 'ms-sheet-content' });
+  // Let the probe take its natural height (don't stretch to fill the page) so we
+  // can compare it against the real space available below the header.
+  probe.style.cssText = 'flex:0 0 auto;';
+  rig.appendChild(probe);
+  document.body.appendChild(rig);
+
   const pages = [];
-  let page = [], lines = MS_HDR_LINES;
-  const flush = () => { pages.push(page); page = []; lines = MS_HDR_LINES; };
+  let page = [];
+  const ORPHAN_PX = 48; // ~3 lines: don't strand a header at the very bottom
+  const BUDGET = rig.clientHeight - hdr.offsetHeight; // space below the header for content
+  const fits = () => probe.offsetHeight <= BUDGET + 0.5;
+  const remaining = () => BUDGET - probe.offsetHeight;
+  const renderUnit = (unit) => unit.forEach((t) => renderPageToken(t, probe));
+
+  // Add a unit (one cue-block or a single token). `header` units get orphan
+  // control: if they'd land in the last few lines, push them to the next page.
+  const addUnit = (unit, header) => {
+    renderUnit(unit);
+    const overflow = page.length > 0 && !fits();
+    const orphaned = header && page.length > 0 && remaining() < ORPHAN_PX;
+    if (overflow || orphaned) {
+      probe.innerHTML = '';
+      pages.push(page);
+      page = [];
+      renderUnit(unit);
+    }
+    unit.forEach((t) => page.push(t));
+  };
 
   let i = 0;
   while (i < toks.length) {
@@ -991,22 +1011,17 @@ function paginateTokens(toks) {
         j++;
       }
       i = j;
-      const cost = block.reduce((s, t) => s + tokenCost(t), 0);
-      const lastBlank = block[block.length - 1]?.type === 'blank' ? tokenCost(block[block.length - 1]) : 0;
-      if (lines + cost - lastBlank > MS_LINES && cost <= MS_LINES - MS_HDR_LINES) flush();
-      block.forEach((t) => { page.push(t); lines += tokenCost(t); });
+      addUnit(block, false);
       continue;
     }
 
-    if (tok.type === 'act-header' && lines > MS_HDR_LINES + 3) flush();
-    if (tok.type === 'scene-header' && lines > MS_HDR_LINES + 5) flush();
-    const cost = tokenCost(tok);
-    if (tok.type === 'song-num' && lines > MS_LINES - 6) flush();
-    else if (lines + cost > MS_LINES && tok.type !== 'blank') flush();
-    page.push(tok);
-    lines += cost;
+    const isHeader = tok.type === 'act-header' || tok.type === 'scene-header' || tok.type === 'song-num';
+    // Never break before a blank — just let it sit; trailing blanks are trimmed below.
+    if (tok.type === 'blank') { renderPageToken(tok, probe); page.push(tok); i++; continue; }
+    addUnit([tok], isHeader);
     i++;
   }
+  rig.remove();
   if (page.length) pages.push(page);
 
   // Mark CONT'D: if same character's cue is both last on page N and first on page N+1
@@ -1333,77 +1348,37 @@ function exportFountain() {
 }
 
 function exportPDF(includeTitlePages) {
-  fetch('/styles.css').then((r) => r.text()).then((cssText) => {
-    const allSheets = [];
+  // Print in-page (not a popup window) so the browser's own preview/print
+  // pipeline handles it — popups freeze the macOS print preview. The print
+  // styles for #pdf-print-root live in styles.css under @media print.
+  const prev = document.getElementById('pdf-print-root');
+  if (prev) prev.remove();
 
-    if (includeTitlePages) {
-      const tp = buildTitlePages();
-      tp.querySelectorAll('[contenteditable]').forEach((e) => e.removeAttribute('contenteditable'));
-      Array.from(tp.children).forEach((sheet) => allSheets.push(sheet.outerHTML));
-    }
+  const root = el('div', { id: 'pdf-print-root' });
 
-    const toks = buildContentTokens(null);
-    const pages = paginateTokens(toks);
-    pages.forEach((pageToks, pi) => {
-      const sheet = document.createElement('div');
-      sheet.className = 'ms-sheet';
-      sheet.appendChild(renderSheetHeader(pi + 1, pages.length));
-      const content = document.createElement('div');
-      content.className = 'ms-sheet-content';
-      pageToks.forEach((tok) => renderPageToken(tok, content));
-      sheet.appendChild(content);
-      allSheets.push(sheet.outerHTML);
-    });
-
-    const title = (state.title || 'Untitled').replace(/</g, '&lt;');
-    const sheetsHTML = allSheets.join('\n');
-
-    const html = `<!DOCTYPE html>
-<html><head>
-<meta charset="utf-8">
-<title>Print Preview — ${title}</title>
-<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
-<style>${cssText}</style>
-<style>
-  body { margin: 0; background: #666; display: block; }
-  .pdf-toolbar { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; gap: 10px; padding: 10px 20px; background: #2c2c2c; color: #fff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; box-sizing: border-box; }
-  .pdf-toolbar-title { flex: 1; font-weight: 600; opacity: 0.9; }
-  .pdf-btn { padding: 7px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; }
-  .pdf-btn-print { background: #0077ff; color: #fff; }
-  .pdf-btn-close { background: rgba(255,255,255,0.12); color: #fff; }
-  .pdf-btn:hover { opacity: 0.82; }
-  .pdf-content { padding: 28px 0; display: flex; flex-direction: column; align-items: center; gap: 24px; }
-  .ms-sheet { flex-shrink: 0; }
-  @media print {
-    @page { size: letter; margin: 0; }
-    body { background: white; }
-    .pdf-toolbar { display: none !important; }
-    .pdf-content { padding: 0; gap: 0; }
-    .ms-sheet { border-radius: 0 !important; box-shadow: none !important; margin: 0 !important; break-after: page; }
-    .ms-sheet:last-child { break-after: avoid; }
+  if (includeTitlePages) {
+    const tp = buildTitlePages();
+    tp.querySelectorAll('[contenteditable]').forEach((e) => e.removeAttribute('contenteditable'));
+    Array.from(tp.children).forEach((sheet) => root.appendChild(sheet));
   }
-</style>
-</head><body>
-<div class="pdf-toolbar">
-  <span class="pdf-toolbar-title">Print Preview — ${title}</span>
-  <button class="pdf-btn pdf-btn-close" onclick="window.close()">✕  Close</button>
-  <button class="pdf-btn pdf-btn-print" onclick="window.print()">⎙  Print / Save as PDF</button>
-</div>
-<div class="pdf-content">
-${sheetsHTML}
-</div>
-</body></html>`;
 
-    const blob = new Blob([html], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const win = window.open(url, '_blank', 'width=960,height=860');
-    if (!win) {
-      URL.revokeObjectURL(url);
-      alert('Pop-up blocked — please allow pop-ups for this page.');
-      return;
-    }
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  const toks = buildContentTokens(null);
+  const pages = paginateTokens(toks);
+  pages.forEach((pageToks, pi) => {
+    const sheet = el('div', { class: 'ms-sheet' });
+    sheet.appendChild(renderSheetHeader(pi + 1, pages.length));
+    const content = el('div', { class: 'ms-sheet-content' });
+    pageToks.forEach((tok) => renderPageToken(tok, content));
+    sheet.appendChild(content);
+    root.appendChild(sheet);
   });
+
+  document.body.appendChild(root);
+
+  const cleanup = () => { root.remove(); window.removeEventListener('afterprint', cleanup); };
+  window.addEventListener('afterprint', cleanup);
+  // Give the layout a tick to settle (fonts already loaded in-page) then print.
+  setTimeout(() => window.print(), 60);
 }
 
 function buildExportPage() {
