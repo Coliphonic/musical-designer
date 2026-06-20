@@ -591,15 +591,13 @@ body.sb-open .sb-appname { opacity: 1; }
 body.sb-open .sb-show-btn { justify-content: flex-start; }
 .sb-show-btn:hover { background: #2e2d2a; color: #f0ebe0; }
 .sb-show-name {
-  flex: 0 0 0;
-  max-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
-  opacity: 0;
-  transition: flex var(--sb-transition), max-width var(--sb-transition), opacity var(--sb-transition);
   font-size: 12px;
+  display: none;
 }
-body.sb-open .sb-show-name { flex: 1; max-width: 200px; opacity: 1; }
+body.sb-open .sb-show-name { display: block; }
 .sb-show-caret {
   display: flex;
   align-items: center;
@@ -618,10 +616,10 @@ body.sb-open .sb-show-caret { opacity: 0.5; }
   flex-shrink: 0;
   background: #6b6477;
   box-shadow: 0 0 0 0 rgba(0,0,0,0);
-  transition: background 0.2s, box-shadow 0.2s, opacity var(--sb-transition);
-  opacity: 0;
+  transition: background 0.2s, box-shadow 0.2s;
+  display: none;
 }
-body.sb-open .sb-save-dot { opacity: 1; }
+body.sb-open .sb-save-dot { display: block; }
 .sb-save-dot.saved { background: #8b82e8; box-shadow: 0 0 5px 0 rgba(139,130,232,0.55); }
 .sb-save-dot.unsaved,
 .sb-save-dot.ref { background: #6b6477; }
@@ -750,7 +748,7 @@ body.sb-open .sb-save-dot { opacity: 1; }
 .sp-actions .pbtn.danger:hover:not(:disabled) { background: #3a2020; }
 
 /* Nav items */
-.sb-nav { display: flex; flex-direction: column; gap: 2px; padding: 6px 6px; }
+.sb-nav { display: flex; flex-direction: column; gap: 2px; padding: 6px 6px; flex: 1; min-height: 0; overflow-y: auto; }
 .sb-item {
   display: flex;
   align-items: center;
