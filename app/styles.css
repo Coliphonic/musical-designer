@@ -517,7 +517,7 @@ textarea.lweditor::placeholder { color: #c5beb0; }
   --sb-transition: 0.22s cubic-bezier(.4,0,.2,1);
 }
 
-body { display: flex; height: 100vh; overflow: hidden; }
+body { display: flex; height: 100vh; height: 100dvh; overflow: hidden; }
 
 .sidebar {
   position: relative;
@@ -537,6 +537,7 @@ body.sb-open .sidebar { width: var(--sb-w-open); }
   flex: 1;
   min-width: 0;
   height: 100vh;
+  height: 100dvh;
   overflow: hidden;
   display: flex;
   flex-direction: column;
