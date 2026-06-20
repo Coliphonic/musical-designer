@@ -44,7 +44,7 @@
   </form>
   <script>
     (function () {
-      try { if (localStorage.getItem('md-dark') === '1') document.body.classList.add('dark'); } catch (_) {}
+      try { const v = localStorage.getItem('md-dark'); if (v === null || v === '1') document.body.classList.add('dark'); } catch (_) { document.body.classList.add('dark'); }
       var form = document.getElementById('login-form');
       var err = document.getElementById('li-err');
       form.addEventListener('submit', function (e) {

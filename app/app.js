@@ -2446,7 +2446,7 @@ function initControls() {
       dmBtn.querySelector('.sb-dm-icon').textContent = dark ? '☾' : '☀';
       dmBtn.querySelector('.sb-label').textContent = dark ? 'Dark mode' : 'Light mode';
     };
-    let dark = (() => { try { return localStorage.getItem('md-dark') === '1'; } catch (_) { return false; } })();
+    let dark = (() => { try { const v = localStorage.getItem('md-dark'); return v === null ? true : v === '1'; } catch (_) { return true; } })();
     applyDark(dark);
     dmBtn.addEventListener('click', () => { dark = !dark; applyDark(dark); try { localStorage.setItem('md-dark', dark ? '1' : '0'); } catch (_) {} });
   }
@@ -2482,7 +2482,7 @@ fetch('/api/auth/me').then((r) => (r.ok ? r.json() : null)).then((u) => {
 }).catch(() => {});
 fetch('/api/users').then((r) => (r.ok ? r.json() : [])).then((list) => { state.users = list || []; }).catch(() => {});
 document.body.classList.toggle('sb-open', state.sidebarOpen);
-navigateTo('board');
+navigateTo('library');
 loadProjects().then(() => {
   try {
     const last = JSON.parse(localStorage.getItem('md-last') || 'null');
