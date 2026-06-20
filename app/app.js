@@ -2549,7 +2549,7 @@ fetch('/api/auth/me').then((r) => (r.ok ? r.json() : null)).then((u) => {
 }).catch(() => {});
 fetch('/api/users').then((r) => (r.ok ? r.json() : [])).then((list) => { state.users = list || []; }).catch(() => {});
 document.body.classList.toggle('sb-open', state.sidebarOpen);
-navigateTo('library');
+navigateTo('board');
 loadProjects().then(() => {
   try {
     const last = JSON.parse(localStorage.getItem('md-last') || 'null');
