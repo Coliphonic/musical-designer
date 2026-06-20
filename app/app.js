@@ -1427,23 +1427,6 @@ function buildExportPage() {
 
   wrap.appendChild(el('div', { class: 'exp-divider' }));
 
-  // PDF export section
-  const pdfSection = el('div', { class: 'exp-section' });
-  pdfSection.appendChild(el('h2', { class: 'exp-heading', text: 'Print / Export PDF' }));
-  pdfSection.appendChild(el('p', { class: 'exp-desc', text: 'Opens the manuscript in a print-ready window. Use your browser\'s Save as PDF to export.' }));
-  const tpToggleWrap = el('label', { class: 'exp-toggle' });
-  const tpCb = el('input', { type: 'checkbox' });
-  tpCb.checked = true;
-  tpToggleWrap.appendChild(tpCb);
-  tpToggleWrap.appendChild(el('span', { text: 'Include title pages' }));
-  pdfSection.appendChild(tpToggleWrap);
-  const pdfBtn = el('button', { class: 'pbtn exp-btn', text: '⎙  Print / Save as PDF…' });
-  pdfBtn.addEventListener('click', () => exportPDF(tpCb.checked));
-  pdfSection.appendChild(pdfBtn);
-  wrap.appendChild(pdfSection);
-
-  wrap.appendChild(el('div', { class: 'exp-divider' }));
-
   // Fountain export section
   const fountainSection = el('div', { class: 'exp-section' });
   fountainSection.appendChild(el('h2', { class: 'exp-heading', text: 'Export as Fountain' }));
@@ -1806,6 +1789,8 @@ function buildManuscriptPage(sceneId) {
   backBtn.addEventListener('click', () => navigateTo('board'));
 
   const modeBtn = el('button', { class: 'ms-mode-btn' });
+  const printBtn = el('button', { class: 'ms-print-btn', title: 'Print / Save as PDF', text: '⎙ Print' });
+  printBtn.addEventListener('click', () => exportPDF(true));
   const settingsBtn = el('button', { class: 'ms-settings-btn', title: 'Page settings', text: '⚙' });
 
   const saveMsOpts = () => { try { localStorage.setItem('md-ms-opts', JSON.stringify(state.msOptions)); } catch (_) {} };
@@ -1814,6 +1799,7 @@ function buildManuscriptPage(sceneId) {
   toolbar.appendChild(el('span', { style: 'flex:1' }));
   toolbar.appendChild(zoomWrap);
   toolbar.appendChild(el('span', { style: 'flex:1' }));
+  toolbar.appendChild(printBtn);
   toolbar.appendChild(modeBtn);
   toolbar.appendChild(settingsBtn);
 
@@ -2021,6 +2007,7 @@ function buildManuscriptPage(sceneId) {
     const isEdit = msMode === 'edit';
     modeBtn.textContent = isEdit ? '⊞ Print View' : '✎ Edit';
     modeBtn.classList.toggle('active', isEdit);
+    printBtn.style.display = isEdit ? 'none' : '';
     try { localStorage.setItem('md-ms-mode', msMode); } catch (_) {}
     if (isEdit) { rebuildEdit(); applyZoom(); }
     else { rebuildSheets(); applyZoom(); }
