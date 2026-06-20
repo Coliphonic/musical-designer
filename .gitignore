@@ -2,3 +2,5 @@
 node_modules/
 inject-beats.js
 inject-lyrics.js
+users.json
+secret.txt

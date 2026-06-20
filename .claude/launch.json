@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "musical-designer",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["serve.js", "8090"],
+      "cwd": "app",
+      "port": 8090
+    }
+  ]
+}

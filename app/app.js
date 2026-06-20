@@ -2263,6 +2263,11 @@ function initControls() {
   });
   document.getElementById('new-show-modal').addEventListener('click', (e) => { if (e.target.id === 'new-show-modal') closeNewShowModal(); });
 
+  const logoutBtn = document.getElementById('sb-logout');
+  if (logoutBtn) logoutBtn.addEventListener('click', () => {
+    fetch('/api/auth/logout', { method: 'POST' }).then(() => { window.location.href = '/login.html'; }).catch(() => { window.location.href = '/login.html'; });
+  });
+
   const sbToggle = document.getElementById('sb-toggle');
   if (sbToggle) sbToggle.addEventListener('click', () => {
     state.sidebarOpen = !state.sidebarOpen;
@@ -2299,6 +2304,11 @@ function initControls() {
 }
 
 initControls();
+// Identify the signed-in user (server gates the page, so this should succeed).
+fetch('/api/auth/me').then((r) => (r.ok ? r.json() : null)).then((u) => {
+  const el = document.getElementById('sb-username');
+  if (el && u && u.name) el.textContent = u.name;
+}).catch(() => {});
 document.body.classList.toggle('sb-open', state.sidebarOpen);
 navigateTo('board');
 loadProjects().then(() => {
