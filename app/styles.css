@@ -243,6 +243,10 @@ textarea.lyrictext { min-height: 120px; font-family: ui-monospace, Menlo, Consol
 
 /* Broadway preview pane */
 .lwpreview-wrap { flex: 1; overflow-y: auto; background: var(--panel); display: flex; flex-direction: column; }
+.lwrich-wrap { flex: 1; min-height: 0; overflow-y: auto; background: var(--panel); display: flex; flex-direction: column; }
+.lwrich-wrap .ms-card-rich-editor { flex: 1; min-height: 0; }
+.lwrich-wrap .ms-style-bar { position: sticky; top: 0; z-index: 2; }
+.lwrich-wrap .ms-line-editor { padding: 20px 40px 60px; }
 .lwzoom-bar { display: flex; align-items: center; gap: 6px; justify-content: center; padding: 6px 0; background: var(--panel); border-bottom: 1px solid var(--line); flex-shrink: 0; position: sticky; top: 0; z-index: 2; }
 .lw-preview {
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;

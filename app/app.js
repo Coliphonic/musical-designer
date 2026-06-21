@@ -920,44 +920,140 @@ function rhymeLetters(tokens) {
   });
 }
 
-function renderLyricTokens(tokens, container) {
-  for (const tok of tokens) {
-    if (tok.type === 'section') {
-      if (tok.subtype === 'act') {
-        container.appendChild(el('div', { class: 'lw-act-header', text: tok.text.toUpperCase() }));
-      } else if (tok.subtype === 'scene') {
-        container.appendChild(el('div', { class: 'lw-scene-header', text: tok.text.toUpperCase() }));
-      } else if (tok.subtype === 'song-num') {
-        const m = tok.text.match(/^#(\d+)[\s\-](.*)/i);
-        container.appendChild(el('div', { class: 'lw-song-header', text: m ? `(#${m[1]}) ${m[2].toUpperCase()}` : tok.text }));
-      } else {
-        container.appendChild(el('div', { class: 'lw-section-row' }, [el('span', { class: 'lw-section-tag', text: tok.text })]));
-      }
-    } else if (tok.type === 'cue') {
-      container.appendChild(el('div', { class: 'lw-char', text: tok.text.toUpperCase() }));
-    } else if (tok.type === 'sung') {
-      container.appendChild(el('div', { class: 'lw-sung', text: tok.text }));
-    } else if (tok.type === 'paren') {
-      container.appendChild(el('div', { class: 'lw-paren', text: tok.text }));
-    } else if (tok.type === 'dialogue') {
-      container.appendChild(el('div', { class: 'lw-dialogue', text: tok.text }));
-    } else if (tok.type === 'action') {
-      container.appendChild(el('div', { class: 'lw-action', text: tok.text }));
-    } else {
-      container.appendChild(el('div', { class: 'lw-blank' }));
-    }
-  }
-}
+// Reusable rich (Tab/Enter) line editor. Builds a contenteditable element list
+// from `text`, lets the user cycle element types with Tab / advance with Enter,
+// and on blur serializes back to the seamless lyric format via onSave(value).
+// Used by both the Manuscript Edit mode and the lyric window's Rich tab.
+const RICH_EL_LABELS = { cue: 'Character', sung: 'Lyrics', dialogue: 'Dialogue', paren: 'Parenthetical', action: 'Action', section: 'Section' };
+const RICH_EL_CLASS  = { cue: 'lw-char', sung: 'lw-sung', dialogue: 'lw-dialogue', paren: 'lw-paren', action: 'lw-action', section: 'lw-section-row' };
+const RICH_EL_CYCLE  = ['cue', 'dialogue', 'sung', 'paren', 'action', 'section'];
 
-function buildLyricPreview(c) {
-  const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
-  const wrap = el('div', { class: 'lw-preview ms-sheet-content' });
-  if (!tokens.some((t) => t.type !== 'blank')) {
-    wrap.appendChild(el('div', { class: 'lw-preview-hint', text: 'No content yet — switch to Edit to start writing.' }));
-    return wrap;
-  }
-  tokens.forEach((tok) => renderPageToken(tok, wrap));
-  return wrap;
+function buildRichEditor({ text, isSong, onSave, autofocus }) {
+  const smartNext = (type) => (type === 'cue' || type === 'paren') ? (isSong ? 'sung' : 'dialogue') : type;
+  const tabNext   = (type) => { const i = RICH_EL_CYCLE.indexOf(type); return RICH_EL_CYCLE[(i + 1) % RICH_EL_CYCLE.length]; };
+  const mkLine = (type, t) => {
+    const div = el('div', { class: 'ms-el ' + (RICH_EL_CLASS[type] || 'ms-el-blank'), 'data-type': type });
+    div.contentEditable = 'true';
+    let display = (t || '');
+    if (type === 'paren')   display = display.replace(/^\(/, '').replace(/\)$/, '');
+    if (type === 'section') display = display.replace(/^\[/, '').replace(/\]$/, '');
+    div.textContent = display;
+    return div;
+  };
+  const setLineType = (div, type) => { div.dataset.type = type; div.className = 'ms-el ' + (RICH_EL_CLASS[type] || 'ms-el-blank'); };
+  const serializeLines = (lineEd) => {
+    const rows = [...lineEd.querySelectorAll('.ms-el')].map((div) => ({ type: div.dataset.type, text: (div.textContent || '').trim() }));
+    const blockModeFrom = (i) => {
+      let hasSung = false, hasDialogue = false;
+      for (let j = i + 1; j < rows.length; j++) {
+        const ty = rows[j].type;
+        if (ty === 'cue' || ty === 'section' || !rows[j].text) break;
+        if (ty === 'sung') hasSung = true; else if (ty === 'dialogue') hasDialogue = true;
+      }
+      if (hasSung && !hasDialogue) return true;
+      if (hasDialogue && !hasSung) return false;
+      if (hasSung && hasDialogue) return false;   // mixed → spoken base, ~ marks the sung lines
+      return !!isSong;                             // empty block → card default
+    };
+    const parts = [];
+    let blockSung = !!isSong;
+    rows.forEach((row, i) => {
+      const { type, text } = row;
+      if (!text) { parts.push(''); blockSung = !!isSong; return; }
+      if (type === 'cue') {
+        blockSung = blockModeFrom(i);
+        let label = text.toUpperCase();
+        if (blockSung && !isSong) label += ' (sings)';
+        else if (!blockSung && isSong) label += ' (spoken)';
+        if (parts.length && parts[parts.length - 1] !== '') parts.push('');
+        parts.push(label);
+      } else if (type === 'sung') {
+        parts.push(blockSung ? text : '~' + text);
+      } else if (type === 'paren') {
+        parts.push('(' + text.replace(/^\(/, '').replace(/\)$/, '') + ')');
+      } else if (type === 'section') {
+        parts.push('[' + text.replace(/^\[/, '').replace(/\]$/, '') + ']');
+      } else {
+        parts.push(text);
+      }
+    });
+    return parts.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  };
+  const getFocusedLine = (lineEd) => {
+    const sel = window.getSelection();
+    if (!sel || !sel.anchorNode) return null;
+    let n = sel.anchorNode;
+    while (n && n !== lineEd) {
+      if (n.nodeType === 1 && n.classList && n.classList.contains('ms-el')) return n;
+      n = n.parentNode;
+    }
+    return null;
+  };
+  const placeCursorAt = (div, atEnd) => {
+    div.focus();
+    const sel = window.getSelection();
+    const r = document.createRange();
+    if (atEnd) { r.selectNodeContents(div); r.collapse(false); }
+    else { r.setStart(div, 0); r.collapse(true); }
+    sel.removeAllRanges();
+    sel.addRange(r);
+  };
+
+  const styleBar = el('div', { class: 'ms-style-bar' });
+  const styleSel = el('select', { class: 'ms-style-sel' });
+  Object.entries(RICH_EL_LABELS).forEach(([val, label]) => styleSel.appendChild(el('option', { value: val, text: label })));
+  styleBar.appendChild(styleSel);
+  styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Tab · change style   Enter · new line' }));
+
+  const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
+  const toks = parseLyricLines(text || '', isSong);
+  if (!toks.some((t) => t.type !== 'blank')) lineEd.appendChild(mkLine('cue', ''));
+  else toks.forEach((tok) => lineEd.appendChild(mkLine(tok.type, tok.text)));
+
+  const syncPicker = () => { const line = getFocusedLine(lineEd); if (line) styleSel.value = line.dataset.type; };
+  lineEd.addEventListener('keyup', syncPicker);
+  lineEd.addEventListener('click', syncPicker);
+  styleSel.addEventListener('mousedown', () => { styleSel._activeLine = getFocusedLine(lineEd); });
+  styleSel.addEventListener('change', () => {
+    const line = styleSel._activeLine || getFocusedLine(lineEd);
+    if (line) { setLineType(line, styleSel.value); placeCursorAt(line, true); }
+  });
+  lineEd.addEventListener('keydown', (e) => {
+    const line = getFocusedLine(lineEd);
+    if (!line) return;
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      const newType = smartNext(line.dataset.type);
+      const newLine = mkLine(newType, '');
+      line.after(newLine);
+      placeCursorAt(newLine, false);
+      styleSel.value = newType;
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      const newType = tabNext(line.dataset.type);
+      setLineType(line, newType);
+      styleSel.value = newType;
+    } else if (e.key === 'Backspace' && !line.textContent.trim()) {
+      e.preventDefault();
+      const target = line.previousElementSibling || line.nextElementSibling;
+      line.remove();
+      if (target) placeCursorAt(target, true);
+    }
+  });
+
+  const richWrap = el('div', { class: 'ms-card-rich-editor' });
+  richWrap.addEventListener('focusout', (e) => {
+    if (richWrap.contains(e.relatedTarget)) return;
+    if (onSave) onSave(serializeLines(lineEd));
+  });
+  richWrap.appendChild(styleBar);
+  richWrap.appendChild(lineEd);
+  richWrap._focusFirst = () => {
+    const first = lineEd.querySelector('.ms-el');
+    if (first) { placeCursorAt(first, false); styleSel.value = first.dataset.type || 'cue'; }
+  };
+  if (autofocus) richWrap._focusFirst();
+  return richWrap;
 }
 
 // ---- manuscript view (paginated) ----
@@ -1931,169 +2027,19 @@ function buildManuscriptPage(sceneId) {
     sec.appendChild(inner);
   };
 
-  // ── Rich line editor ─────────────────────────────────────────────
-  const EL_LABELS = { cue: 'Character', sung: 'Lyrics', dialogue: 'Dialogue', paren: 'Parenthetical', action: 'Action', section: 'Section' };
-  const EL_CLASS  = { cue: 'lw-char', sung: 'lw-sung', dialogue: 'lw-dialogue', paren: 'lw-paren', action: 'lw-action', section: 'lw-section-row' };
-  const EL_CYCLE  = ['cue', 'dialogue', 'sung', 'paren', 'action', 'section'];
-  const smartNext = (type, isSong) => (type === 'cue' || type === 'paren') ? (isSong ? 'sung' : 'dialogue') : type;
-  const tabNext   = (type) => { const i = EL_CYCLE.indexOf(type); return EL_CYCLE[(i + 1) % EL_CYCLE.length]; };
-
-  const mkLine = (type, text) => {
-    const div = el('div', { class: 'ms-el ' + (EL_CLASS[type] || 'ms-el-blank'), 'data-type': type });
-    div.contentEditable = 'true';
-    let display = (text || '');
-    if (type === 'paren')   display = display.replace(/^\(/, '').replace(/\)$/, '');
-    if (type === 'section') display = display.replace(/^\[/, '').replace(/\]$/, '');
-    div.textContent = display;
-    return div;
-  };
-  const setLineType = (div, type) => {
-    div.dataset.type = type;
-    div.className = 'ms-el ' + (EL_CLASS[type] || 'ms-el-blank');
-  };
-  const serializeLines = (lineEd, defaultSung) => {
-    // Emit the seamless format: bare CAPS cues, unmarked sung/dialogue per the
-    // block's mode, with a (sings)/(spoken) override on the cue only when the
-    // block differs from the card default. Output round-trips via parseLyricLines.
-    const rows = [...lineEd.querySelectorAll('.ms-el')].map((div) => ({
-      type: div.dataset.type, text: (div.textContent || '').trim(),
-    }));
-    // Resolve the sung/spoken mode of the character block starting at cue index i.
-    const blockModeFrom = (i) => {
-      let hasSung = false, hasDialogue = false;
-      for (let j = i + 1; j < rows.length; j++) {
-        const ty = rows[j].type;
-        if (ty === 'cue' || ty === 'section' || !rows[j].text) break;
-        if (ty === 'sung') hasSung = true; else if (ty === 'dialogue') hasDialogue = true;
-      }
-      if (hasSung && !hasDialogue) return true;
-      if (hasDialogue && !hasSung) return false;
-      if (hasSung && hasDialogue) return false;   // mixed → spoken base, ~ marks the sung lines
-      return !!defaultSung;                        // empty block → card default
-    };
-    const parts = [];
-    let blockSung = !!defaultSung;
-    rows.forEach((row, i) => {
-      const { type, text } = row;
-      if (!text) { parts.push(''); blockSung = !!defaultSung; return; }
-      if (type === 'cue') {
-        blockSung = blockModeFrom(i);
-        let label = text.toUpperCase();            // CAPS so it parses back as a cue
-        if (blockSung && !defaultSung) label += ' (sings)';
-        else if (!blockSung && defaultSung) label += ' (spoken)';
-        if (parts.length && parts[parts.length - 1] !== '') parts.push(''); // separate blocks
-        parts.push(label);
-      } else if (type === 'sung') {
-        parts.push(blockSung ? text : '~' + text); // ~ only needed in a spoken block
-      } else if (type === 'paren') {
-        parts.push('(' + text.replace(/^\(/, '').replace(/\)$/, '') + ')');
-      } else if (type === 'section') {
-        parts.push('[' + text.replace(/^\[/, '').replace(/\]$/, '') + ']');
-      } else {
-        parts.push(text);                          // dialogue / action — bare
-      }
-    });
-    return parts.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-  };
-  const getFocusedLine = (lineEd) => {
-    const sel = window.getSelection();
-    if (!sel || !sel.anchorNode) return null;
-    let n = sel.anchorNode;
-    while (n && n !== lineEd) {
-      if (n.nodeType === 1 && n.classList && n.classList.contains('ms-el')) return n;
-      n = n.parentNode;
-    }
-    return null;
-  };
-  const placeCursorAt = (div, atEnd) => {
-    div.focus();
-    const sel = window.getSelection();
-    const r = document.createRange();
-    if (atEnd) { r.selectNodeContents(div); r.collapse(false); }
-    else { r.setStart(div, 0); r.collapse(true); }
-    sel.removeAllRanges();
-    sel.addRange(r);
-  };
-
   const enterCardEditRich = (sec, c) => {
     if (sec.querySelector('.ms-card-rich-editor')) return;
     sec.innerHTML = '';
-    const isSong = c.type === 'song';
-
-    // Style bar
-    const styleBar = el('div', { class: 'ms-style-bar' });
-    const styleSel = el('select', { class: 'ms-style-sel' });
-    Object.entries(EL_LABELS).forEach(([val, label]) => styleSel.appendChild(el('option', { value: val, text: label })));
-    styleBar.appendChild(styleSel);
-    styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Tab · change style   Enter · new line' }));
-
-    // Line editor (inherits font/padding from ms-sheet-content)
-    const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
-
-    // Build lines from tokens
-    const toks = parseLyricLines(c.lyrics || c.note || '', c.type === 'song');
-    const hasContent = toks.some((t) => t.type !== 'blank');
-    if (!hasContent) {
-      lineEd.appendChild(mkLine('cue', ''));
-    } else {
-      toks.forEach((tok) => lineEd.appendChild(mkLine(tok.type, tok.text)));
-    }
-
-    // Sync style picker to focused line
-    const syncPicker = () => {
-      const line = getFocusedLine(lineEd);
-      if (line) styleSel.value = line.dataset.type;
-    };
-    lineEd.addEventListener('keyup', syncPicker);
-    lineEd.addEventListener('click', syncPicker);
-
-    // Style picker: capture focused line on mousedown (before contenteditable blurs)
-    styleSel.addEventListener('mousedown', () => { styleSel._activeLine = getFocusedLine(lineEd); });
-    styleSel.addEventListener('change', () => {
-      const line = styleSel._activeLine || getFocusedLine(lineEd);
-      if (line) { setLineType(line, styleSel.value); placeCursorAt(line, true); }
-    });
-
-    // Keyboard handling
-    lineEd.addEventListener('keydown', (e) => {
-      const line = getFocusedLine(lineEd);
-      if (!line) return;
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        const newType = smartNext(line.dataset.type, isSong);
-        const newLine = mkLine(newType, '');
-        line.after(newLine);
-        placeCursorAt(newLine, false);
-        styleSel.value = newType;
-      } else if (e.key === 'Tab') {
-        e.preventDefault();
-        const newType = tabNext(line.dataset.type);
-        setLineType(line, newType);
-        styleSel.value = newType;
-      } else if (e.key === 'Backspace' && !line.textContent.trim()) {
-        e.preventDefault();
-        const target = line.previousElementSibling || line.nextElementSibling;
-        line.remove();
-        if (target) placeCursorAt(target, true);
-      }
-    });
-
-    // Save on blur leaving the entire rich editor
-    const richWrap = el('div', { class: 'ms-card-rich-editor' });
-    richWrap.addEventListener('focusout', (e) => {
-      if (richWrap.contains(e.relatedTarget)) return;
-      const val = serializeLines(lineEd, isSong);
-      if (c.type === 'beat') c.note = val; else c.lyrics = val;
-      autoSave();
-      renderCardSection(sec, c);
-    });
-
-    richWrap.appendChild(styleBar);
-    richWrap.appendChild(lineEd);
-    sec.appendChild(richWrap);
-
-    const firstLine = lineEd.querySelector('.ms-el');
-    if (firstLine) { placeCursorAt(firstLine, false); styleSel.value = firstLine.dataset.type || 'cue'; }
+    sec.appendChild(buildRichEditor({
+      text: c.lyrics || c.note || '',
+      isSong: c.type === 'song',
+      autofocus: true,
+      onSave: (val) => {
+        if (c.type === 'beat') c.note = val; else c.lyrics = val;
+        autoSave();
+        renderCardSection(sec, c);
+      },
+    }));
   };
 
   const rebuildEdit = () => {
@@ -2263,9 +2209,9 @@ function buildLyricWindow(c) {
   const closeBtn = el('button', { class: 'dclose', text: '✕', title: 'Close (Esc)' });
   closeBtn.addEventListener('click', closeLyricWindow);
 
-  const editBtn = el('button', { class: 'lwtoggle active', text: 'Edit' });
-  const prevBtn = el('button', { class: 'lwtoggle', text: 'Preview' });
-  const toggleWrap = el('div', { class: 'lwtoggle-wrap' }, [editBtn, prevBtn]);
+  const editBtn = el('button', { class: 'lwtoggle active', text: 'Fountain' });
+  const richBtn = el('button', { class: 'lwtoggle', text: 'Rich' });
+  const toggleWrap = el('div', { class: 'lwtoggle-wrap' }, [editBtn, richBtn]);
 
   const sungBtn = el('button', { class: 'lwsungbtn', title: 'Toggle ~ sung prefix on selected lines (makes them rhyme-tracked)' });
   sungBtn.innerHTML = '<span class="sung-tilde">~</span> Sung';
@@ -2349,7 +2295,7 @@ function buildLyricWindow(c) {
 
   // ---- panes ----
   const editPane = el('div', { class: 'lwbody' }, [gutter, editor, side]);
-  const previewPane = el('div', { class: 'lwpreview-wrap', style: 'display:none' });
+  const richPane = el('div', { class: 'lwrich-wrap', style: 'display:none' });
 
   const refresh = () => {
     c.lyrics = editor.value;
@@ -2386,53 +2332,41 @@ function buildLyricWindow(c) {
   });
 
   const showEdit = () => {
+    editor.value = c.lyrics || '';            // reflect any edits made in the Rich tab
     editPane.style.display = '';
-    previewPane.style.display = 'none';
+    richPane.style.display = 'none';
     sungBtn.style.display = '';
     editBtn.classList.add('active');
-    prevBtn.classList.remove('active');
+    richBtn.classList.remove('active');
+    updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
     setTimeout(() => editor.focus(), 0);
   };
-  const LZOOM_KEY = 'md-lw-zoom';
-  const LZOOM_STEP = 0.1, LZOOM_MIN = 0.5, LZOOM_MAX = 2.0;
-  let lzoom = (() => { try { return parseFloat(localStorage.getItem(LZOOM_KEY)) || 1.0; } catch (_) { return 1.0; } })();
 
-  const showPreview = () => {
-    previewPane.innerHTML = '';
-
-    const zoomBar = el('div', { class: 'lwzoom-bar' });
-    const zOut = el('button', { class: 'ms-zoom-btn', text: '−' });
-    const zLbl = el('span',  { class: 'ms-zoom-lbl' });
-    const zIn  = el('button', { class: 'ms-zoom-btn', text: '+' });
-    zoomBar.appendChild(zOut); zoomBar.appendChild(zLbl); zoomBar.appendChild(zIn);
-    previewPane.appendChild(zoomBar);
-
-    const preview = buildLyricPreview(c);
-    previewPane.appendChild(preview);
-
-    const applyLZoom = () => {
-      preview.style.zoom = lzoom;
-      zLbl.textContent = Math.round(lzoom * 100) + '%';
-      zOut.disabled = lzoom <= LZOOM_MIN;
-      zIn.disabled  = lzoom >= LZOOM_MAX;
-      try { localStorage.setItem(LZOOM_KEY, lzoom); } catch (_) {}
-    };
-    zOut.addEventListener('click', () => { lzoom = Math.max(LZOOM_MIN, +(lzoom - LZOOM_STEP).toFixed(2)); applyLZoom(); });
-    zIn.addEventListener('click',  () => { lzoom = Math.min(LZOOM_MAX, +(lzoom + LZOOM_STEP).toFixed(2)); applyLZoom(); });
-    applyLZoom();
-
+  const showRich = () => {
+    richPane.innerHTML = '';
+    richPane.appendChild(buildRichEditor({
+      text: c.lyrics || '',
+      isSong: c.type === 'song',
+      autofocus: true,
+      onSave: (val) => {
+        if (val === (c.lyrics || '')) return;  // nothing changed (e.g. just viewing)
+        c.lyrics = val;                        // keep the Fountain source in sync
+        updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
+        scheduleSave();
+      },
+    }));
     editPane.style.display = 'none';
-    previewPane.style.display = '';
+    richPane.style.display = '';
     sungBtn.style.display = 'none';
     editBtn.classList.remove('active');
-    prevBtn.classList.add('active');
+    richBtn.classList.add('active');
   };
   editBtn.addEventListener('click', showEdit);
-  prevBtn.addEventListener('click', showPreview);
+  richBtn.addEventListener('click', showRich);
 
   win.appendChild(head);
   win.appendChild(editPane);
-  win.appendChild(previewPane);
+  win.appendChild(richPane);
 
   updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
   rin.value = LYRIC.lastWord(lastNonEmptyLine(c.lyrics || ''));
@@ -2448,6 +2382,8 @@ function openLyricWindow(id) {
   host.style.display = '';
 }
 function closeLyricWindow() {
+  // Flush any pending edit (the Rich tab saves on blur) before tearing down.
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   state.lyricWinId = null;
   const host = document.getElementById('lyricwin');
   host.style.display = 'none';
