@@ -40,7 +40,7 @@ const state = {
   sidebarOpen: (() => { try { return localStorage.getItem('md-sidebar') !== 'closed'; } catch (_) { return true; } })(),
   cards: [],
   characters: {},
-  titlePage: { subtitle: 'A musical', authors: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true } },
+  titlePage: { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } },
   scriptHeader: { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false },
   msOptions: (() => { try { return JSON.parse(localStorage.getItem('md-ms-opts') || '{}'); } catch (_) { return {}; } })(),
   dragFrom: null,
@@ -112,7 +112,7 @@ function openProject(id, afterOpen) {
     state.loading = true;
     state.cards = (d.cards || []).map(cardFromStored);
     state.characters = d.characters || {};
-    const tpDefaults = { subtitle: 'A musical', authors: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true } };
+    const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
     state.titlePage = Object.assign({}, tpDefaults, d.titlePage || {});
     state.titlePage.include = Object.assign({}, tpDefaults.include, (d.titlePage || {}).include || {});
     const shDefaults = { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false };
@@ -1476,30 +1476,41 @@ function buildTitlePagesFull() {
   toolbar.appendChild(el('div', { class: 'ms-zoom-wrap' }, [zoomOut, zoomLbl, zoomIn]));
   host.appendChild(toolbar);
 
-  // Page include checkboxes
+  // Page include checkboxes, grouped by what they affect.
   const checks = el('div', { class: 'tp-checks' });
-  const pages = [
-    { key: 'contact',         label: 'Contact info' },
-    { key: 'cast',            label: 'Cast of Characters' },
-    { key: 'settings',        label: 'Settings' },
-    { key: 'songs',           label: 'Songs' },
-    { key: 'productionNotes', label: 'Production Notes' },
-    { key: 'acknowledgements',label: 'Acknowledgements' },
+  const groups = [
+    { label: 'Title page', items: [
+      { key: 'subtitle',        label: 'Subtitle',   defOff: true },
+      { key: 'rule',            label: 'Title line', defOff: true },
+      { key: 'draft',           label: 'Draft / date', defOff: true },
+      { key: 'contact',         label: 'Contact info' },
+    ] },
+    { label: 'Additional pages', items: [
+      { key: 'cast',            label: 'Cast of Characters' },
+      { key: 'settings',        label: 'Settings' },
+      { key: 'songs',           label: 'Songs' },
+      { key: 'productionNotes', label: 'Production Notes' },
+      { key: 'acknowledgements',label: 'Acknowledgements' },
+    ] },
   ];
-  checks.appendChild(el('span', { class: 'tp-checks-label', text: 'Include pages:' }));
-  pages.forEach(({ key, label }) => {
-    const lbl = el('label', { class: 'tp-check-item' });
-    const cb = el('input', { type: 'checkbox' });
-    cb.checked = state.titlePage.include[key];
-    if (state.readonly) cb.disabled = true;
-    cb.addEventListener('change', () => {
-      state.titlePage.include[key] = cb.checked;
-      scheduleSave();
-      renderViewport();
+  groups.forEach(({ label: groupLabel, items }) => {
+    const group = el('div', { class: 'tp-checks-group' });
+    group.appendChild(el('span', { class: 'tp-checks-label', text: groupLabel }));
+    items.forEach(({ key, label, defOff }) => {
+      const lbl = el('label', { class: 'tp-check-item' });
+      const cb = el('input', { type: 'checkbox' });
+      cb.checked = defOff ? state.titlePage.include[key] === true : state.titlePage.include[key] !== false;
+      if (state.readonly) cb.disabled = true;
+      cb.addEventListener('change', () => {
+        state.titlePage.include[key] = cb.checked;
+        scheduleSave();
+        renderViewport();
+      });
+      lbl.appendChild(cb);
+      lbl.appendChild(el('span', { text: label }));
+      group.appendChild(lbl);
     });
-    lbl.appendChild(cb);
-    lbl.appendChild(el('span', { text: label }));
-    checks.appendChild(lbl);
+    checks.appendChild(group);
   });
   host.appendChild(checks);
 
@@ -1538,13 +1549,24 @@ function buildTitlePages() {
   const p1 = el('div', { class: 'ms-sheet' });
   const p1c = el('div', { class: 'ms-sheet-content tp-title-page' });
 
-  p1c.appendChild(el('div', { class: 'tp-spacer-large' }));
+  // Title cluster, vertically centered between two equal flex spacers.
+  p1c.appendChild(el('div', { class: 'tp-spacer-push' }));
   p1c.appendChild(tpEditable('div', 'tp-show-title', (state.title || 'UNTITLED').toUpperCase(), '_title_readonly'));
-  p1c.appendChild(el('div', { class: 'tp-rule' }));
+  if (inc.rule === true) p1c.appendChild(el('div', { class: 'tp-rule' }));
+  if (inc.subtitle === true) {
+    p1c.appendChild(el('div', { class: 'tp-spacer' }));
+    p1c.appendChild(tpEditable('div', 'tp-subtitle', tp.subtitle || 'A musical', 'subtitle'));
+  }
   p1c.appendChild(el('div', { class: 'tp-spacer' }));
-  p1c.appendChild(tpEditable('div', 'tp-subtitle', tp.subtitle || 'A musical', 'subtitle'));
-  p1c.appendChild(el('div', { class: 'tp-spacer' }));
-  p1c.appendChild(tpEditable('div', 'tp-authors', tp.authors || 'By Your Name', 'authors'));
+  p1c.appendChild(tpEditable('div', 'tp-authors', tp.authors || 'Book by\nYour Name\n\nMusic by\nYour Name\n\nLyrics by\nYour Name', 'authors'));
+
+  if (inc.draft === true) {
+    p1c.appendChild(el('div', { class: 'tp-spacer-large' }));
+    const draft = el('div', { class: 'tp-draft-block' });
+    draft.appendChild(tpEditable('div', 'tp-draft-line', tp.draftLine1 || 'Draft', 'draftLine1'));
+    draft.appendChild(tpEditable('div', 'tp-draft-line', tp.draftLine2 || 'Date', 'draftLine2'));
+    p1c.appendChild(draft);
+  }
 
   p1c.appendChild(el('div', { class: 'tp-spacer-push' }));
   if (inc.contact !== false) {
@@ -1785,7 +1807,13 @@ function buildManuscriptPage(sceneId) {
   backBtn.textContent = '← Board';
   backBtn.addEventListener('click', () => navigateTo('board'));
 
-  const modeBtn = el('button', { class: 'ms-mode-btn' });
+  // View-mode toggle as a segmented control (matches the Board's view switcher),
+  // so it reads as a state toggle rather than an action button.
+  const modeSeg = el('div', { class: 'seg ms-mode-seg', title: 'Switch view' });
+  const editTab = el('button', { text: 'Edit' });
+  const layoutTab = el('button', { text: 'Print View' });
+  modeSeg.appendChild(editTab);
+  modeSeg.appendChild(layoutTab);
   const printBtn = el('button', { class: 'ms-print-btn', title: 'Print / Save as PDF', text: '⎙ Print' });
   printBtn.addEventListener('click', () => exportPDF(true));
   const settingsBtn = el('button', { class: 'ms-settings-btn', title: 'Page settings', text: '⚙' });
@@ -1796,8 +1824,9 @@ function buildManuscriptPage(sceneId) {
   toolbar.appendChild(el('span', { style: 'flex:1' }));
   toolbar.appendChild(zoomWrap);
   toolbar.appendChild(el('span', { style: 'flex:1' }));
+  toolbar.appendChild(modeSeg);
+  toolbar.appendChild(el('span', { class: 'ms-tb-divider' }));
   toolbar.appendChild(printBtn);
-  toolbar.appendChild(modeBtn);
   toolbar.appendChild(settingsBtn);
 
   const msWrap = el('div', { class: 'ms-wrap' });
@@ -1981,7 +2010,18 @@ function buildManuscriptPage(sceneId) {
     const newBody = el('div', { class: 'ms-body' });
     const doc = el('div', { class: 'ms-edit-doc' });
     const order = displayOrder();
-    order.forEach((idx) => {
+
+    // When opened from a scene's ▶ button, restrict to cards in that scene only.
+    let filteredOrder = order;
+    if (sceneId) {
+      const startPos = order.findIndex((i) => state.cards[i] && state.cards[i].id === sceneId);
+      if (startPos >= 0) {
+        const endPos = order.findIndex((i, j) => j > startPos && state.cards[i] && state.cards[i].type === 'scene');
+        filteredOrder = order.slice(startPos, endPos >= 0 ? endPos : undefined);
+      }
+    }
+
+    filteredOrder.forEach((idx) => {
       const c = state.cards[idx];
       if (!c) return;
       const isEmpty = !(c.lyrics || '').trim() && !(c.note || '').trim();
@@ -2002,14 +2042,14 @@ function buildManuscriptPage(sceneId) {
   // ── Mode switching ───────────────────────────────────────────────
   const applyMode = () => {
     const isEdit = msMode === 'edit';
-    modeBtn.textContent = isEdit ? '⊞ Print View' : '✎ Edit';
-    modeBtn.classList.toggle('active', isEdit);
-    printBtn.style.display = isEdit ? 'none' : '';
+    editTab.classList.toggle('active', isEdit);
+    layoutTab.classList.toggle('active', !isEdit);
     try { localStorage.setItem('md-ms-mode', msMode); } catch (_) {}
     if (isEdit) { rebuildEdit(); applyZoom(); }
     else { rebuildSheets(); applyZoom(); }
   };
-  modeBtn.addEventListener('click', () => { msMode = msMode === 'edit' ? 'layout' : 'edit'; applyMode(); });
+  editTab.addEventListener('click', () => { if (msMode !== 'edit') { msMode = 'edit'; applyMode(); } });
+  layoutTab.addEventListener('click', () => { if (msMode !== 'layout') { msMode = 'layout'; applyMode(); } });
 
   // ── Settings drawer ──────────────────────────────────────────────
   const drawer = buildHeaderDrawer(() => { if (msMode === 'layout') rebuildSheets(); else rebuildEdit(); });
