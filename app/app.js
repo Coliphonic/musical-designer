@@ -88,7 +88,8 @@ function saveLastOpened(type, val) {
 }
 
 function openReference(key) {
-  saveLastOpened('reference', key);
+  // References are read-only examples — don't let them overwrite the last
+  // opened *project*, so reopening the app returns to the user's own work.
   state.loading = true;
   state.showKey = key;
   const show = SHOWS[key];
@@ -2597,8 +2598,14 @@ loadProjects().then(() => {
       const exists = state.projects.find((p) => p.id === last.val);
       if (exists) { openProject(last.val); return; }
     }
-    if (last && last.type === 'reference' && SHOWS[last.val]) { openReference(last.val); return; }
   } catch (_) {}
+  // No restorable last project — open the most recently edited one, and only
+  // fall back to a reference example if the user has no projects of their own.
+  if (state.projects.length) {
+    const recent = state.projects.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0))[0];
+    openProject(recent.id);
+    return;
+  }
   openReference('fiddler');
 });
 
