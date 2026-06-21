@@ -57,6 +57,7 @@ body.dark .lwtoggle.active { background: #4a453e; color: #f3eee3; box-shadow: 0 
 .stats { display: flex; gap: 8px; margin-left: auto; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; min-width: 58px; }
 .stat .k { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
+body.dark .stat .k { color: var(--muted); }
 .stat .v { font-size: 17px; font-weight: 600; margin-top: 1px; }
 
 
