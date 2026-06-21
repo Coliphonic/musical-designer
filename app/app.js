@@ -791,16 +791,24 @@ function lastNonEmptyLine(text) {
   const lines = (text || '').split('\n').filter((l) => l.trim());
   return lines.length ? lines[lines.length - 1] : '';
 }
-function verseCheck(text) {
-  // treat section headers, cues, directions, and dialogue as separators or skip them
-  const normalized = (text || '').replace(/^\[.+\]$/gm, '').replace(/^@.+$/gm, '').replace(/^\(.+\)$/gm, '');
-  const sections = normalized.split(/\n\s*\n/).map((s) => s.split('\n').filter((l) => isSungLine(l))).filter((s) => s.length >= 2);
+function verseCheck(text, defaultSung) {
+  // Group runs of sung lines into verses (broken by blanks, cues, or sections)
+  // and compare their per-line syllable counts.
+  const tokens = parseLyricLines(text || '', defaultSung);
+  const verses = [];
+  let cur = [];
+  const flush = () => { if (cur.length) verses.push(cur); cur = []; };
+  tokens.forEach((tok) => {
+    if (tok.type === 'sung') cur.push(LYRIC.lineSyll(tok.text));
+    else if (tok.type === 'blank' || tok.type === 'cue' || tok.type === 'section') flush();
+  });
+  flush();
+  const sections = verses.filter((s) => s.length >= 2);
   if (sections.length < 2) return '';
-  const base = sections[0].map((l) => LYRIC.lineSyll(l));
+  const base = sections[0];
   for (let v = 1; v < sections.length; v++) {
     for (let i = 0; i < Math.min(base.length, sections[v].length); i++) {
-      const s = LYRIC.lineSyll(sections[v][i]);
-      if (s !== base[i]) return `Section ${v + 1}, line ${i + 1}: ${s} syllables vs ${base[i]} in section 1 — may not sit on the same tune.`;
+      if (sections[v][i] !== base[i]) return `Section ${v + 1}, line ${i + 1}: ${sections[v][i]} syllables vs ${base[i]} in section 1 — may not sit on the same tune.`;
     }
   }
   return '';
@@ -836,11 +844,39 @@ function renderRhymes(word, container) {
 // ---- lyric parser ----
 // Plain text is context-sensitive: after a @cue or sung/dialogue line = spoken dialogue
 // (small indent); standalone between action paragraphs = stage action (right-shifted).
-function parseLyricLines(text) {
-  let inCharBlock = false;
-  return (text || '').split('\n').map((ln) => {
+// A bare ALL-CAPS line reads as a character cue — no leading @ required. A
+// trailing parenthetical (e.g. "WIDGET (sings)" or "WIDGET (CONT'D)") is allowed.
+function looksLikeCue(t) {
+  const base = t.replace(/\s*\([^)]*\)\s*$/, '').trim();
+  if (!base || base.length > 40) return false;
+  if (!/[A-Za-z]/.test(base)) return false;          // needs at least one letter
+  return base === base.toUpperCase() && !/[a-z]/.test(base);
+}
+// Split a cue label into its name + sung/spoken mode. A trailing (sings)/(spoken)
+// parenthetical overrides the block; otherwise it inherits the card default.
+// Other parentheticals (e.g. (CONT'D)) are kept as part of the name.
+function splitCueMode(label, defaultSung) {
+  let sung = !!defaultSung, name = label;
+  const m = label.match(/\(([^)]*)\)\s*$/);
+  if (m) {
+    const tag = m[1].trim().toLowerCase();
+    if (/^(sung|sings|singing|sing)$/.test(tag)) { sung = true; name = label.slice(0, m.index).trim(); }
+    else if (/^(spoken|speaks|speaking|speak|said)$/.test(tag)) { sung = false; name = label.slice(0, m.index).trim(); }
+  }
+  return { name, sung };
+}
+
+// Classify each text line into exactly one token (1:1 with input lines, so the
+// result can drive the syllable gutter and rhyme tools as well as rendering).
+// `defaultSung` decides whether unmarked lines in a character block are sung
+// (songs) or spoken dialogue (beats/scenes). Legacy @cue / ~sung markers still
+// parse, so older shows are unaffected.
+function parseLyricLines(text, defaultSung) {
+  const out = [];
+  let inCharBlock = false, blockSung = !!defaultSung;
+  for (const ln of (text || '').split('\n')) {
     const t = ln.trim();
-    if (!t) { inCharBlock = false; return { type: 'blank', text: '' }; }
+    if (!t) { inCharBlock = false; out.push({ type: 'blank', text: '' }); continue; }
     if (/^\[.+\]$/.test(t)) {
       inCharBlock = false;
       const inner = t.slice(1, -1);
@@ -848,13 +884,39 @@ function parseLyricLines(text) {
       if (/^act[\s\d]/i.test(inner)) subtype = 'act';
       else if (/^scene[\s\d]/i.test(inner)) subtype = 'scene';
       else if (/^#\d+[\s\-]/i.test(inner)) subtype = 'song-num';
-      return { type: 'section', subtype, text: inner };
+      out.push({ type: 'section', subtype, text: inner }); continue;
     }
-    if (/^@.+/.test(t)) { inCharBlock = true; return { type: 'cue', text: t.slice(1).trim() }; }
-    if (/^~/.test(t)) { inCharBlock = true; return { type: 'sung', text: t.slice(1).trim() }; }
-    if (/^\(.*\)$/.test(t)) return { type: 'paren', text: t };
-    if (inCharBlock) return { type: 'dialogue', text: ln };
-    return { type: 'action', text: ln };
+    if (/^@.+/.test(t)) {
+      const { name, sung } = splitCueMode(t.slice(1).trim(), defaultSung);
+      inCharBlock = true; blockSung = sung;
+      out.push({ type: 'cue', text: name }); continue;
+    }
+    if (/^~/.test(t)) { inCharBlock = true; blockSung = true; out.push({ type: 'sung', text: t.slice(1).trim() }); continue; }
+    if (/^\(.*\)$/.test(t)) { out.push({ type: 'paren', text: t }); continue; }
+    // Implicit cue: an ALL-CAPS line that opens a block (Fountain convention —
+    // a blank line or section/cue must precede it, so caps lyrics aren't eaten).
+    if (!inCharBlock && looksLikeCue(t)) {
+      const { name, sung } = splitCueMode(t, defaultSung);
+      inCharBlock = true; blockSung = sung;
+      out.push({ type: 'cue', text: name }); continue;
+    }
+    if (inCharBlock) { out.push(blockSung ? { type: 'sung', text: t } : { type: 'dialogue', text: ln }); continue; }
+    out.push({ type: 'action', text: ln });
+  }
+  return out;
+}
+
+// Rhyme-scheme letters aligned 1:1 with the tokens (cues/sections reset to A).
+function rhymeLetters(tokens) {
+  const AL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let seen = {}, next = 0;
+  return tokens.map((tok) => {
+    if (tok.type === 'cue' || tok.type === 'section') { seen = {}; next = 0; return ''; }
+    if (tok.type !== 'sung') return '';
+    const k = LYRIC.keyOf(LYRIC.lastWord(tok.text));
+    if (!k) return '?';
+    if (seen[k] == null) { seen[k] = AL[next % 26]; next++; }
+    return seen[k];
   });
 }
 
@@ -888,7 +950,7 @@ function renderLyricTokens(tokens, container) {
 }
 
 function buildLyricPreview(c) {
-  const tokens = parseLyricLines(c.lyrics || '');
+  const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
   const wrap = el('div', { class: 'lw-preview ms-sheet-content' });
   if (!tokens.some((t) => t.type !== 'blank')) {
     wrap.appendChild(el('div', { class: 'lw-preview-hint', text: 'No content yet — switch to Edit to start writing.' }));
@@ -917,12 +979,12 @@ function buildContentTokens(sceneId) {
       if (c.note && c.note.trim()) { toks.push({ type: 'blank' }); toks.push({ type: 'action', text: c.note }); toks.push({ type: 'blank' }); }
     } else if (c.type === 'beat') {
       if (c.note && c.note.trim()) { toks.push({ type: 'action', text: c.note }); toks.push({ type: 'blank' }); }
-      if (c.lyrics && c.lyrics.trim()) { parseLyricLines(c.lyrics).forEach(pushLyric); toks.push({ type: 'blank' }); }
+      if (c.lyrics && c.lyrics.trim()) { parseLyricLines(c.lyrics, c.type === 'song').forEach(pushLyric); toks.push({ type: 'blank' }); }
     } else if (c.type === 'song') {
       songNum++;
       toks.push({ type: 'song-num', num: songNum, title: c.title || 'Untitled' });
       toks.push({ type: 'blank' });
-      if (c.lyrics && c.lyrics.trim()) parseLyricLines(c.lyrics).forEach(pushLyric);
+      if (c.lyrics && c.lyrics.trim()) parseLyricLines(c.lyrics, c.type === 'song').forEach(pushLyric);
       else toks.push({ type: 'action', text: '(no lyrics yet)' });
       toks.push({ type: 'blank' });
     }
@@ -1864,7 +1926,7 @@ function buildManuscriptPage(sceneId) {
       const phText = c.type === 'scene' ? '(scene heading — click to write)' : c.type === 'beat' ? '(new beat — click to write)' : '(no lyrics yet — click to write)';
       inner.appendChild(el('div', { class: 'ms-card-placeholder', text: phText }));
     } else {
-      parseLyricLines(c.lyrics || c.note || '').forEach((tok) => renderPageToken(tok, inner));
+      parseLyricLines(c.lyrics || c.note || '', c.type === 'song').forEach((tok) => renderPageToken(tok, inner));
     }
     sec.appendChild(inner);
   };
@@ -1939,7 +2001,7 @@ function buildManuscriptPage(sceneId) {
     const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
 
     // Build lines from tokens
-    const toks = parseLyricLines(c.lyrics || c.note || '');
+    const toks = parseLyricLines(c.lyrics || c.note || '', c.type === 'song');
     const hasContent = toks.some((t) => t.type !== 'blank');
     if (!hasContent) {
       lineEd.appendChild(mkLine('cue', ''));
@@ -2110,30 +2172,29 @@ function isCueLine(ln) { return /^@/.test(ln.trim()); }
 function isSungLine(ln) { return /^~/.test(ln.trim()) && !!ln.trim(); }
 function updateGutter(c, gutter) {
   gutter.innerHTML = '';
-  const lines = (c.lyrics || '').split('\n');
-  const letters = LYRIC.scheme(lines);
-  lines.forEach((ln, i) => {
-    if (isSectionHeader(ln) || isCueLine(ln)) {
+  const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
+  const letters = rhymeLetters(tokens);
+  tokens.forEach((tok, i) => {
+    if (tok.type === 'cue' || tok.type === 'section') {
       gutter.appendChild(el('div', { class: 'lwg-row lwg-section' }));
       return;
     }
-    const sung = isSungLine(ln);
-    const sungText = sung ? ln.trim().slice(1).trim() : '';
+    const sung = tok.type === 'sung';
     gutter.appendChild(el('div', { class: 'lwg-row' }, [
       el('span', { class: 'g-letter', text: sung ? letters[i] : '' }),
-      el('span', { class: 'g-syl', text: sung ? LYRIC.lineSyll(sungText) : '' }),
+      el('span', { class: 'g-syl', text: sung ? LYRIC.lineSyll(tok.text) : '' }),
     ]));
   });
 }
 function updateSummary(c, node) {
-  const lines = (c.lyrics || '').split('\n');
-  const sungLines = lines.filter(isSungLine);
-  const syl = sungLines.reduce((s, l) => s + LYRIC.lineSyll(l), 0);
-  const scheme = LYRIC.scheme(lines).filter(Boolean).join('');
-  node.textContent = `${sungLines.length} sung lines · ${syl} syllables` + (scheme ? ` · ${scheme.length > 20 ? scheme.slice(0, 20) + '…' : scheme}` : '');
+  const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
+  const sung = tokens.filter((t) => t.type === 'sung');
+  const syl = sung.reduce((s, t) => s + LYRIC.lineSyll(t.text), 0);
+  const scheme = rhymeLetters(tokens).filter(Boolean).join('');
+  node.textContent = `${sung.length} sung lines · ${syl} syllables` + (scheme ? ` · ${scheme.length > 20 ? scheme.slice(0, 20) + '…' : scheme}` : '');
 }
 function updateVerseNote(c, node) {
-  const n = verseCheck(c.lyrics || '');
+  const n = verseCheck(c.lyrics || '', c.type === 'song');
   node.textContent = n || 'No verse-length mismatches.';
   node.className = 'lwnote' + (n ? ' warn' : '');
 }
@@ -2196,8 +2257,8 @@ function buildLyricWindow(c) {
   // ---- editor ----
   const gutter = el('div', { class: 'lwgutter' });
   const editorPlaceholder = c.type === 'beat'
-    ? 'Write the scene here…\n\n@CHARACTER — who speaks\nDialogue — plain text\n(Parenthetical) — tone / action mid-line\nAction — italicised stage direction\n~Sung line — prefix with ~ for rhyme tracking\n[Scene] — section heading'
-    : 'Write here…\n\n@CHARACTER — who sings\n~Sung line — prefix with ~ for rhyme tracking\n(Parenthetical) — inline note\nPlain text — action / stage description\n[Chorus] — section chip (resets rhyme)\n[Scene 1: Title] — scene heading\n[#01 Title] — song number header';
+    ? 'Write the scene here…\n\nCHARACTER — a CAPS line is who speaks\nDialogue — plain text below the name\n(Parenthetical) — tone / action mid-line\nAction — plain line outside a character\nCHARACTER (sings) — mark a sung outburst\n[Scene] — section heading'
+    : 'Write here…\n\nCHARACTER — a CAPS line is who sings\nLyrics — just type below the name (rhyme-tracked)\nCHARACTER (spoken) — mark a spoken aside\n(Parenthetical) — inline note\n[Chorus] — section chip (resets rhyme)\n[Scene 1: Title] — scene heading\n[#01 Title] — song number header';
   const editor = el('textarea', { class: 'lweditor', wrap: 'off', spellcheck: 'true', placeholder: editorPlaceholder });
   editor.value = c.lyrics || '';
 
