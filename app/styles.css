@@ -37,6 +37,7 @@ html, body {
 
 .control-group { display: flex; flex-direction: column; gap: 5px; }
 .control-group label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); }
+body.dark .control-group label { color: var(--muted); }
 .seg { display: inline-flex; background: var(--btn); border-radius: 9px; padding: 3px; gap: 2px; }
 .seg button {
   border: 0; background: transparent; color: var(--muted); font-size: 13px;
