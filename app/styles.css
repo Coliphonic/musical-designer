@@ -554,7 +554,9 @@ body.sb-open .sidebar { width: var(--sb-w-open); }
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  padding-top: env(safe-area-inset-top);
   padding-right: env(safe-area-inset-right);
+  background: var(--bg);
 }
 
 .page { flex: 1; min-height: 0; overflow-y: auto; padding: 0; }
