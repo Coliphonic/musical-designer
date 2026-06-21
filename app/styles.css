@@ -17,7 +17,7 @@ body.dark {
   --panel: #242220;
   --ink: #e8e3d8;
   --muted: #9a9488;
-  --faint: #6a645c99;
+  --faint: #8a847b;
   --line: #333028;
   --hover: #2e2c28;
   --btn: #2a2825;
@@ -37,7 +37,6 @@ html, body {
 
 .control-group { display: flex; flex-direction: column; gap: 5px; }
 .control-group label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); }
-body.dark .control-group label { color: var(--muted); }
 .seg { display: inline-flex; background: var(--btn); border-radius: 9px; padding: 3px; gap: 2px; }
 .seg button {
   border: 0; background: transparent; color: var(--muted); font-size: 13px;
@@ -58,7 +57,6 @@ body.dark .lwtoggle.active { background: #4a453e; color: #f3eee3; box-shadow: 0 
 .stats { display: flex; gap: 8px; margin-left: auto; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; min-width: 58px; }
 .stat .k { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
-body.dark .stat .k { color: var(--muted); }
 .stat .v { font-size: 17px; font-weight: 600; margin-top: 1px; }
 
 
