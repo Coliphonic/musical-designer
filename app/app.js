@@ -891,7 +891,7 @@ function parseLyricLines(text, defaultSung) {
       inCharBlock = true; blockSung = sung;
       out.push({ type: 'cue', text: name }); continue;
     }
-    if (/^~/.test(t)) { inCharBlock = true; blockSung = true; out.push({ type: 'sung', text: t.slice(1).trim() }); continue; }
+    if (/^~/.test(t)) { inCharBlock = true; out.push({ type: 'sung', text: t.slice(1).trim() }); continue; } // ~ forces this line only
     if (/^\(.*\)$/.test(t)) { out.push({ type: 'paren', text: t }); continue; }
     // Implicit cue: an ALL-CAPS line that opens a block (Fountain convention —
     // a blank line or section/cue must precede it, so caps lyrics aren't eaten).
@@ -1951,17 +1951,47 @@ function buildManuscriptPage(sceneId) {
     div.dataset.type = type;
     div.className = 'ms-el ' + (EL_CLASS[type] || 'ms-el-blank');
   };
-  const serializeLines = (lineEd) => {
+  const serializeLines = (lineEd, defaultSung) => {
+    // Emit the seamless format: bare CAPS cues, unmarked sung/dialogue per the
+    // block's mode, with a (sings)/(spoken) override on the cue only when the
+    // block differs from the card default. Output round-trips via parseLyricLines.
+    const rows = [...lineEd.querySelectorAll('.ms-el')].map((div) => ({
+      type: div.dataset.type, text: (div.textContent || '').trim(),
+    }));
+    // Resolve the sung/spoken mode of the character block starting at cue index i.
+    const blockModeFrom = (i) => {
+      let hasSung = false, hasDialogue = false;
+      for (let j = i + 1; j < rows.length; j++) {
+        const ty = rows[j].type;
+        if (ty === 'cue' || ty === 'section' || !rows[j].text) break;
+        if (ty === 'sung') hasSung = true; else if (ty === 'dialogue') hasDialogue = true;
+      }
+      if (hasSung && !hasDialogue) return true;
+      if (hasDialogue && !hasSung) return false;
+      if (hasSung && hasDialogue) return false;   // mixed → spoken base, ~ marks the sung lines
+      return !!defaultSung;                        // empty block → card default
+    };
     const parts = [];
-    lineEd.querySelectorAll('.ms-el').forEach((div) => {
-      const type = div.dataset.type;
-      const text = (div.textContent || '').trim();
-      if (!text) { parts.push(''); return; }
-      if (type === 'cue')      parts.push('@' + text);
-      else if (type === 'sung')     parts.push('~' + text);
-      else if (type === 'paren')    parts.push('(' + text + ')');
-      else if (type === 'section')  parts.push('[' + text + ']');
-      else parts.push(text);
+    let blockSung = !!defaultSung;
+    rows.forEach((row, i) => {
+      const { type, text } = row;
+      if (!text) { parts.push(''); blockSung = !!defaultSung; return; }
+      if (type === 'cue') {
+        blockSung = blockModeFrom(i);
+        let label = text.toUpperCase();            // CAPS so it parses back as a cue
+        if (blockSung && !defaultSung) label += ' (sings)';
+        else if (!blockSung && defaultSung) label += ' (spoken)';
+        if (parts.length && parts[parts.length - 1] !== '') parts.push(''); // separate blocks
+        parts.push(label);
+      } else if (type === 'sung') {
+        parts.push(blockSung ? text : '~' + text); // ~ only needed in a spoken block
+      } else if (type === 'paren') {
+        parts.push('(' + text.replace(/^\(/, '').replace(/\)$/, '') + ')');
+      } else if (type === 'section') {
+        parts.push('[' + text.replace(/^\[/, '').replace(/\]$/, '') + ']');
+      } else {
+        parts.push(text);                          // dialogue / action — bare
+      }
     });
     return parts.join('\n').replace(/\n{3,}/g, '\n\n').trim();
   };
@@ -2052,7 +2082,7 @@ function buildManuscriptPage(sceneId) {
     const richWrap = el('div', { class: 'ms-card-rich-editor' });
     richWrap.addEventListener('focusout', (e) => {
       if (richWrap.contains(e.relatedTarget)) return;
-      const val = serializeLines(lineEd);
+      const val = serializeLines(lineEd, isSong);
       if (c.type === 'beat') c.note = val; else c.lyrics = val;
       autoSave();
       renderCardSection(sec, c);
