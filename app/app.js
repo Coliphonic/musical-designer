@@ -1349,6 +1349,14 @@ function extractCharacters() {
   return { merged, appearances };
 }
 
+// Deterministic hue (0–359) from a character name, so each card's avatar/accent
+// is stable and well-distributed across the spectrum.
+function charHue(name) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
+  return h;
+}
+
 function buildCharactersPage() {
   const host = document.getElementById('page-characters');
   host.innerHTML = '';
@@ -1381,7 +1389,7 @@ function buildCharactersPage() {
   if (!names.length) {
     const empty = el('div', { class: 'ch-empty' });
     empty.appendChild(el('div', { class: 'ch-empty-icon', text: '◎' }));
-    empty.appendChild(el('p', { text: 'No characters yet. Add @NAME cues in your lyrics, then click Sync.' }));
+    empty.appendChild(el('p', { text: 'No characters yet. Add character cues — any ALL-CAPS line in your lyrics or dialogue — then click Sync.' }));
     host.appendChild(empty);
     return;
   }
@@ -1390,12 +1398,19 @@ function buildCharactersPage() {
   names.forEach((name) => {
     const data = merged[name];
     const apps = appearances[name] || [];
+    const hue = charHue(name);
     const card = el('div', { class: 'ch-card' + (data.manual && !apps.length ? ' ch-manual' : '') });
+    card.style.setProperty('--ch-hue', hue);
 
     const cardHead = el('div', { class: 'ch-card-head' });
-    cardHead.appendChild(el('span', { class: 'ch-name', text: name }));
-    if (data.manual && !apps.length) cardHead.appendChild(el('span', { class: 'ch-tag ch-tag-manual', text: 'manual' }));
-    else cardHead.appendChild(el('span', { class: 'ch-count', text: apps.length + ' song' + (apps.length !== 1 ? 's' : '') }));
+    const parts = name.trim().split(/\s+/);
+    const initials = (parts.length > 1 ? parts[0][0] + parts[1][0] : name.slice(0, 2)).toUpperCase();
+    cardHead.appendChild(el('span', { class: 'ch-avatar', text: initials }));
+    const headText = el('div', { class: 'ch-head-text' });
+    headText.appendChild(el('span', { class: 'ch-name', text: name }));
+    if (data.manual && !apps.length) headText.appendChild(el('span', { class: 'ch-tag ch-tag-manual', text: 'manual' }));
+    else headText.appendChild(el('span', { class: 'ch-count', text: apps.length + ' song' + (apps.length !== 1 ? 's' : '') }));
+    cardHead.appendChild(headText);
     card.appendChild(cardHead);
 
     // Voice type selector
@@ -2117,29 +2132,33 @@ function buildManuscriptPage(sceneId) {
     }));
   };
 
+  // Card indices shown in Edit mode — the full reading order, or a single
+  // scene's slice when opened via a scene's ▶ button. Shared by the document
+  // builder and the outline navigator so they always agree.
+  const editOrder = () => {
+    const order = displayOrder();
+    if (!sceneId) return order;
+    const startPos = order.findIndex((i) => state.cards[i] && state.cards[i].id === sceneId);
+    if (startPos < 0) return order;
+    const endPos = order.findIndex((i, j) => j > startPos && state.cards[i] && state.cards[i].type === 'scene');
+    return order.slice(startPos, endPos >= 0 ? endPos : undefined);
+  };
+
+  // Assigned once the navigator is built (below); called after each rebuild.
+  let refreshNav = null;
+
   const rebuildEdit = () => {
     const oldBody = msWrap.querySelector('.ms-body');
     const scrollTop = oldBody ? oldBody.scrollTop : 0;
     if (oldBody) oldBody.remove();
     const newBody = el('div', { class: 'ms-body' });
     const doc = el('div', { class: 'ms-edit-doc' });
-    const order = displayOrder();
 
-    // When opened from a scene's ▶ button, restrict to cards in that scene only.
-    let filteredOrder = order;
-    if (sceneId) {
-      const startPos = order.findIndex((i) => state.cards[i] && state.cards[i].id === sceneId);
-      if (startPos >= 0) {
-        const endPos = order.findIndex((i, j) => j > startPos && state.cards[i] && state.cards[i].type === 'scene');
-        filteredOrder = order.slice(startPos, endPos >= 0 ? endPos : undefined);
-      }
-    }
-
-    filteredOrder.forEach((idx) => {
+    editOrder().forEach((idx) => {
       const c = state.cards[idx];
       if (!c) return;
       const isEmpty = !(c.lyrics || '').trim() && !(c.note || '').trim();
-      const div = el('div', { class: 'ms-card-divider' + (isEmpty ? ' ms-card-divider-empty' : '') });
+      const div = el('div', { class: 'ms-card-divider' + (isEmpty ? ' ms-card-divider-empty' : ''), 'data-card-id': c.id });
       const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '●';
       div.appendChild(el('span', { class: 'ms-card-divider-label', text: icon + ' ' + (c.title || 'Untitled') }));
       doc.appendChild(div);
@@ -2151,6 +2170,7 @@ function buildManuscriptPage(sceneId) {
     newBody.appendChild(doc);
     msWrap.insertBefore(newBody, msWrap.querySelector('.ms-hd-drawer'));
     newBody.scrollTop = scrollTop;
+    if (refreshNav) refreshNav();
   };
 
   // ── Mode switching ───────────────────────────────────────────────
@@ -2159,6 +2179,7 @@ function buildManuscriptPage(sceneId) {
     editTab.classList.toggle('active', isEdit);
     layoutTab.classList.toggle('active', !isEdit);
     try { localStorage.setItem('md-ms-mode', msMode); } catch (_) {}
+    msNav.style.display = isEdit ? '' : 'none'; // outline navigator is Edit-only
     if (isEdit) { rebuildEdit(); applyZoom(); }
     else { rebuildSheets(); applyZoom(); }
   };
@@ -2201,6 +2222,70 @@ function buildManuscriptPage(sceneId) {
   zoomOut.addEventListener('click', () => { zoom = Math.max(ZOOM_MIN, +(zoom - ZOOM_STEP).toFixed(2)); applyZoom(); });
   zoomIn.addEventListener('click',  () => { zoom = Math.min(ZOOM_MAX, +(zoom + ZOOM_STEP).toFixed(2)); applyZoom(); });
 
+  // ── Edit-mode outline navigator ──────────────────────────────────
+  let navCollapsed = (() => { try { return localStorage.getItem('md-ms-nav') === 'closed'; } catch (_) { return false; } })();
+  const msNav = el('div', { class: 'ms-nav' + (navCollapsed ? ' collapsed' : '') });
+  const navToggle = el('button', { class: 'ms-nav-toggle', title: 'Toggle outline' });
+  const setToggleIcon = () => { navToggle.textContent = navCollapsed ? '☰' : '‹'; };
+  setToggleIcon();
+  const navHead = el('div', { class: 'ms-nav-head' }, [
+    el('span', { class: 'ms-nav-title', text: 'Outline' }),
+    navToggle,
+  ]);
+  const navList = el('div', { class: 'ms-nav-list' });
+  msNav.appendChild(navHead);
+  msNav.appendChild(navList);
+  navToggle.addEventListener('click', () => {
+    navCollapsed = !navCollapsed;
+    msNav.classList.toggle('collapsed', navCollapsed);
+    setToggleIcon();
+    try { localStorage.setItem('md-ms-nav', navCollapsed ? 'closed' : 'open'); } catch (_) {}
+  });
+
+  let navObserver = null;
+  const navRows = new Map(); // card id -> row element
+  refreshNav = () => {
+    navList.innerHTML = '';
+    navRows.clear();
+    if (navObserver) { navObserver.disconnect(); navObserver = null; }
+    const bodyEl = msWrap.querySelector('.ms-body');
+    if (!bodyEl) return;
+    const order = editOrder();
+    let curAct = null;
+    order.forEach((idx) => {
+      const c = state.cards[idx];
+      if (!c) return;
+      if (c.act !== curAct) {
+        curAct = c.act;
+        navList.appendChild(el('div', { class: 'ms-nav-act', text: LANE_LABELS[c.act] || c.act }));
+      }
+      const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '●';
+      const row = el('button', { class: 'ms-nav-row ms-nav-' + c.type }, [
+        el('span', { class: 'ms-nav-icon', text: icon }),
+        el('span', { class: 'ms-nav-label', text: c.title || 'Untitled' }),
+      ]);
+      row.addEventListener('click', () => {
+        const target = bodyEl.querySelector('.ms-card-divider[data-card-id="' + c.id + '"]');
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      navList.appendChild(row);
+      navRows.set(c.id, row);
+    });
+    // Highlight the card currently near the top of the viewport.
+    const visible = new Set();
+    navObserver = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        const id = e.target.getAttribute('data-card-id');
+        if (e.isIntersecting) visible.add(id); else visible.delete(id);
+      });
+      let activeId = null;
+      for (const idx of order) { const c = state.cards[idx]; if (c && visible.has(c.id)) { activeId = c.id; break; } }
+      navRows.forEach((r, id) => r.classList.toggle('active', id === activeId));
+    }, { root: bodyEl, rootMargin: '0px 0px -70% 0px', threshold: 0 });
+    bodyEl.querySelectorAll('.ms-card-divider[data-card-id]').forEach((d) => navObserver.observe(d));
+  };
+
+  msWrap.appendChild(msNav);
   msWrap.appendChild(drawer);
   settingsBtn.addEventListener('click', () => drawer.classList.toggle('open'));
 

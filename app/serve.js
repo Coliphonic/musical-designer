@@ -3,6 +3,7 @@
 // Auth: signed session cookie (stateless). Users live in ./users.json (managed
 // via users.js). Shows carry an `owner` userId and optional `collaborators`.
 const http = require('http');
+const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -13,6 +14,14 @@ const PORT = Number(process.env.PORT) || Number(process.argv[2]) || 8090;
 // Override with SHOWS_DIR (e.g. a data dir beside the repo on the server);
 // defaults to ./shows for local dev. This dir is gitignored.
 const SHOWS_DIR = process.env.SHOWS_DIR || path.join(ROOT, 'shows');
+// Layer 2: when USE_REMOTE_DATA=true, /api/shows and /api/users are proxied to
+// the production server instead of reading local files. Local auth still gates
+// access (you must be logged into your local server). REMOTE_TOKEN is the
+// md_session cookie value from your prod browser session (DevTools → Application
+// → Cookies). Default off so local dev uses its own sandbox data.
+const USE_REMOTE = process.env.USE_REMOTE_DATA === 'true';
+const REMOTE_URL = (process.env.REMOTE_URL || 'https://musicaldesigner.colincreates.com').replace(/\/$/, '');
+const REMOTE_TOKEN = process.env.REMOTE_TOKEN || '';
 const SEED_DIR = path.join(ROOT, 'seed-shows');
 const USERS_FILE = path.join(ROOT, 'users.json');
 const SECRET_FILE = path.join(ROOT, 'secret.txt');
@@ -205,6 +214,39 @@ function handleApi(req, res, parts, user) {
   sendJSON(res, 405, { error: 'method' });
 }
 
+// ---- Remote proxy (USE_REMOTE_DATA mode) ---------------------------------
+// Forwards a request to the production server, injecting the stored prod
+// session token. Streams the response directly back to the browser.
+function proxyToRemote(req, res) {
+  const target = new URL(REMOTE_URL);
+  const isHttps = target.protocol === 'https:';
+  const options = {
+    hostname: target.hostname,
+    port: target.port || (isHttps ? 443 : 80),
+    path: req.url,
+    method: req.method,
+    headers: Object.assign({}, req.headers, {
+      host: target.hostname,
+      cookie: 'md_session=' + REMOTE_TOKEN,
+    }),
+  };
+  const transport = isHttps ? https : http;
+  const proxy = transport.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode, proxyRes.headers);
+    proxyRes.pipe(res);
+  });
+  proxy.on('error', (e) => {
+    console.error('proxy error:', e.message);
+    if (!res.headersSent) sendJSON(res, 502, { error: 'proxy error' });
+  });
+  req.pipe(proxy);
+}
+
+if (USE_REMOTE) {
+  if (!REMOTE_TOKEN) console.warn('[USE_REMOTE_DATA] REMOTE_TOKEN not set — /api requests will be rejected by prod (401).');
+  console.log('[USE_REMOTE_DATA] Shows API → ' + REMOTE_URL);
+}
+
 http
   .createServer((req, res) => {
     let p = decodeURIComponent((req.url || '/').split('?')[0]);
@@ -216,6 +258,7 @@ http
     if (p === '/api/users') {
       const user = currentUser(req);
       if (!user) return sendJSON(res, 401, { error: 'unauth' });
+      if (USE_REMOTE) return proxyToRemote(req, res);
       return sendJSON(res, 200, loadUsers().map((u) => ({ id: u.id, name: u.name })));
     }
 
@@ -223,6 +266,7 @@ http
     if (p.startsWith('/api/shows')) {
       const user = currentUser(req);
       if (!user) return sendJSON(res, 401, { error: 'unauth' });
+      if (USE_REMOTE) return proxyToRemote(req, res);
       handleApi(req, res, p.split('/').filter(Boolean), user);
       return;
     }
