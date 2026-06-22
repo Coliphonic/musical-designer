@@ -1060,9 +1060,11 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
     ac.open = true; ac.items = items; ac.line = line;
     if (ac.index >= items.length) ac.index = 0;
     renderAc();
-    const wb = richWrap.getBoundingClientRect(), lb = line.getBoundingClientRect();
-    acBox.style.left = Math.round(lb.left - wb.left) + 'px';
-    acBox.style.top = Math.round(lb.bottom - wb.top + 2) + 'px';
+    // Position via layout offsets (relative to richWrap, the positioned parent)
+    // rather than getBoundingClientRect, so it stays correct under the
+    // manuscript viewport's zoom transform.
+    acBox.style.left = line.offsetLeft + 'px';
+    acBox.style.top = (line.offsetTop + line.offsetHeight + 2) + 'px';
     acBox.style.display = '';
   };
 
