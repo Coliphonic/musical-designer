@@ -932,7 +932,22 @@ body.dark .ms-print-btn:hover { background: #211d33; }
 }
 
 /* Rich line editor */
-.ms-card-rich-editor { display: flex; flex-direction: column; }
+.ms-card-rich-editor { display: flex; flex-direction: column; position: relative; }
+
+/* Character-name autocomplete dropdown (FD-style) */
+.rich-ac {
+  position: absolute; z-index: 20; min-width: 160px; max-height: 220px; overflow-y: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 8px 24px #0006; padding: 4px;
+}
+.rich-ac-item {
+  padding: 5px 12px; border-radius: 5px; cursor: pointer; font-size: 13px; color: var(--ink);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap;
+}
+.rich-ac-item.active { background: var(--energy); color: #fff; }
+.rich-ac-item:hover { background: var(--hover); }
+.rich-ac-item.active:hover { background: var(--energy); }
 .ms-style-bar {
   display: flex;
   align-items: center;

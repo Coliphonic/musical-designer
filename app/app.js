@@ -920,6 +920,21 @@ function rhymeLetters(tokens) {
   });
 }
 
+// Every character cue name used anywhere in the show — uppercase, unique, sorted.
+// Parses via parseLyricLines so it catches both legacy @cues and seamless CAPS
+// cues, plus any manually-registered characters. Feeds the cue autocomplete.
+function collectCharacterNames() {
+  const set = new Set();
+  (state.cards || []).forEach((c) => {
+    if (!c || !c.lyrics) return;
+    parseLyricLines(c.lyrics, c.type === 'song').forEach((tok) => {
+      if (tok.type === 'cue') { const n = (tok.text || '').trim().toUpperCase(); if (n) set.add(n); }
+    });
+  });
+  Object.keys(state.characters || {}).forEach((n) => { const u = (n || '').trim().toUpperCase(); if (u) set.add(u); });
+  return [...set].sort();
+}
+
 // Reusable rich (Tab/Enter) line editor. Builds a contenteditable element list
 // from `text`, lets the user cycle element types with Tab / advance with Enter,
 // and on blur serializes back to the seamless lyric format via onSave(value).
@@ -1010,9 +1025,56 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
   if (!toks.some((t) => t.type !== 'blank')) lineEd.appendChild(mkLine('cue', ''));
   else toks.forEach((tok) => lineEd.appendChild(mkLine(tok.type, tok.text)));
 
-  const syncPicker = () => { const line = getFocusedLine(lineEd); if (line) styleSel.value = line.dataset.type; };
+  // ---- FD-style character-name autocomplete (cue lines only) ----
+  const acBox = el('div', { class: 'rich-ac', style: 'display:none' });
+  const ac = { open: false, items: [], index: 0, line: null, dismissed: false, lastFocus: null };
+  const closeAc = () => { ac.open = false; ac.items = []; ac.line = null; acBox.style.display = 'none'; };
+  const renderAc = () => {
+    acBox.innerHTML = '';
+    ac.items.forEach((name, i) => {
+      const it = el('div', { class: 'rich-ac-item' + (i === ac.index ? ' active' : ''), text: name });
+      it.addEventListener('mousedown', (ev) => { ev.preventDefault(); ac.index = i; acceptAc(false); });
+      acBox.appendChild(it);
+    });
+  };
+  const acceptAc = (advance) => {
+    const line = ac.line, name = ac.items[ac.index];
+    if (!line || !name) return;
+    line.textContent = name;
+    closeAc();
+    if (advance) {
+      const newType = smartNext(line.dataset.type);
+      const newLine = mkLine(newType, '');
+      line.after(newLine);
+      placeCursorAt(newLine, false);
+      styleSel.value = newType;
+    } else {
+      placeCursorAt(line, true);
+    }
+  };
+  const refreshAc = (line) => {
+    if (!line || line.dataset.type !== 'cue' || ac.dismissed) { closeAc(); return; }
+    const q = (line.textContent || '').trim().toUpperCase();
+    const items = collectCharacterNames().filter((n) => n !== q && (!q || n.startsWith(q)));
+    if (!items.length) { closeAc(); return; }
+    ac.open = true; ac.items = items; ac.line = line;
+    if (ac.index >= items.length) ac.index = 0;
+    renderAc();
+    const wb = richWrap.getBoundingClientRect(), lb = line.getBoundingClientRect();
+    acBox.style.left = Math.round(lb.left - wb.left) + 'px';
+    acBox.style.top = Math.round(lb.bottom - wb.top + 2) + 'px';
+    acBox.style.display = '';
+  };
+
+  const syncPicker = () => {
+    const line = getFocusedLine(lineEd);
+    if (line) styleSel.value = line.dataset.type;
+    if (line !== ac.lastFocus) { ac.lastFocus = line; ac.dismissed = false; ac.index = 0; }
+    refreshAc(line);
+  };
   lineEd.addEventListener('keyup', syncPicker);
   lineEd.addEventListener('click', syncPicker);
+  lineEd.addEventListener('input', () => refreshAc(getFocusedLine(lineEd)));
   styleSel.addEventListener('mousedown', () => { styleSel._activeLine = getFocusedLine(lineEd); });
   styleSel.addEventListener('change', () => {
     const line = styleSel._activeLine || getFocusedLine(lineEd);
@@ -1021,6 +1083,14 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
   lineEd.addEventListener('keydown', (e) => {
     const line = getFocusedLine(lineEd);
     if (!line) return;
+    // While the autocomplete is open, arrows/enter/tab/esc drive the menu.
+    if (ac.open && ac.items.length) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); ac.index = (ac.index + 1) % ac.items.length; renderAc(); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); ac.index = (ac.index - 1 + ac.items.length) % ac.items.length; renderAc(); return; }
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); acceptAc(true); return; }
+      if (e.key === 'Tab')       { e.preventDefault(); acceptAc(false); return; }
+      if (e.key === 'Escape')    { e.preventDefault(); ac.dismissed = true; closeAc(); return; }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       const newType = smartNext(line.dataset.type);
@@ -1033,6 +1103,7 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
       const newType = tabNext(line.dataset.type);
       setLineType(line, newType);
       styleSel.value = newType;
+      refreshAc(line);
     } else if (e.key === 'Backspace' && !line.textContent.trim()) {
       e.preventDefault();
       const target = line.previousElementSibling || line.nextElementSibling;
@@ -1044,10 +1115,12 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
   const richWrap = el('div', { class: 'ms-card-rich-editor' });
   richWrap.addEventListener('focusout', (e) => {
     if (richWrap.contains(e.relatedTarget)) return;
+    closeAc();
     if (onSave) onSave(serializeLines(lineEd));
   });
   richWrap.appendChild(styleBar);
   richWrap.appendChild(lineEd);
+  richWrap.appendChild(acBox);
   richWrap._focusFirst = () => {
     const first = lineEd.querySelector('.ms-el');
     if (first) { placeCursorAt(first, false); styleSel.value = first.dataset.type || 'cue'; }
