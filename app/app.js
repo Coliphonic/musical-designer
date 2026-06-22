@@ -2213,9 +2213,6 @@ function buildLyricWindow(c) {
   const richBtn = el('button', { class: 'lwtoggle', text: 'Rich' });
   const toggleWrap = el('div', { class: 'lwtoggle-wrap' }, [editBtn, richBtn]);
 
-  const sungBtn = el('button', { class: 'lwsungbtn', title: 'Toggle ~ sung prefix on selected lines (makes them rhyme-tracked)' });
-  sungBtn.innerHTML = '<span class="sung-tilde">~</span> Sung';
-
   const pillEl = c.type === 'song'
     ? (() => { const meta = FN[c.fn] || FN.ballad; return el('span', { class: 'pill', 'data-fam': meta.fam, text: meta.label }); })()
     : el('span', { class: 'pill beat-pill', text: 'Beat' });
@@ -2225,7 +2222,6 @@ function buildLyricWindow(c) {
     el('span', { class: 'lwtitle', text: c.title }),
     summary,
     el('span', { style: 'flex:1' }),
-    sungBtn,
     toggleWrap,
     closeBtn,
   ]);
@@ -2310,32 +2306,10 @@ function buildLyricWindow(c) {
   editor.addEventListener('scroll', () => { gutter.scrollTop = editor.scrollTop; });
   rin.addEventListener('input', () => { rin._touched = true; showRhymes(rin.value); });
 
-  sungBtn.addEventListener('click', () => {
-    const text = editor.value;
-    const selStart = editor.selectionStart, selEnd = editor.selectionEnd;
-    const lineStart = text.lastIndexOf('\n', selStart - 1) + 1;
-    const rawLineEnd = selEnd === selStart ? text.indexOf('\n', selStart) : text.indexOf('\n', selEnd - 1);
-    const lineEnd = rawLineEnd === -1 ? text.length : rawLineEnd;
-    const chunk = text.slice(lineStart, lineEnd);
-    const lines = chunk.split('\n');
-    const allSung = lines.every((l) => !l.trim() || /^~/.test(l.trim()));
-    const transformed = lines.map((l) => {
-      if (!l.trim()) return l;
-      if (allSung) return l.replace(/^~\s*/, '');
-      return /^~/.test(l.trim()) ? l : '~' + l;
-    }).join('\n');
-    editor.value = text.slice(0, lineStart) + transformed + text.slice(lineEnd);
-    editor.selectionStart = lineStart;
-    editor.selectionEnd = lineStart + transformed.length;
-    editor.focus();
-    refresh();
-  });
-
   const showEdit = () => {
     editor.value = c.lyrics || '';            // reflect any edits made in the Rich tab
     editPane.style.display = '';
     richPane.style.display = 'none';
-    sungBtn.style.display = '';
     editBtn.classList.add('active');
     richBtn.classList.remove('active');
     updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
@@ -2357,7 +2331,6 @@ function buildLyricWindow(c) {
     }));
     editPane.style.display = 'none';
     richPane.style.display = '';
-    sungBtn.style.display = 'none';
     editBtn.classList.remove('active');
     richBtn.classList.add('active');
   };
