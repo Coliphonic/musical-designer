@@ -419,7 +419,7 @@ body.dark .ms-body { background: var(--bg); }
 /* FD Parenthetical: 3.00"–7.00" → left 168px, right 24px; SpaceBefore="0" */
 .ms-sheet-content .lw-paren        { margin-left: 168px; margin-right: 24px; padding-left: 0; color: #555; text-align: left; }
 /* FD Action: SpaceBefore="12" */
-.ms-sheet-content .lw-action       { margin-top: 12pt; text-align: left; }
+.ms-sheet-content .lw-action       { margin-top: 12pt; padding-left: 0; text-align: left; }
 
 /* Print export root — built off-screen, revealed only when printing */
 #pdf-print-root { display: none; }
