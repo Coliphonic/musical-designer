@@ -1325,12 +1325,12 @@ function extractCharacters() {
   const appearances = {};
   state.cards.forEach((c) => {
     if (!c.lyrics) return;
-    const lines = c.lyrics.split('\n');
     const seen = new Set();
-    lines.forEach((ln) => {
-      const m = ln.trim().match(/^@(.+)/);
-      if (!m) return;
-      const name = m[1].trim().toUpperCase();
+    // parseLyricLines sees both legacy @cues and seamless CAPS cues (and strips
+    // any (sings)/(spoken) tag), so this catches characters in either format.
+    parseLyricLines(c.lyrics, c.type === 'song').forEach((tok) => {
+      if (tok.type !== 'cue') return;
+      const name = (tok.text || '').trim().toUpperCase();
       if (!name || seen.has(name)) return;
       seen.add(name);
       if (!appearances[name]) appearances[name] = [];
