@@ -982,9 +982,10 @@ body.dark .ms-style-hint { color: #8b83a8; }
 .ms-el.lw-paren::before { content: '('; }
 .ms-el.lw-paren::after  { content: ')'; }
 .ms-el.lw-section-row {
-  display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
+  display: block; width: fit-content; margin: 6px auto;
+  font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
   color: var(--muted); background: var(--btn); padding: 2px 14px; border-radius: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 6px 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 /* Board header as slim toolbar */
