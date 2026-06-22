@@ -9,10 +9,24 @@ const crypto = require('crypto');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || Number(process.argv[2]) || 8090;
-const SHOWS_DIR = path.join(ROOT, 'shows');
+// Live show data lives OUTSIDE the repo so `git pull` never collides with it.
+// Override with SHOWS_DIR (e.g. a data dir beside the repo on the server);
+// defaults to ./shows for local dev. This dir is gitignored.
+const SHOWS_DIR = process.env.SHOWS_DIR || path.join(ROOT, 'shows');
+const SEED_DIR = path.join(ROOT, 'seed-shows');
 const USERS_FILE = path.join(ROOT, 'users.json');
 const SECRET_FILE = path.join(ROOT, 'secret.txt');
 try { fs.mkdirSync(SHOWS_DIR, { recursive: true }); } catch (e) { /* exists */ }
+
+// Seed example shows into the data dir on first run. Never overwrites an
+// existing file, so live edits are always preserved across restarts/deploys.
+try {
+  for (const f of fs.readdirSync(SEED_DIR)) {
+    if (!f.endsWith('.json')) continue;
+    const dest = path.join(SHOWS_DIR, f);
+    if (!fs.existsSync(dest)) fs.copyFileSync(path.join(SEED_DIR, f), dest);
+  }
+} catch (_) { /* no seed dir — fine */ }
 
 // Server secret for signing session cookies — auto-generated once, then reused
 // so sessions survive restarts.

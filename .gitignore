@@ -4,3 +4,6 @@ inject-beats.js
 inject-lyrics.js
 users.json
 secret.txt
+
+# User data — live shows are mutable data, not code. Seeded from app/seed-shows/.
+app/shows/
