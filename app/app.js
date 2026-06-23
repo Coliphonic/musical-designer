@@ -95,7 +95,13 @@ function openReference(key) {
   const show = SHOWS[key];
   if (show.cards) state.cards = show.cards.map(cardFromObj);
   else { const lanes = assignLanes(show.numbers); state.cards = show.numbers.map((t, i) => { const c = cardFromTuple(t); c.act = lanes[i]; return c; }); }
-  state.characters = {};
+  // Enriched references may carry a character registry and a title page (no lyrics).
+  // Plain references have neither — fall back to empty so stale project data never leaks in.
+  state.characters = show.characters ? JSON.parse(JSON.stringify(show.characters)) : {};
+  const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
+  state.titlePage = Object.assign({}, tpDefaults, show.titlePage || {});
+  state.titlePage.include = Object.assign({}, tpDefaults.include, (show.titlePage || {}).include || {});
+  state.scriptHeader = { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false };
   state.title = show.title;
   state.projectId = null;
   state.readonly = true;
@@ -1012,9 +1018,13 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
 
   const styleBar = el('div', { class: 'ms-style-bar' });
   const styleSel = el('select', { class: 'ms-style-sel' });
-  Object.entries(RICH_EL_LABELS).forEach(([val, label]) => styleSel.appendChild(el('option', { value: val, text: label })));
+  const modKey = navigator.platform.toUpperCase().includes('MAC') ? '⌘' : 'Ctrl+';
+  Object.entries(RICH_EL_LABELS).forEach(([val, label]) => {
+    const n = RICH_EL_CYCLE.indexOf(val) + 1;
+    styleSel.appendChild(el('option', { value: val, text: n ? label + '  (' + modKey + n + ')' : label }));
+  });
   styleBar.appendChild(styleSel);
-  styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Tab · change style   Enter · new line' }));
+  styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Tab · cycle   Enter · new line   ' + modKey + '1–6 · jump' }));
 
   const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
   const toks = parseLyricLines(text || '', isSong);
@@ -1089,6 +1099,18 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
       if (e.key === 'Tab')       { e.preventDefault(); acceptAc(false); return; }
       if (e.key === 'Escape')    { e.preventDefault(); ac.dismissed = true; closeAc(); return; }
     }
+    // Final Draft-style direct jumps: Ctrl/⌘ + 1–6 set the current line's
+    // element type outright, no Tab-cycling. Order matches RICH_EL_CYCLE so the
+    // numbers line up with the style-bar labels (1 Character … 6 Section).
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key >= '1' && e.key <= '6') {
+      e.preventDefault();
+      const newType = RICH_EL_CYCLE[parseInt(e.key, 10) - 1];
+      setLineType(line, newType);
+      styleSel.value = newType;
+      placeCursorAt(line, true);
+      refreshAc(line);
+      return;
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       const newType = smartNext(line.dataset.type);
@@ -1152,7 +1174,7 @@ function buildContentTokens(sceneId) {
       toks.push({ type: 'song-num', num: songNum, title: c.title || 'Untitled' });
       toks.push({ type: 'blank' });
       if (c.lyrics && c.lyrics.trim()) parseLyricLines(c.lyrics, c.type === 'song').forEach(pushLyric);
-      else toks.push({ type: 'action', text: '(no lyrics yet)' });
+      else toks.push({ type: 'action', text: state.readonly ? '(lyrics not reproduced)' : '(no lyrics yet)' });
       toks.push({ type: 'blank' });
     }
   };
@@ -1378,7 +1400,7 @@ function buildCharactersPage() {
   });
   toolbar.appendChild(el('span', { class: 'ch-toolbar-title', text: 'Characters' }));
   toolbar.appendChild(el('span', { style: 'flex:1' }));
-  toolbar.appendChild(syncBtn);
+  if (!state.readonly) toolbar.appendChild(syncBtn);
   if (!state.readonly) toolbar.appendChild(addBtn);
   host.appendChild(toolbar);
 
@@ -1404,7 +1426,7 @@ function buildCharactersPage() {
     cardHead.appendChild(el('span', { class: 'ch-avatar', text: initials }));
     const headText = el('div', { class: 'ch-head-text' });
     headText.appendChild(el('span', { class: 'ch-name', text: name }));
-    if (data.manual && !apps.length) headText.appendChild(el('span', { class: 'ch-tag ch-tag-manual', text: 'manual' }));
+    if (data.manual && !apps.length && !state.readonly) headText.appendChild(el('span', { class: 'ch-tag ch-tag-manual', text: 'manual' }));
     else headText.appendChild(el('span', { class: 'ch-count', text: apps.length + ' song' + (apps.length !== 1 ? 's' : '') }));
     cardHead.appendChild(headText);
     card.appendChild(cardHead);
@@ -2099,29 +2121,45 @@ function buildManuscriptPage(sceneId) {
   };
 
   // ── Edit mode (per-card sections) ───────────────────────────────
+  // Which field holds a card's manuscript body. A card may carry both a board
+  // synopsis (`note`) and written lines (`lyrics`) — e.g. a beat with a one-line
+  // summary plus full dialogue. Edit the field that already has content (lyrics
+  // wins, matching the Print view's preference); when empty, default by type.
+  // The read source and write target MUST be the same field, or editing a card
+  // that shows one field will silently overwrite the other.
+  const cardField = (c) => {
+    if ((c.lyrics || '').trim()) return 'lyrics';
+    if ((c.note || '').trim()) return 'note';
+    return c.type === 'scene' ? 'note' : 'lyrics';
+  };
+
   const renderCardSection = (sec, c) => {
     sec.innerHTML = '';
-    const isEmpty = !(c.lyrics || '').trim() && !(c.note || '').trim();
+    const text = (c[cardField(c)] || '').trim();
+    const isEmpty = !text;
     const inner = el('div', { class: 'ms-card-content ms-sheet-content' + (isEmpty ? ' ms-card-section-empty' : '') });
     if (isEmpty) {
-      const phText = c.type === 'scene' ? '(scene heading — click to write)' : c.type === 'beat' ? '(new beat — click to write)' : '(no lyrics yet — click to write)';
+      const phText = state.readonly
+        ? (c.type === 'scene' ? '(scene heading)' : c.type === 'beat' ? '' : '(lyrics not reproduced)')
+        : (c.type === 'scene' ? '(scene heading — click to write)' : c.type === 'beat' ? '(new beat — click to write)' : '(no lyrics yet — click to write)');
       inner.appendChild(el('div', { class: 'ms-card-placeholder', text: phText }));
     } else {
-      parseLyricLines(c.lyrics || c.note || '', c.type === 'song').forEach((tok) => renderPageToken(tok, inner));
+      parseLyricLines(text, c.type === 'song').forEach((tok) => renderPageToken(tok, inner));
     }
     sec.appendChild(inner);
   };
 
   const enterCardEditRich = (sec, c) => {
+    if (state.readonly) return; // references are read-only study objects
     if (sec.querySelector('.ms-card-rich-editor')) return;
     sec.innerHTML = '';
     sec.appendChild(buildRichEditor({
-      text: c.lyrics || c.note || '',
+      text: c[cardField(c)] || '',
       isSong: c.type === 'song',
       autofocus: true,
       onSave: (val) => {
-        if (c.type === 'beat') c.note = val; else c.lyrics = val;
-        autoSave();
+        c[cardField(c)] = val;
+        doSave(); // persist immediately — blur may be followed by navigating away
         renderCardSection(sec, c);
       },
     }));
@@ -2152,7 +2190,7 @@ function buildManuscriptPage(sceneId) {
     editOrder().forEach((idx) => {
       const c = state.cards[idx];
       if (!c) return;
-      const isEmpty = !(c.lyrics || '').trim() && !(c.note || '').trim();
+      const isEmpty = !(c[cardField(c)] || '').trim();
       const div = el('div', { class: 'ms-card-divider' + (isEmpty ? ' ms-card-divider-empty' : ''), 'data-card-id': c.id });
       const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '●';
       div.appendChild(el('span', { class: 'ms-card-divider-label', text: icon + ' ' + (c.title || 'Untitled') }));
@@ -2284,7 +2322,10 @@ function buildManuscriptPage(sceneId) {
 
   msWrap.appendChild(msNav);
   msWrap.appendChild(drawer);
-  settingsBtn.addEventListener('click', () => drawer.classList.toggle('open'));
+  settingsBtn.addEventListener('click', () => {
+    drawer.classList.toggle('open');
+    settingsBtn.classList.toggle('active', drawer.classList.contains('open'));
+  });
 
   body.appendChild(msWrap);
   applyMode();

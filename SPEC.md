@@ -197,10 +197,30 @@ songs) flows into one continuous, paginated document.
 
 ## 7. Reference & template library (pillar)
 
-- **Scaffolds** — load the skeleton of a known structure (Golden Age book musical, modern
-  sung-through, Disney-animated form) as a starting frame of empty function slots.
-- **Comparative overlay** — ghost a famous show's contour behind your own.
-- Doubles as onboarding: explore a known show's anatomy before writing a note.
+> **Reframed (2026-06-23): a bookshelf, not a template machine.** The original spec leaned on
+> two ideas that haven't held up. (1) The **comparative contour overlay** — "ghost a famous
+> show's contour behind your own" — was built around the dual energy/tension contour, which we
+> **removed in Phase 3** (see §3). With no contour, there is nothing to ghost; this feature is
+> **cut.** (2) **Scaffolds** that drop you into pre-labeled empty function slots risk
+> paint-by-numbers — the antithesis of what makes a musical original. Two shows can share the
+> "opening number" slot and teach opposite lessons (Fiddler's *Tradition* vs. Hamilton's opener).
+> So scaffolds are **downgraded** from a pillar to an optional, dismissible starting frame, built
+> only if it earns its place later. The library's real value is **study, not prescription.**
+
+The library is where you **read proven shows as study objects** — running order, song titles,
+voicing, act breaks, and function tags laid out the same way your own board is. You browse a
+master's anatomy to learn from it, not to copy its slots.
+
+- **Rich browsing** *(the core)* — each reference show renders read-only with the same card +
+  manuscript surfaces as a draft, so a writer can study how *Gypsy* stages its Act 1 finale or
+  how *Hamilton* packs motif density, side by side with their own work.
+- **Diagnostic comparison, not fill-in** *(future, ties to §9)* — surface gentle prompts like
+  "your show has no number doing the work an Act 1 finale usually does — here's how three
+  reference shows handle that beat." A prompt to *think*, never a slot to fill.
+- **Onboarding** — exploring a known show's anatomy before writing a note is a first-run path.
+- **Optional scaffold** *(deferred, not a pillar)* — if ever built, a known structural skeleton
+  (Golden Age book musical, modern sung-through) loads as a faint, fully-dismissible frame of
+  suggested function beats — never a mandatory grid.
 
 ### Seed set (11 shows, each teaches a distinct lesson)
 
@@ -411,7 +431,9 @@ and intermission-balance checks and relocates the "11 o'clock"-equivalent expect
 5. **Characters & Title pages** *(added; see §6c)* — ✅ DONE. Character registry + sync-from-lyrics;
    generated title/front-matter pages.
 6. **Reference library** *(pillar)* — 🟡 PARTIAL. 4 of 11 seed shows digitized + read-only in
-   Library; scaffold-load + ghost overlay still to come.
+   Library. Next: finish the remaining 7 and make all of them **richly browsable** as study
+   objects (cards + manuscript, side by side with a draft). Ghost contour overlay **cut** (no
+   contour to ghost); scaffold-load **deferred** to optional — see §7 reframing (2026-06-23).
 7. **Diagnostics engine** — ⬜ TODO. Turn on the lint once cards carry real data (§9).
 8. **Export** — 🟡 PARTIAL. Print/PDF via Print View done; MD running order + production report TODO.
 

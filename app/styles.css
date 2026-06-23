@@ -203,7 +203,7 @@ body.dark .sing.empty { background: var(--panel); border-color: #8b82e8; }
 .slider-row .sv { font-size: 13px; font-weight: 600; min-width: 18px; text-align: right; font-variant-numeric: tabular-nums; }
 
 .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink); cursor: pointer; }
-.check input { width: 16px; height: 16px; accent-color: var(--ink); }
+.check input { width: 16px; height: 16px; accent-color: var(--energy); }
 .dnote { font-size: 11px; color: var(--faint); margin-top: -2px; }
 
 /* lyric bench */
@@ -289,8 +289,9 @@ textarea.lyrictext { min-height: 120px; font-family: ui-monospace, Menlo, Consol
 .ms-zoom-lbl { font-size: 12px; color: var(--muted); min-width: 38px; text-align: center; font-variant-numeric: tabular-nums; }
 .ms-body { flex: 1; overflow-y: auto; background: #888; }
 body.dark .ms-body { background: var(--bg); }
-.ms-settings-btn { border: 1px solid transparent; background: transparent; color: var(--muted); font-size: 15px; width: 32px; height: 32px; border-radius: 7px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; margin-left: 6px; transition: background 0.12s, color 0.12s; }
-.ms-settings-btn:hover { background: var(--hover); color: var(--ink); }
+/* Settings is the icon variant of the shared ribbon button: square, no text,
+   a larger glyph. Height/border/hover come from the shared rule below. */
+.ms-settings-btn { width: 32px; padding: 0; justify-content: center; font-size: 15px; }
 .ms-opt-toggle { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); cursor: pointer; margin-left: 12px; white-space: nowrap; user-select: none; }
 .ms-opt-toggle input { cursor: pointer; accent-color: var(--energy); }
 
@@ -493,7 +494,7 @@ body.dark .ms-body { background: var(--bg); }
 .tp-checks-group { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .tp-checks-label { flex-shrink: 0; width: 120px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); font-weight: 600; }
 .tp-check-item { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--ink); cursor: pointer; user-select: none; }
-.tp-check-item input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--ink); }
+.tp-check-item input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--energy); }
 
 /* lyric launcher (in drawer) */
 .lyricopen { align-self: flex-start; display: flex; align-items: center; gap: 6px; }
@@ -562,7 +563,7 @@ body.dark .topnav {
 }
 .tn-iconbtn:hover { background: var(--tn-hover); color: var(--tn-ink); }
 .tn-library { color: var(--tn-muted); }
-.tn-library.active { background: var(--tn-hover); color: var(--tn-brand); }
+.tn-library.active, .tn-library.active:hover { background: var(--tn-active-bg); color: var(--tn-active-ink); }
 
 .tn-show-btn {
   display: flex; align-items: center; gap: 7px; max-width: 240px;
@@ -810,15 +811,18 @@ body.dark .ms-body { background: var(--bg); }
 body.dark .ribbon, body.dark .ms-toolbar { background: #211e2c; }
 .ms-toolbar .ms-zoom-wrap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .ms-tb-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.ms-nav-btn {
+/* Navigation, Print, and Settings share one bare-button language. They sit at
+   the same 32px height as the Edit/Print View seg track so the whole ribbon
+   reads as one uniform row. */
+.ms-nav-btn, .ms-print-btn, .ms-settings-btn {
   display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
-  font-family: inherit; font-size: 12px; height: 32px; padding: 0 11px; border-radius: 7px;
-  border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer;
-  transition: background 0.12s, color 0.12s;
+  height: 32px; padding: 0 11px; border-radius: 7px; border: 1px solid transparent;
+  background: transparent; color: var(--muted); font-size: 12px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: background 0.12s, color 0.12s;
 }
-.ms-nav-btn:hover { background: var(--hover); color: var(--ink); }
-.ms-nav-btn.active { background: #534ab7; color: #fff; border-color: #534ab7; }
-body.dark .ms-nav-btn.active { background: #6a61d0; color: #fff; border-color: #6a61d0; }
+.ms-nav-btn:hover, .ms-print-btn:hover, .ms-settings-btn:hover { background: var(--hover); color: var(--ink); }
+.ms-nav-btn.active, .ms-settings-btn.active { background: #534ab7; color: #fff; border-color: #534ab7; }
+body.dark .ms-nav-btn.active, body.dark .ms-settings-btn.active { background: #6a61d0; color: #fff; border-color: #6a61d0; }
 .ms-tb-divider { width: 1px; height: 22px; background: var(--line); flex-shrink: 0; }
 /* Segmented toggles in a ribbon share the nav-pill language: a tinted track
    container with a purple-filled active chip (matches the top-nav pill and the
@@ -836,13 +840,6 @@ body.dark .ms-mode-seg, body.dark .ribbon .seg { background: #2a2640; }
 .ms-mode-seg button:hover, .ribbon .seg button:hover { color: var(--ink); }
 .ms-mode-seg button.active, .ribbon .seg button.active { background: #534ab7; color: #fff; box-shadow: none; }
 body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { background: #6a61d0; color: #fff; }
-.ms-print-btn {
-  display: inline-flex; align-items: center; gap: 6px;
-  height: 32px; padding: 0 11px; border-radius: 7px; border: 1px solid transparent;
-  background: transparent; color: var(--muted); font-size: 12px; font-weight: 500;
-  font-family: inherit; cursor: pointer; transition: background 0.12s, color 0.12s;
-}
-.ms-print-btn:hover { background: var(--hover); color: var(--ink); }
 /* Outer manuscript container: a non-scrolling flex column so .ms-wrap fills it
    and only the inner sheet body scrolls — keeps the side drawer pinned. */
 #ms-body { display: flex; flex-direction: column; overflow: hidden; }
