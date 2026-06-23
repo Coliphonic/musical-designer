@@ -82,12 +82,12 @@ body.dark .lwtoggle.active { background: #4a453e; color: #f3eee3; box-shadow: 0 
 }
 .bcard:hover { box-shadow: 0 4px 14px #00000012; border-color: #d9d3c8; }
 .bcard.beat { background: var(--btn); border-style: dashed; }
-.bcard.scene { background: #efeefe; border-color: #c7c0f2; width: 44px; min-height: 100px; padding: 10px 0; align-items: center; justify-content: space-between; overflow: hidden; }
+.bcard.scene { background: #efeefe; border-color: #c7c0f2; width: 50px; min-height: 100px; padding: 10px 0; align-items: center; justify-content: space-between; overflow: hidden; }
 /* Cap the vertical label at ~2 columns by constraining its block axis (width,
    since writing-mode is vertical) and clipping the overflow. Deliberately NOT
    using -webkit-line-clamp / -webkit-box here: that combination flips the text
    upside-down on iOS WebKit when paired with vertical writing-mode. */
-.bcard.scene .scene-title { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 700; text-transform: uppercase; text-decoration: underline; letter-spacing: 0.06em; color: #3c3489; text-align: center; flex: 1; min-height: 0; max-width: 2.6em; overflow: hidden; }
+.bcard.scene .scene-title { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 700; text-transform: uppercase; text-decoration: underline; letter-spacing: 0.07em; line-height: 1.85; color: #3c3489; text-align: center; flex: 1; min-height: 0; max-width: 3.7em; overflow: hidden; }
 .scene-read-btn { border: 0; background: transparent; color: #3c3489; cursor: pointer; font-size: 10px; padding: 4px 0 2px; opacity: 0.5; line-height: 1; }
 .scene-read-btn:hover { opacity: 1; }
 body.dark .bcard.scene { background: #211d33; border-color: #5a5080; border-width: 1.5px; }
