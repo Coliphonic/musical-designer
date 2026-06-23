@@ -1,6 +1,5 @@
 // Seed reference shows for the board shell. Each number is a compact tuple:
-// [act, title, fn, voicing, estMinutes, energy(1-10), tension(1-10)]
-// Energy = tempo/drive, Tension = dramatic stakes. Both interpretive (see SPEC §7).
+// [act, title, fn, voicing, estMinutes]
 // Keys / BPM / exact runtimes intentionally omitted ("needs score").
 
 // Default template applied to every new user project.
@@ -10,24 +9,24 @@
 // INTERMISSION marker renders between 2A and 2B.
 const DEFAULT_TEMPLATE = [
   // ── Act 1: establish world, voice, first hook ───────────────────
-  { act: '1',  type: 'song', title: '', fn: 'opening', voicing: '', min: 4,   energy: 7, tension: 3 },
-  { act: '1',  type: 'song', title: '', fn: 'charm',   voicing: '', min: 3,   energy: 6, tension: 3 },
-  { act: '1',  type: 'song', title: '', fn: 'iwant',   voicing: '', min: 3.5, energy: 6, tension: 4 },
+  { act: '1',  type: 'song', title: '', fn: 'opening', voicing: '', min: 4   },
+  { act: '1',  type: 'song', title: '', fn: 'charm',   voicing: '', min: 3   },
+  { act: '1',  type: 'song', title: '', fn: 'iwant',   voicing: '', min: 3.5 },
   // ── Act 2A: complications deepen → threat crystallizes → cliffhanger
-  { act: '2A', type: 'song', title: '', fn: 'comedy',  voicing: '', min: 2.5, energy: 6, tension: 3 },
-  { act: '2A', type: 'song', title: '', fn: 'love',    voicing: '', min: 3.5, energy: 4, tension: 5 },
-  { act: '2A', type: 'song', title: '', fn: 'villain', voicing: '', min: 2.5, energy: 6, tension: 6 },
-  { act: '2A', type: 'song', title: '', fn: 'anthem',  voicing: '', min: 3.5, energy: 8, tension: 6 },
-  { act: '2A', type: 'song', title: '', fn: 'finale',  voicing: '', min: 4,   energy: 7, tension: 8 },
+  { act: '2A', type: 'song', title: '', fn: 'comedy',  voicing: '', min: 2.5 },
+  { act: '2A', type: 'song', title: '', fn: 'love',    voicing: '', min: 3.5 },
+  { act: '2A', type: 'song', title: '', fn: 'villain', voicing: '', min: 2.5 },
+  { act: '2A', type: 'song', title: '', fn: 'anthem',  voicing: '', min: 3.5 },
+  { act: '2A', type: 'song', title: '', fn: 'finale',  voicing: '', min: 4   },
   // ── Act 2B: regroup → cost mounts → late-act drive ──────────────
-  { act: '2B', type: 'song', title: '', fn: 'charm',      voicing: '', min: 3,   energy: 6, tension: 4 },
-  { act: '2B', type: 'song', title: '', fn: 'ballad',     voicing: '', min: 3.5, energy: 3, tension: 7 },
-  { act: '2B', type: 'song', title: '', fn: 'reprise',    voicing: '', min: 2,   energy: 5, tension: 7 },
-  { act: '2B', type: 'song', title: '', fn: 'production', voicing: '', min: 4.5, energy: 9, tension: 7 },
-  { act: '2B', type: 'song', title: '', fn: 'anthem',     voicing: '', min: 3.5, energy: 8, tension: 8 },
+  { act: '2B', type: 'song', title: '', fn: 'charm',      voicing: '', min: 3   },
+  { act: '2B', type: 'song', title: '', fn: 'ballad',     voicing: '', min: 3.5 },
+  { act: '2B', type: 'song', title: '', fn: 'reprise',    voicing: '', min: 2   },
+  { act: '2B', type: 'song', title: '', fn: 'production', voicing: '', min: 4.5 },
+  { act: '2B', type: 'song', title: '', fn: 'anthem',     voicing: '', min: 3.5 },
   // ── Act 3: climax → resolution ──────────────────────────────────
-  { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: '', min: 4.5, energy: 7, tension: 9 },
-  { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: '', min: 3,   energy: 6, tension: 5 },
+  { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: '', min: 4.5 },
+  { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: '', min: 3   },
 ];
 
 const FN = {
@@ -122,50 +121,50 @@ const SHOWS = {
     cards: [
       // ACT 1
       { lane: '1', type: 'scene', title: 'Brooklyn Rooftop' },
-      { lane: '1', type: 'song', title: 'Santa Fe (Prologue)', fn: 'iwant', voicing: 'Jack, Crutchie', min: 2, energy: 4, tension: 3 },
+      { lane: '1', type: 'song', title: 'Santa Fe (Prologue)', fn: 'iwant', voicing: 'Jack, Crutchie', min: 2 },
       { lane: '1', type: 'beat', title: 'Rooftop at dawn', note: 'Jack sketches the Santa Fe dream; Crutchie\'s bad leg, his loyalty', min: 1.5 },
       { lane: '1', type: 'beat', title: 'Snyder the Spider', note: 'The Refuge warden hunts runaways; Jack, an escapee, keeps his head down', min: 1 },
       { lane: '1', type: 'scene', title: 'Streets of Manhattan' },
-      { lane: '1', type: 'song', title: 'Carrying the Banner', fn: 'opening', voicing: 'Jack, Newsies', min: 4.5, energy: 8, tension: 3 },
+      { lane: '1', type: 'song', title: 'Carrying the Banner', fn: 'opening', voicing: 'Jack, Newsies', min: 4.5 },
       { lane: '1', type: 'beat', title: 'The distribution gates', note: 'Wiesel and the Delanceys hawk the papes; Davey and Les arrive needing to earn', min: 1.5 },
       { lane: '1', type: 'beat', title: 'Jack takes the boys in', note: 'He teaches Davey & Les to sell — and sizes up his new partners', min: 1.5 },
       { lane: '1', type: 'scene', title: "Pulitzer's Office" },
-      { lane: '1', type: 'song', title: 'The Bottom Line', fn: 'villain', voicing: 'Pulitzer + cronies', min: 2.5, energy: 5, tension: 5 },
+      { lane: '1', type: 'song', title: 'The Bottom Line', fn: 'villain', voicing: 'Pulitzer + cronies', min: 2.5 },
       { lane: '1', type: 'beat', title: 'The price hike hits', note: 'The World ups the price 10¢ per hundred; Davey names it — they\'re being robbed', min: 1.5 },
       { lane: '1', type: 'beat', title: 'Scuffle at the gates', note: 'The Delanceys shove Les; Jack steps in; the boys duck into Medda\'s', min: 1.5 },
       { lane: '1', type: 'scene', title: "Medda's Theater" },
-      { lane: '1', type: 'song', title: "That's Rich", fn: 'diegetic', voicing: 'Medda Larkin', min: 2.5, energy: 6, tension: 2 },
+      { lane: '1', type: 'song', title: "That's Rich", fn: 'diegetic', voicing: 'Medda Larkin', min: 2.5 },
       { lane: '1', type: 'beat', title: 'Jack meets Katherine', note: 'Sparks in the wings with the young reporter; he sketches her', min: 1.5 },
-      { lane: '1', type: 'song', title: 'I Never Planned on You', fn: 'charm', voicing: 'Jack', min: 3, energy: 5, tension: 3 },
+      { lane: '1', type: 'song', title: 'I Never Planned on You', fn: 'charm', voicing: 'Jack', min: 3 },
       { lane: '1', type: 'beat', title: 'The idea: a strike', note: 'Jack pitches it; Davey the reluctant brains signs on', min: 1.5 },
       // ACT 2A
       { lane: '2A', type: 'scene', title: 'Newsies Square' },
-      { lane: '2A', type: 'song', title: 'The World Will Know', fn: 'anthem', voicing: 'Jack, Davey, Les, Newsies', min: 3.5, energy: 8, tension: 6 },
+      { lane: '2A', type: 'song', title: 'The World Will Know', fn: 'anthem', voicing: 'Jack, Davey, Les, Newsies', min: 3.5 },
       { lane: '2A', type: 'beat', title: 'Forming the union', note: 'The newsies organize and name Jack & Davey their leaders', min: 1.5 },
       { lane: '2A', type: 'scene', title: 'The Sun — City Room' },
       { lane: '2A', type: 'beat', title: 'Katherine smells a story', note: 'She pitches the strike to her skeptical editor', min: 1.5 },
-      { lane: '2A', type: 'song', title: 'Watch What Happens', fn: 'iwant', voicing: 'Katherine', min: 2.5, energy: 5, tension: 4 },
+      { lane: '2A', type: 'song', title: 'Watch What Happens', fn: 'iwant', voicing: 'Katherine', min: 2.5 },
       { lane: '2A', type: 'scene', title: 'Distribution Gates — Strike Day' },
       { lane: '2A', type: 'beat', title: 'Strike morning', note: 'The newsies mass at the distribution window and refuse to sell', min: 1.5 },
       { lane: '2A', type: 'beat', title: 'The scabs arrive', note: 'Wiesel brings in replacement boys to sell the papes', min: 1.5 },
       { lane: '2A', type: 'beat', title: 'Winning over the scabs', note: 'The newsies argue, shame, and welcome the scabs into the cause', min: 2 },
-      { lane: '2A', type: 'song', title: 'Seize the Day', fn: 'production', voicing: 'Davey, Jack, Les, Newsies', min: 4.5, energy: 9, tension: 6 },
+      { lane: '2A', type: 'song', title: 'Seize the Day', fn: 'production', voicing: 'Davey, Jack, Les, Newsies', min: 4.5 },
       { lane: '2A', type: 'beat', title: 'The crackdown', note: 'The Delanceys and police charge; the rally erupts into a riot', min: 2 },
       { lane: '2A', type: 'beat', title: 'Crutchie is taken', note: 'Snyder\'s men beat Crutchie and drag him to the Refuge', min: 1.5 },
       { lane: '2A', type: 'beat', title: 'Jack runs', note: 'Alone on the rooftop, blaming himself, watching the city', min: 1 },
-      { lane: '2A', type: 'song', title: 'Santa Fe', fn: 'finale', voicing: 'Jack', min: 4, energy: 7, tension: 7 },
+      { lane: '2A', type: 'song', title: 'Santa Fe', fn: 'finale', voicing: 'Jack', min: 4 },
       // ACT 2B
       { lane: '2B', type: 'scene', title: 'Newsies Lodging House' },
       { lane: '2B', type: 'beat', title: 'Front page', note: 'The strike is the talk of the city; the newsies are famous', min: 1.5 },
-      { lane: '2B', type: 'song', title: 'King of New York', fn: 'production', voicing: 'Davey, Katherine, Les, Newsies', min: 4.5, energy: 9, tension: 4 },
+      { lane: '2B', type: 'song', title: 'King of New York', fn: 'production', voicing: 'Davey, Katherine, Les, Newsies', min: 4.5 },
       { lane: '2B', type: 'scene', title: "Medda's — Backstage" },
       { lane: '2B', type: 'beat', title: 'Jack in hiding', note: 'Painting backdrops at Medda\'s, done with the fight', min: 1.5 },
       { lane: '2B', type: 'beat', title: 'Katherine pushes back', note: 'She refuses to let him quit', min: 1.5 },
       { lane: '2B', type: 'beat', title: 'At the Refuge', note: 'Crutchie, hurting but unbroken, dreams of Jack and Santa Fe', min: 1 },
-      { lane: '2B', type: 'song', title: 'Letter from the Refuge', fn: 'ballad', voicing: 'Crutchie', min: 2.5, energy: 3, tension: 6 },
+      { lane: '2B', type: 'song', title: 'Letter from the Refuge', fn: 'ballad', voicing: 'Crutchie', min: 2.5 },
       { lane: '2B', type: 'beat', title: "Katherine's secret", note: 'She\'s Pulitzer\'s daughter; trust wobbles', min: 1.5 },
       { lane: '2B', type: 'beat', title: 'The plan', note: 'Rally every working kid in New York; beat Pulitzer with his own press', min: 1.5 },
-      { lane: '2B', type: 'song', title: 'Watch What Happens (Reprise)', fn: 'reprise', voicing: 'Jack, Davey, Les, Katherine', min: 1.5, energy: 5, tension: 6 },
+      { lane: '2B', type: 'song', title: 'Watch What Happens (Reprise)', fn: 'reprise', voicing: 'Jack, Davey, Les, Katherine', min: 1.5 },
       { lane: '2B', type: 'scene', title: "Pulitzer's Office" },
       { lane: '2B', type: 'beat', title: 'Summoned by Pulitzer', note: 'Jack is hauled before Pulitzer; Snyder waits in the office', min: 1.5 },
       { lane: '2B', type: 'beat', title: 'The bribe', note: 'Money and freedom from the Refuge if Jack calls off the strike', min: 2 },
@@ -173,17 +172,17 @@ const SHOWS = {
       { lane: '2B', type: 'beat', title: 'Betrayed', note: 'Davey and the newsies turn on Jack; Katherine won\'t quit', min: 1.5 },
       // ACT 3
       { lane: '3', type: 'scene', title: 'The Streets — Midtown' },
-      { lane: '3', type: 'song', title: "Brooklyn's Here", fn: 'production', voicing: 'Spot Conlon, Newsies', min: 2.5, energy: 8, tension: 6 },
+      { lane: '3', type: 'song', title: "Brooklyn's Here", fn: 'production', voicing: 'Spot Conlon, Newsies', min: 2.5 },
       { lane: '3', type: 'beat', title: 'Jack recommits', note: 'Katherine shows him the way; the cellar printing plan', min: 1.5 },
-      { lane: '3', type: 'song', title: 'Something to Believe In', fn: 'love', voicing: 'Jack, Katherine', min: 3.5, energy: 4, tension: 5 },
+      { lane: '3', type: 'song', title: 'Something to Believe In', fn: 'love', voicing: 'Jack, Katherine', min: 3.5 },
       { lane: '3', type: 'scene', title: "The World's Press Room" },
       { lane: '3', type: 'beat', title: 'Printing the Banner', note: 'Overnight, in the World\'s own cellar, they print their paper', min: 2 },
       { lane: '3', type: 'beat', title: 'The city rises', note: 'Every working kid in New York reads the call to strike', min: 1.5 },
-      { lane: '3', type: 'song', title: 'Once and for All', fn: 'anthem', voicing: 'Jack, Katherine, Davey, Newsies', min: 3.5, energy: 8, tension: 8 },
+      { lane: '3', type: 'song', title: 'Once and for All', fn: 'anthem', voicing: 'Jack, Katherine, Davey, Newsies', min: 3.5 },
       { lane: '3', type: 'beat', title: 'Roosevelt arrives', note: 'Jack\'s Refuge drawings expose Snyder; the Governor intervenes', min: 2 },
       { lane: '3', type: 'beat', title: 'Pulitzer concedes', note: 'Snyder arrested, Crutchie freed, the price rolled back', min: 1.5 },
       { lane: '3', type: 'beat', title: 'Jack stays', note: 'He chooses New York, Katherine, and the newsies over Santa Fe', min: 1.5 },
-      { lane: '3', type: 'song', title: 'Finale (Santa Fe reprise)', fn: 'finaleultimo', voicing: 'Company', min: 2, energy: 7, tension: 3 },
+      { lane: '3', type: 'song', title: 'Finale (Santa Fe reprise)', fn: 'finaleultimo', voicing: 'Company', min: 2 },
     ],
   },
   hamilton: {

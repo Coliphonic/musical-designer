@@ -64,14 +64,14 @@ function cardById(id) { return state.cards.find((c) => c.id === id); }
 
 // ---- model ----
 function cardFromTuple(t) {
-  const [act, title, fn, voicing, min, energy, tension] = t;
-  return { id: uid(), type: 'song', act, title, fn, voicing, min, energy, tension };
+  const [act, title, fn, voicing, min] = t;
+  return { id: uid(), type: 'song', act, title, fn, voicing, min };
 }
 function cardFromObj(o) {
   const act = o.lane || o.act;
   if (o.type === 'beat') return { id: uid(), type: 'beat', act, title: o.title, note: o.note || '', min: o.min || 1.5 };
   if (o.type === 'scene') return { id: uid(), type: 'scene', act, title: o.title };
-  return { id: uid(), type: 'song', act, title: o.title, fn: o.fn, voicing: o.voicing, min: o.min, energy: o.energy, tension: o.tension };
+  return { id: uid(), type: 'song', act, title: o.title, fn: o.fn, voicing: o.voicing, min: o.min };
 }
 function assignLanes(numbers) {
   const total = numbers.reduce((s, t) => s + t[4], 0) || 1;

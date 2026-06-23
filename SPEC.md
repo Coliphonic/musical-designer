@@ -7,6 +7,17 @@ why) rather than around scenes and dialogue.
 Chosen direction: **The Song Plot** — an interactive number list / running order with a
 diagnostic engine, a reference/template library, and an embedded lyric-craft bench.
 
+> **Vision update (2026-06-23).** The original spec scoped a single-user *song-plot board* —
+> a diagnostic surface for spotting numbers. In use it grew into a full **writing
+> environment**: the board is still the hinge, but it now feeds a paginated **Manuscript** view
+> that produces real Final-Draft-formatted libretto pages, a **Characters** registry, and
+> **Title pages** — so a writer can go from spotting a number to a printable script in one tool.
+> It also became a **deployed, multi-user web app** (accounts, a Library of shows with folders &
+> archiving, async sharing). The song-plot vision is intact and load-bearing; what changed is
+> that the app no longer stops at the board. The page model is now **Board · Title pages ·
+> Manuscript · Characters · Export**, plus a **Library**. See §6b (Manuscript), §6c (Characters /
+> Title pages), and §12 (Platform) for the surfaces the original spec didn't anticipate.
+
 ---
 
 ## 1. Core principle
@@ -51,14 +62,19 @@ Two load-bearing design decisions:
 
 ---
 
-## 3. The dual contour (DEMOTED — optional, off by default)
+## 3. The dual contour (REMOVED — kept here as a design learning)
 
-> **Phase 1 learning (2026-06-16):** in real use the contour didn't earn its prominence for the
-> writing task — the **cards are what matters**. It's now an optional toggle (off by default);
-> energy/tension survive as small badges on song cards. Kept, not deleted. The cards-first board
-> with per-card **% through the story** is the primary surface. See §6a.
+> **Phase 1 learning (2026-06-16), confirmed removed (2026-06-23):** in real use the contour
+> didn't earn its prominence for the writing task — the **cards are what matters**. It was first
+> demoted to an optional toggle, then **removed entirely** from the live app: there is no curve,
+> divergence band, or toggle. The `energy` / `tension` *fields* have been **deprecated and removed** from the data model
+> (2026-06-23): stripped from templates, reference data, the seed show, and the model functions.
+> Legacy show files on the server that still carry these keys will have them silently dropped on
+> next save. If a contour view returns in future it will need fresh data entry. The cards-first board with per-card **% through the story** is the primary
+> surface. See §6a. The original idea is preserved below because the *reasoning* (the gap between
+> the curves is the real signal) is still sound and may feed a future diagnostics view.
 
-The plot board draws a curve across the show. A toggle switches the axis:
+The original concept: the plot board draws a curve across the show. A toggle switches the axis:
 
 - **Energy / tempo** — ballad vs. barn-burner.
 - **Dramatic tension** — stakes rising.
@@ -138,6 +154,37 @@ Card statuses: `idea → lyric draft → music draft → demo → locked`.
   Newsies). Percentages stay full-story-relative in both views; inserting a beat auto-switches to
   Full story so it's visible.
 
+## 6b. Manuscript — the libretto view (added Phase 2, not in original spec)
+
+The board says *where* the show sings; the **Manuscript** is where the book and lyrics are
+actually written and read as a script. Every Card's content (dialogue for beats, lyrics for
+songs) flows into one continuous, paginated document.
+
+- **Two modes.** *Edit* (default) — a dark-friendly continuous editor where each card is a
+  section under a divider (◆ scene · ♪ song · ● beat). *Print View* — paginated 8.5×11" white
+  sheets laid out to **Final Draft conventions** (character cue at 3.0", dialogue/lyric margins,
+  12pt Courier Prime, 6 lines/inch), ready to print or export to PDF.
+- **Outline navigator** (Edit only) — a left panel listing every card grouped by act lane; click
+  a row to smooth-scroll to that card; the card nearest the top of the viewport highlights via an
+  `IntersectionObserver`. Toggled from a **☰ Navigation** button in the ribbon. Hidden in Print
+  View (print tokens aren't card-id-tagged — a known limitation).
+- **Contextual ribbon** — a per-page toolbar directly under the top nav, shared as one `.ribbon`
+  system across Board / Manuscript / Characters. Manuscript's holds Navigation · Edit/Print
+  toggle · centered zoom · Print · Settings (the settings drawer opens on the right; print/settings
+  sit far-right to mirror that).
+- **Rich line editor** — the Tab/Enter element editor (character / dialogue / lyric / parenthetical
+  / action / section) is a shared `buildRichEditor()` factory used by both the Manuscript Edit
+  mode and the lyric window's Rich tab, so book and lyric editing feel identical.
+
+## 6c. Characters & Title pages (added Phase 2)
+
+- **Characters page** — a registry card per character (voice type, brief description, notes, and
+  an auto-computed "appears in" list of the songs/scenes they're cued in). **Sync from lyrics**
+  scans every card via `parseLyricLines` to discover names from cues. Powers the FD-style
+  character-name autocomplete in the editor and (future) vocal-load diagnostics.
+- **Title pages** — generated front matter (title, authors, contact, cast list, song list,
+  settings) rendered on the same print sheets as the Manuscript, with per-block include toggles.
+
 ## 6. Views
 
 1. **Running Order** — horizontal timeline of numbers (primary view).
@@ -182,6 +229,11 @@ First digitizing batch (highest contrast, proves the format): **Fiddler** (openi
 (contemporary anthem). Remaining 7 to digitize: Guys and Dolls, Chicago, The Little Mermaid,
 Into the Woods, Les Misérables, Wicked, Dear Evan Hansen.
 
+The reference shows render read-only in a "Reference" section of the Library. The **shipped demo
+show** (a fully-worked original example with songs, beats, lyrics, and book dialogue) is
+**Circuits & Sycamores** — seeded from `app/seed-shows/circuits.json` into a new user's data dir
+on first boot, never overwriting live edits. It replaced Fiddler as the default landing example.
+
 Format columns (per number): `# · Title · Function · Voicing · ~Min · Energy · Tension · Note`.
 Hamilton additionally carries a **motif map** table — the template for any motif-dense show.
 
@@ -217,6 +269,16 @@ word's natural stress land on the melody's strong beat?" So the bench is an *ali
 between two stress patterns (word-stress vs. beat-grid), with two modes: **no melody** (analyze
 inherent rhythm; check later verses against verse 1) and **melody present** (check stress vs.
 the beat grid).
+
+### Input format (seamless, evolved from the original `@`/`~` syntax)
+
+`parseLyricLines(text, defaultSung)` is the single source of truth — it classifies each line 1:1
+and drives rendering, the syllable gutter, rhyme scheme, and the Manuscript pages. **No markup
+required:** an ALL-CAPS line is a character cue; lines default to **sung** in songs / **spoken**
+in beats; a trailing `(sings)` / `(spoken)` overrides the block. Legacy `@cue` / `~sung` still
+parse (backward compatible). The editor surfaces this two ways: a **Fountain** tab (plain-text
+main view) and a **Rich** tab (Tab/Enter element editor with section pills and parenthetical
+formatting), both round-tripping the same clean format.
 
 ### The engine
 
@@ -332,7 +394,9 @@ and intermission-balance checks and relocates the "11 o'clock"-equivalent expect
 
 ## 11. Build phases (UI-first)
 
-1. **Board shell** — static cards in running order, dual contour + divergence band, drag-to-reorder. No logic. The make-or-break demo.
+1. **Board shell** — ✅ DONE. Static cards in running order, drag-to-reorder. The make-or-break
+   demo. (Originally shipped with the dual contour + divergence band; the contour was later
+   **removed** once the cards proved to be what matters — see §3/§6a.)
 2. **Card opens** — ✅ DONE (v6). Right-side detail drawer: edit act/function/voicing/energy/
    tension/duration/status/key/style/diegetic + the "why does this sing?" field (highlighted while
    empty; new songs open straight into it = the creation gate). Status shows as a card dot; live re-render.
@@ -341,9 +405,44 @@ and intermission-balance checks and relocates the "11 o'clock"-equivalent expect
    live per-line syllable counts, A/B/C rhyme scheme by true perfect-rhyme grouping (love≠move),
    the **perfect-rhyme suggester** (headline; orange→none), and a verse-to-verse syllable mismatch
    flag. Quiet prosody/stress + slant-rhyme hints deferred (pop/contemporary persona). See §8.
-4. **Reference library** *(pillar)* — seed canonical shows + templates; scaffold-load + ghost overlay.
-5. **Diagnostics engine** — turn on the lint once cards carry real data.
-6. **Export** — number list, MD running order, production report.
+4. **Manuscript + book** *(added; see §6b)* — ✅ DONE. Paginated FD-format libretto (Edit + Print
+   View), seamless CAPS-cue input, Fountain/Rich editors, outline navigator. The vision expansion
+   that turned the board into a writing environment.
+5. **Characters & Title pages** *(added; see §6c)* — ✅ DONE. Character registry + sync-from-lyrics;
+   generated title/front-matter pages.
+6. **Reference library** *(pillar)* — 🟡 PARTIAL. 4 of 11 seed shows digitized + read-only in
+   Library; scaffold-load + ghost overlay still to come.
+7. **Diagnostics engine** — ⬜ TODO. Turn on the lint once cards carry real data (§9).
+8. **Export** — 🟡 PARTIAL. Print/PDF via Print View done; MD running order + production report TODO.
 
-**Protect Phases 1–2.** If dragging a card and watching the divergence band breathe doesn't feel
-good, no amount of lint or reference data saves it. Build that, react, then commit to the rest.
+**Protect Phases 1–2.** The original bet was "if dragging a card and watching the divergence band
+breathe doesn't feel good, no amount of lint or reference data saves it." The contour lost that
+bet and was cut — but the principle held: **the tactile cards-first board is the thing that has to
+feel good first.** It does; everything else (Manuscript, library, diagnostics) builds on it.
+
+---
+
+## 12. Platform — accounts, storage, deployment (added; not in original spec)
+
+The spec assumed a single-user local tool. It's now a deployed multi-user web app.
+
+- **Accounts & auth.** `users.js` CLI manages `users.json` (scrypt salt:hash). Stateless
+  signed-cookie sessions (`md_session` = `userId.HMAC`). Server gates `/` → `login.html` when
+  unauthenticated; `/api/shows*` returns 401. Scale target: just the author + 1–2 trusted
+  collaborators — file-based, no database.
+- **Library & file management.** A Library page (card grid) with per-show status (draft / active /
+  archived), folders, duplicate / archive / delete, and relative last-edited. Shows carry an
+  `owner` userId and `collaborators[]`.
+- **Sharing.** Owner-only share modal writes collaborators via `PUT /api/shows/:id/share`;
+  list/get/put/delete enforce owner-or-collaborator access. Roadmap: **document-locking** ("X is
+  editing") before any real-time CRDT — only 2–3 trusted editors, so locking suffices.
+- **Data storage.** Shows are user *data*, not code — not git-tracked. `serve.js` reads
+  `SHOWS_DIR` from env (external dir on the server) so `git pull` never collides with live data;
+  demo seeds copy in only if absent. An optional `USE_REMOTE_DATA` proxy lets local dev read prod
+  data through a stored prod session token (default off → sandbox data).
+- **Deployment.** Live at `https://musicaldesigner.colincreates.com` (DreamCompute VPS, Ubuntu +
+  Node 20, pm2). Caddy reverse-proxies :443→:8090 with auto Let's Encrypt. **PWA**: manifest +
+  service worker + icons; installable, with iPad safe-area handling.
+- **Chrome.** Navigation is a **top brand bar** (deep-purple identity band, centered pill nav,
+  green "saved" indicator) over a per-page contextual ribbon — replacing the original left
+  sidebar. See §6b for the ribbon system.
