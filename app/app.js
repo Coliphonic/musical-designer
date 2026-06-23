@@ -2063,10 +2063,12 @@ function buildManuscriptPage(sceneId) {
   const saveMsOpts = () => { try { localStorage.setItem('md-ms-opts', JSON.stringify(state.msOptions)); } catch (_) {} };
 
   toolbar.appendChild(navBtn); // leftmost — the outline opens on the left
-  toolbar.appendChild(el('span', { class: 'ms-tb-divider' }));
-  toolbar.appendChild(modeSeg);
   toolbar.appendChild(zoomWrap); // absolutely centered via CSS
+  // Mode toggle lives on the right beside Print so it stays anchored when the
+  // Edit-only Navigation button disappears in Print View.
   const tbRight = el('div', { class: 'ms-tb-right' });
+  tbRight.appendChild(modeSeg);
+  tbRight.appendChild(el('span', { class: 'ms-tb-divider' }));
   tbRight.appendChild(printBtn);
   tbRight.appendChild(settingsBtn); // settings last — it opens the right-edge drawer
   toolbar.appendChild(tbRight);
