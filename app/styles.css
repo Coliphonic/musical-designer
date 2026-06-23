@@ -820,15 +820,20 @@ body.dark .ribbon, body.dark .ms-toolbar { background: #211e2c; }
 .ms-nav-btn.active { background: #534ab7; color: #fff; border-color: #534ab7; }
 body.dark .ms-nav-btn.active { background: #6a61d0; color: #fff; border-color: #6a61d0; }
 .ms-tb-divider { width: 1px; height: 22px; background: var(--line); flex-shrink: 0; }
-/* Mode toggles render as a row of pills (identical to .ms-nav-btn) so every
-   ribbon control is the same height and shape; the selected one fills purple. */
+/* Segmented toggles in a ribbon share the nav-pill language: a tinted track
+   container with a purple-filled active chip (matches the top-nav pill and the
+   in-drawer Left/Center/Right seg). */
 .ms-mode-seg { flex-shrink: 0; }
-.ms-mode-seg, .ribbon .seg { background: transparent; border: none; padding: 0; gap: 4px; height: 32px; }
-.ms-mode-seg button, .ribbon .seg button {
-  display: flex; align-items: center; height: 32px; padding: 0 13px; border-radius: 7px;
-  border: 1px solid transparent; background: transparent; font-size: 12px; font-weight: 500; color: var(--muted);
+.ms-mode-seg, .ribbon .seg {
+  display: inline-flex; align-items: center; height: 32px; gap: 3px;
+  background: #e6e1f6; border: none; border-radius: 9px; padding: 3px;
 }
-.ms-mode-seg button:hover, .ribbon .seg button:hover { color: var(--ink); background: var(--hover); }
+body.dark .ms-mode-seg, body.dark .ribbon .seg { background: #2a2640; }
+.ms-mode-seg button, .ribbon .seg button {
+  display: flex; align-items: center; height: 26px; padding: 0 12px; border-radius: 6px;
+  border: none; background: transparent; font-size: 12px; font-weight: 500; color: var(--muted);
+}
+.ms-mode-seg button:hover, .ribbon .seg button:hover { color: var(--ink); }
 .ms-mode-seg button.active, .ribbon .seg button.active { background: #534ab7; color: #fff; box-shadow: none; }
 body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { background: #6a61d0; color: #fff; }
 .ms-print-btn {
