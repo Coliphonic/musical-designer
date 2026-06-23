@@ -429,10 +429,6 @@ function showShowPopover() {
   closeRow.appendChild(closeBtn);
   pop.appendChild(closeRow);
 
-  const libLink = el('button', { class: 'sp-item sp-liblink', text: '▤  Library' });
-  libLink.addEventListener('click', (e) => { e.stopPropagation(); closeShowPopover(); navigateTo('library'); });
-  pop.appendChild(libLink);
-
   if (state.projects && state.projects.length) {
     const recents = state.projects.filter((p) => (p.status || 'active') !== 'archived').slice(0, 5);
     pop.appendChild(el('div', { class: 'sp-label', text: 'Recent' }));
@@ -1364,7 +1360,7 @@ function buildCharactersPage() {
   const { merged, appearances } = extractCharacters();
   const names = Object.keys(merged).sort();
 
-  const toolbar = el('div', { class: 'ch-toolbar' });
+  const toolbar = el('div', { class: 'ch-toolbar ribbon' });
   const syncBtn = el('button', { class: 'pbtn', text: '⟳ Sync from lyrics' });
   syncBtn.addEventListener('click', () => {
     state.characters = extractCharacters().merged;
@@ -1493,7 +1489,7 @@ function navigateTo(page, sceneId) {
   document.querySelectorAll('.page').forEach((p) => { p.style.display = 'none'; });
   const target = document.getElementById('page-' + page);
   if (target) target.style.display = '';
-  document.querySelectorAll('.sb-item').forEach((b) => {
+  document.querySelectorAll('.tn-tab').forEach((b) => {
     b.classList.toggle('active', b.dataset.page === page);
   });
   if (page === 'library') buildLibraryPage();
@@ -2052,10 +2048,6 @@ function buildManuscriptPage(sceneId) {
   const zoomLbl = el('span', { class: 'ms-zoom-lbl' });
   const zoomWrap = el('div', { class: 'ms-zoom-wrap' }, [zoomOut, zoomLbl, zoomIn]);
 
-  const backBtn = el('button', { class: 'ms-back-btn', title: 'Back to Board' });
-  backBtn.textContent = '← Board';
-  backBtn.addEventListener('click', () => navigateTo('board'));
-
   // View-mode toggle as a segmented control (matches the Board's view switcher),
   // so it reads as a state toggle rather than an action button.
   const modeSeg = el('div', { class: 'seg ms-mode-seg', title: 'Switch view' });
@@ -2066,17 +2058,18 @@ function buildManuscriptPage(sceneId) {
   const printBtn = el('button', { class: 'ms-print-btn', title: 'Print / Save as PDF', text: '⎙ Print' });
   printBtn.addEventListener('click', () => exportPDF(true));
   const settingsBtn = el('button', { class: 'ms-settings-btn', title: 'Page settings', text: '⚙' });
+  const navBtn = el('button', { class: 'ms-nav-btn', title: 'Show/hide the outline navigation', text: '☰ Navigation' });
 
   const saveMsOpts = () => { try { localStorage.setItem('md-ms-opts', JSON.stringify(state.msOptions)); } catch (_) {} };
 
-  toolbar.appendChild(backBtn);
-  toolbar.appendChild(el('span', { style: 'flex:1' }));
-  toolbar.appendChild(zoomWrap);
-  toolbar.appendChild(el('span', { style: 'flex:1' }));
-  toolbar.appendChild(modeSeg);
+  toolbar.appendChild(navBtn); // leftmost — the outline opens on the left
   toolbar.appendChild(el('span', { class: 'ms-tb-divider' }));
-  toolbar.appendChild(printBtn);
-  toolbar.appendChild(settingsBtn);
+  toolbar.appendChild(modeSeg);
+  toolbar.appendChild(zoomWrap); // absolutely centered via CSS
+  const tbRight = el('div', { class: 'ms-tb-right' });
+  tbRight.appendChild(printBtn);
+  tbRight.appendChild(settingsBtn); // settings last — it opens the right-edge drawer
+  toolbar.appendChild(tbRight);
 
   const msWrap = el('div', { class: 'ms-wrap' });
 
@@ -2179,7 +2172,7 @@ function buildManuscriptPage(sceneId) {
     editTab.classList.toggle('active', isEdit);
     layoutTab.classList.toggle('active', !isEdit);
     try { localStorage.setItem('md-ms-mode', msMode); } catch (_) {}
-    msNav.style.display = isEdit ? '' : 'none'; // outline navigator is Edit-only
+    applyNav(); // outline panel + Navigation button reflect Edit/Print state
     if (isEdit) { rebuildEdit(); applyZoom(); }
     else { rebuildSheets(); applyZoom(); }
   };
@@ -2222,24 +2215,26 @@ function buildManuscriptPage(sceneId) {
   zoomOut.addEventListener('click', () => { zoom = Math.max(ZOOM_MIN, +(zoom - ZOOM_STEP).toFixed(2)); applyZoom(); });
   zoomIn.addEventListener('click',  () => { zoom = Math.min(ZOOM_MAX, +(zoom + ZOOM_STEP).toFixed(2)); applyZoom(); });
 
-  // ── Edit-mode outline navigator ──────────────────────────────────
-  let navCollapsed = (() => { try { return localStorage.getItem('md-ms-nav') === 'closed'; } catch (_) { return false; } })();
-  const msNav = el('div', { class: 'ms-nav' + (navCollapsed ? ' collapsed' : '') });
-  const navToggle = el('button', { class: 'ms-nav-toggle', title: 'Toggle outline' });
-  const setToggleIcon = () => { navToggle.textContent = navCollapsed ? '☰' : '‹'; };
-  setToggleIcon();
+  // ── Edit-mode outline navigator — shown/hidden via the ribbon's "Navigation" ──
+  const msNav = el('div', { class: 'ms-nav' });
   const navHead = el('div', { class: 'ms-nav-head' }, [
-    el('span', { class: 'ms-nav-title', text: 'Outline' }),
-    navToggle,
+    el('span', { class: 'ms-nav-title', text: 'Navigation' }),
   ]);
   const navList = el('div', { class: 'ms-nav-list' });
   msNav.appendChild(navHead);
   msNav.appendChild(navList);
-  navToggle.addEventListener('click', () => {
-    navCollapsed = !navCollapsed;
-    msNav.classList.toggle('collapsed', navCollapsed);
-    setToggleIcon();
-    try { localStorage.setItem('md-ms-nav', navCollapsed ? 'closed' : 'open'); } catch (_) {}
+
+  let navOpen = (() => { try { return localStorage.getItem('md-ms-nav') !== 'closed'; } catch (_) { return true; } })();
+  const applyNav = () => {
+    const showNav = navOpen && msMode === 'edit';
+    msNav.style.display = showNav ? '' : 'none';
+    navBtn.classList.toggle('active', navOpen);
+    navBtn.style.display = msMode === 'edit' ? '' : 'none'; // outline is Edit-only
+  };
+  navBtn.addEventListener('click', () => {
+    navOpen = !navOpen;
+    try { localStorage.setItem('md-ms-nav', navOpen ? 'open' : 'closed'); } catch (_) {}
+    applyNav();
   });
 
   let navObserver = null;
@@ -2649,7 +2644,7 @@ function initControls() {
   document.querySelectorAll('#view-seg button').forEach((b) => b.addEventListener('click', () => { state.view = b.dataset.view; render(); }));
   document.getElementById('backdrop').addEventListener('click', closeDetail);
   document.getElementById('lyricwin').addEventListener('click', (e) => { if (e.target.id === 'lyricwin') closeLyricWindow(); });
-  document.querySelectorAll('.sb-item[data-page]').forEach((b) => {
+  document.querySelectorAll('.tn-tab[data-page]').forEach((b) => {
     b.addEventListener('click', () => { if (!b.classList.contains('sb-disabled')) navigateTo(b.dataset.page); });
   });
 

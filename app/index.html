@@ -20,61 +20,34 @@
 </head>
 <body>
 
-  <!-- Sidebar -->
-  <aside id="sidebar" class="sidebar">
-    <div class="sb-brand">
-      <span class="sb-logo">♪</span>
-      <span class="sb-appname">Song Plot</span>
+  <!-- Top navigation -->
+  <header id="topnav" class="topnav">
+    <div class="tn-bar">
+      <div class="tn-left">
+        <button class="tn-tab tn-iconbtn tn-library" data-page="library" title="Library" aria-label="Library">▤</button>
+        <button class="tn-show-btn" id="sb-show-btn" title="Switch show">
+          <span class="sb-save-dot" id="save-ind" title="Saved"></span>
+          <span class="sb-show-name" id="sb-show-name">—</span>
+          <span class="tn-caret">▾</span>
+        </button>
+      </div>
+
+      <nav class="tn-nav">
+        <button class="tn-tab" data-page="board">Board</button>
+        <button class="tn-tab" data-page="titlepage">Title pages</button>
+        <button class="tn-tab" data-page="manuscript">Manuscript</button>
+        <button class="tn-tab" data-page="characters">Characters</button>
+        <button class="tn-tab" data-page="export">Export</button>
+      </nav>
+
+      <div class="tn-right">
+        <button class="tn-iconbtn" id="sb-darkmode" title="Toggle dark mode" aria-label="Toggle dark mode">
+          <span class="sb-dm-icon">☀</span>
+          <span class="sb-label" hidden></span>
+        </button>
+      </div>
     </div>
-
-    <nav class="sb-nav">
-      <button class="sb-item" data-page="board" title="Board">
-        <span class="sb-icon">⊞</span>
-        <span class="sb-label">Board</span>
-      </button>
-      <button class="sb-item" data-page="titlepage" title="Title Pages">
-        <span class="sb-icon">◧</span>
-        <span class="sb-label">Title Pages</span>
-      </button>
-      <button class="sb-item" data-page="manuscript" title="Manuscript">
-        <span class="sb-icon">≡</span>
-        <span class="sb-label">Manuscript</span>
-      </button>
-      <button class="sb-item" data-page="characters" title="Characters">
-        <span class="sb-icon">◎</span>
-        <span class="sb-label">Characters</span>
-      </button>
-      <button class="sb-item" data-page="export" title="Export / Backup">
-        <span class="sb-icon">↓</span>
-        <span class="sb-label">Export</span>
-      </button>
-    </nav>
-
-    <button class="sb-darkmode" id="sb-darkmode" title="Toggle dark mode">
-      <span class="sb-icon sb-dm-icon">☀</span>
-      <span class="sb-label">Light mode</span>
-    </button>
-
-    <div class="sb-show-area">
-      <button class="sb-show-btn" id="sb-show-btn" title="Switch show">
-        <span class="sb-save-dot" id="save-ind" title="Saved"></span>
-        <span class="sb-show-name" id="sb-show-name">—</span>
-        <span class="sb-show-caret">
-          <svg viewBox="0 0 10 6" width="10" height="6" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </span>
-      </button>
-    </div>
-
-    <button class="sb-toggle" id="sb-toggle" title="Toggle sidebar">
-      <svg viewBox="0 0 18 14" width="18" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <rect x="0.6" y="0.6" width="16.8" height="12.8" rx="2.2" stroke="currentColor" stroke-width="1.2"/>
-        <line x1="6" y1="0.6" x2="6" y2="13.4" stroke="currentColor" stroke-width="1.2"/>
-        <rect class="sb-toggle-panel" x="0.6" y="0.6" width="5.4" height="12.8" rx="2.2" fill="currentColor" opacity="0.25"/>
-      </svg>
-    </button>
-  </aside>
+  </header>
 
   <!-- Main content -->
   <div id="app-root" class="app-root">
@@ -93,17 +66,12 @@
 
     <!-- Board page -->
     <div id="page-board" class="page">
-      <div class="board-header">
-        <div class="board-controls">
-          <div class="control-group">
-            <label>View</label>
-            <div class="seg" id="view-seg">
-              <button data-view="full" class="active">Full story</button>
-              <button data-view="songs">Songs only</button>
-            </div>
-          </div>
-          <div class="stats" id="stats"></div>
+      <div class="board-header ribbon">
+        <div class="seg" id="view-seg">
+          <button data-view="full" class="active">Full story</button>
+          <button data-view="songs">Songs only</button>
         </div>
+        <div class="stats" id="stats"></div>
       </div>
       <div id="board"></div>
       <p class="hint"><b>Click a card</b> to open its editor. <b>Drag</b> sideways to re-order, or into another lane to change act. <b>+</b> in a lane to add a card.</p>
