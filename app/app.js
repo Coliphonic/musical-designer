@@ -1035,6 +1035,75 @@ function parseLyricLines(text, defaultSung) {
   return out;
 }
 
+// ---- Structured line model (Phase 10 foundation, §13b) -------------------
+// A card's libretto round-trips between the seamless CAPS-cue text blob (the
+// canonical saved/export format) and an array of *identified* lines. Each line
+// carries a stable id so per-line state (revision marks, dual-column pairing,
+// variants) can attach to it. seamlessToLines parses; linesToSeamless is the
+// exact inverse — and shares serializeRows with the rich editor so the editor
+// and the model can never drift.
+const lid = () => 'l' + Math.random().toString(36).slice(2, 9);
+
+// rows ({type,text}[]) → seamless text. The single source of truth for going
+// back to the blob, used by both buildRichEditor and linesToSeamless.
+function serializeRows(rows, isSong) {
+  const blockModeFrom = (i) => {
+    let hasSung = false, hasDialogue = false;
+    for (let j = i + 1; j < rows.length; j++) {
+      const ty = rows[j].type;
+      if (ty === 'cue' || ty === 'section' || !(rows[j].text || '').trim()) break;
+      if (ty === 'sung') hasSung = true; else if (ty === 'dialogue') hasDialogue = true;
+    }
+    if (hasSung && !hasDialogue) return true;
+    if (hasDialogue && !hasSung) return false;
+    if (hasSung && hasDialogue) return false;   // mixed → spoken base, ~ marks the sung lines
+    return !!isSong;                            // empty block → card default
+  };
+  const parts = [];
+  let blockSung = !!isSong;
+  rows.forEach((row, i) => {
+    const type = row.type, text = (row.text || '').trim();
+    if (!text) { parts.push(''); blockSung = !!isSong; return; }
+    if (type === 'cue') {
+      blockSung = blockModeFrom(i);
+      let label = text.toUpperCase();
+      if (blockSung && !isSong) label += ' (sings)';
+      else if (!blockSung && isSong) label += ' (spoken)';
+      if (parts.length && parts[parts.length - 1] !== '') parts.push('');
+      parts.push(label);
+    } else if (type === 'sung') {
+      parts.push(blockSung ? text : '~' + text);
+    } else if (type === 'paren') {
+      parts.push('(' + text.replace(/^\(/, '').replace(/\)$/, '') + ')');
+    } else if (type === 'section') {
+      parts.push('[' + text.replace(/^\[/, '').replace(/\]$/, '') + ']');
+    } else {
+      parts.push(text);
+    }
+  });
+  return parts.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function seamlessToLines(text, defaultSung) {
+  return parseLyricLines(text || '', defaultSung).map((tok) => ({
+    id: lid(), type: tok.type, text: tok.text || '', subtype: tok.subtype,
+  }));
+}
+function linesToSeamless(lines, isSong) { return serializeRows(lines || [], isSong); }
+
+// Re-parse text while preserving the id + per-line state of lines whose
+// type+text are unchanged. Used when content arrives as raw text (import/paste)
+// rather than through the id-carrying editor, so identity survives where it can.
+function mergeLineIds(oldLines, newLines) {
+  const pool = (oldLines || []).slice();
+  return (newLines || []).map((nl) => {
+    const i = pool.findIndex((ol) => ol.type === nl.type && ol.text === nl.text);
+    if (i < 0) return nl;
+    const keep = pool.splice(i, 1)[0];
+    return Object.assign({}, nl, { id: keep.id, lastRev: keep.lastRev, pairId: keep.pairId, col: keep.col });
+  });
+}
+
 // Rhyme-scheme letters aligned 1:1 with the tokens (cues/sections reset to A).
 function rhymeLetters(tokens) {
   const AL = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -1085,44 +1154,10 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
     return div;
   };
   const setLineType = (div, type) => { div.dataset.type = type; div.className = 'ms-el ' + (RICH_EL_CLASS[type] || 'ms-el-blank'); };
-  const serializeLines = (lineEd) => {
-    const rows = [...lineEd.querySelectorAll('.ms-el')].map((div) => ({ type: div.dataset.type, text: (div.textContent || '').trim() }));
-    const blockModeFrom = (i) => {
-      let hasSung = false, hasDialogue = false;
-      for (let j = i + 1; j < rows.length; j++) {
-        const ty = rows[j].type;
-        if (ty === 'cue' || ty === 'section' || !rows[j].text) break;
-        if (ty === 'sung') hasSung = true; else if (ty === 'dialogue') hasDialogue = true;
-      }
-      if (hasSung && !hasDialogue) return true;
-      if (hasDialogue && !hasSung) return false;
-      if (hasSung && hasDialogue) return false;   // mixed → spoken base, ~ marks the sung lines
-      return !!isSong;                             // empty block → card default
-    };
-    const parts = [];
-    let blockSung = !!isSong;
-    rows.forEach((row, i) => {
-      const { type, text } = row;
-      if (!text) { parts.push(''); blockSung = !!isSong; return; }
-      if (type === 'cue') {
-        blockSung = blockModeFrom(i);
-        let label = text.toUpperCase();
-        if (blockSung && !isSong) label += ' (sings)';
-        else if (!blockSung && isSong) label += ' (spoken)';
-        if (parts.length && parts[parts.length - 1] !== '') parts.push('');
-        parts.push(label);
-      } else if (type === 'sung') {
-        parts.push(blockSung ? text : '~' + text);
-      } else if (type === 'paren') {
-        parts.push('(' + text.replace(/^\(/, '').replace(/\)$/, '') + ')');
-      } else if (type === 'section') {
-        parts.push('[' + text.replace(/^\[/, '').replace(/\]$/, '') + ']');
-      } else {
-        parts.push(text);
-      }
-    });
-    return parts.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-  };
+  const serializeLines = (lineEd) => serializeRows(
+    [...lineEd.querySelectorAll('.ms-el')].map((div) => ({ type: div.dataset.type, text: (div.textContent || '').trim() })),
+    isSong,
+  );
   const getFocusedLine = (lineEd) => {
     const sel = window.getSelection();
     if (!sel || !sel.anchorNode) return null;
