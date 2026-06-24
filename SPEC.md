@@ -439,9 +439,15 @@ and intermission-balance checks and relocates the "11 o'clock"-equivalent expect
 9. **Snapshots** *(added; see §13d)* — ✅ DONE. Whole-show version history: named, timestamped
    checkpoints with non-destructive restore (auto-checkpoints the current state first). A
    sibling-file sub-resource API (`/api/shows/:id/snapshots`); the baseline primitive revisions reuse.
-10. **Manuscript foundations** *(see §13a–b)* — ⬜ TODO, the next major substrate: a structured
-    **line-identity model** plus a pixel-perfect, **multi-column-aware pagination/measurement
-    engine**. Gates revisions, dual dialogue, and per-card variants — built once, deliberately.
+10. **Manuscript foundations** *(see §13a–b)* — 🟡 IN PROGRESS, the next major substrate: a
+    structured **line-identity model** plus a pixel-perfect, **multi-column-aware pagination/
+    measurement engine**. Gates revisions, dual dialogue, and per-card variants.
+    - *Step 1 — round-trip core* ✅ DONE (2026-06-24): `seamlessToLines` / `linesToSeamless` /
+      `serializeRows` (shared with the editor so they can't drift) / `mergeLineIds`. Pure +
+      additive; round-trip verified as a lossless fixed point across all content cards.
+    - *Step 2 — persist structured lines* ⏸ DEFERRED (queued, do soon): store `card.lines`, derive
+      the blob, lazy-migrate old cards, editor carries ids. Intentionally held until we build the
+      revision marks that need persistent line identity — no point changing the saved shape early.
 11. **Revisions & dual dialogue** *(see §13a, §13c)* — ⬜ TODO. FD-style revision marks/sets
     (Half A on the line model + snapshots; Half B's page-locking after pagination) and simultaneous
     dual-column dialogue/lyrics (counterpoint), built on Phase 10.
@@ -561,7 +567,8 @@ Two halves with different dependencies:
 ### 13e. Sequence
 
 1. **Snapshots** ✅ — safety net + baseline primitive.
-2. **Line-identity model (13b)** — the gating refactor; round-trips the seamless format.
+2. **Line-identity model (13b)** — the gating refactor; round-trips the seamless format. *(Step 1
+   round-trip core ✅; Step 2 persisted storage ⏸ deferred — see §11.10.)*
 3. **Pagination / measurement engine (13a)** — built multi-column-aware from day one.
 4. **Dual dialogue (13a/d)** — pairing flag + two-column layout on the engine.
 5. **Revisions Half A (13c)** — asterisks + revision sets on the line model; snapshots as baseline.
