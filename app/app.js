@@ -2836,6 +2836,14 @@ function syncControls() {
 function render() {
   const board = document.getElementById('board');
   board.innerHTML = '';
+  // Reference shows announce what they teach — turns a song list into a study object.
+  const refShow = state.readonly && state.showKey && SHOWS[state.showKey];
+  if (refShow && refShow.teaches) {
+    const banner = el('div', { class: 'ref-teach' });
+    banner.appendChild(el('span', { class: 'ref-teach-tag', text: 'Reference' }));
+    banner.appendChild(el('span', { class: 'ref-teach-text', text: 'Studying ' + refShow.title + (refShow.year ? ' (' + refShow.year + ')' : '') + ' — ' + refShow.teaches }));
+    board.appendChild(banner);
+  }
   board.appendChild(buildBoard());
 
   buildStats();

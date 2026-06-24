@@ -642,6 +642,13 @@ body.dark .topnav {
   border-radius: 5px;
 }
 .sp-close-btn:hover { background: #3a3830; color: #f0ebe0; }
+/* ---- Reference "teaches" study banner ---- */
+.ref-teach { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; padding: 9px 14px; background: #eeedfe; border: 1px solid #d8d3f5; border-radius: 9px; }
+body.dark .ref-teach { background: #211d33; border-color: #3a3357; }
+.ref-teach-tag { flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: #6a61d0; padding: 3px 8px; border-radius: 5px; }
+.ref-teach-text { font-size: 13px; color: #3c3489; line-height: 1.4; }
+body.dark .ref-teach-text { color: #c2bcee; }
+
 /* ---- Snapshots drawer (whole-show version history) ---- */
 .snap-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 59; }
 .snap-drawer {
