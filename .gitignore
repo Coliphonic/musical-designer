@@ -7,3 +7,6 @@ secret.txt
 
 # User data — live shows are mutable data, not code. Seeded from app/seed-shows/.
 app/shows/
+
+# Source art / design files dropped at the repo root (built icons live in app/).
+/*.png
