@@ -113,21 +113,27 @@ function openReference(key) {
   setSaveInd('ref');
 }
 
+// Load a show payload (from the server, or a restored snapshot) into state.
+// Does not touch projectId/showKey/readonly or render — the caller owns those.
+function applyShowData(d) {
+  state.cards = (d.cards || []).map(cardFromStored);
+  state.characters = d.characters || {};
+  const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
+  state.titlePage = Object.assign({}, tpDefaults, d.titlePage || {});
+  state.titlePage.include = Object.assign({}, tpDefaults.include, (d.titlePage || {}).include || {});
+  const shDefaults = { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false };
+  state.scriptHeader = Object.assign({}, shDefaults, d.scriptHeader || {});
+  state.title = d.title || 'Untitled show';
+  state.mode = d.mode || 'full';
+  state.status = d.status || 'active';
+  state.folder = d.folder || '';
+}
+
 function openProject(id, afterOpen) {
   saveLastOpened('project', id);
   fetch('/api/shows/' + id).then((r) => r.json()).then((d) => {
     state.loading = true;
-    state.cards = (d.cards || []).map(cardFromStored);
-    state.characters = d.characters || {};
-    const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
-    state.titlePage = Object.assign({}, tpDefaults, d.titlePage || {});
-    state.titlePage.include = Object.assign({}, tpDefaults.include, (d.titlePage || {}).include || {});
-    const shDefaults = { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false };
-    state.scriptHeader = Object.assign({}, shDefaults, d.scriptHeader || {});
-    state.title = d.title || 'Untitled show';
-    state.mode = d.mode || 'full';
-    state.status = d.status || 'active';
-    state.folder = d.folder || '';
+    applyShowData(d);
     state.projectId = id;
     state.showKey = null;
     state.readonly = false;
@@ -410,6 +416,9 @@ function setSaveInd(s) {
 function renderShowBtn() {
   const nameEl = document.getElementById('sb-show-name');
   if (nameEl) nameEl.textContent = state.title || (state.showKey && SHOWS[state.showKey] ? SHOWS[state.showKey].title : '—');
+  // Snapshots apply to the user's own editable shows, not read-only references.
+  const snap = document.getElementById('sb-snapshots');
+  if (snap) snap.hidden = !(state.projectId && !state.readonly);
 }
 
 function closeShowPopover() {
@@ -473,6 +482,12 @@ function showShowPopover() {
   [newBtn, dupBtn, delBtn].forEach((b) => actions.appendChild(b));
   pop.appendChild(actions);
 
+  if (state.projectId && !state.readonly) {
+    const snapItem = el('button', { class: 'sp-item', text: '⟲  Snapshots…' });
+    snapItem.addEventListener('click', (e) => { e.stopPropagation(); closeShowPopover(); openSnapshotsDrawer(); });
+    pop.appendChild(snapItem);
+  }
+
   // Account / sign out
   pop.appendChild(el('div', { class: 'sp-divider' }));
   if (state.me && state.me.name) pop.appendChild(el('div', { class: 'sp-label', text: 'Signed in as ' + state.me.name }));
@@ -485,6 +500,118 @@ function showShowPopover() {
   pop.appendChild(signOut);
 
   document.body.appendChild(pop);
+}
+
+// ---- Snapshots (whole-show version history) ------------------------------
+function snapApi(method, sub, body) {
+  const opts = { method };
+  if (body !== undefined) { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify(body); }
+  return fetch('/api/shows/' + state.projectId + '/snapshots' + (sub || ''), opts).then((r) => r.json());
+}
+function snapRelTime(ts) {
+  const s = Math.max(0, (Date.now() - ts) / 1000);
+  if (s < 60) return 'just now';
+  const m = Math.floor(s / 60); if (m < 60) return m + ' min' + (m > 1 ? 's' : '') + ' ago';
+  const h = Math.floor(m / 60); if (h < 24) return h + ' hour' + (h > 1 ? 's' : '') + ' ago';
+  const dd = Math.floor(h / 24); if (dd === 1) return 'yesterday';
+  if (dd < 7) return dd + ' days ago';
+  return new Date(ts).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+function snapDefaultLabel() {
+  return new Date().toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+function saveSnapshot(label, cb) {
+  if (state.readonly || !state.projectId) return;
+  snapApi('POST', '', { label: label || '', data: JSON.parse(serialize()) }).then((m) => cb && cb(m)).catch(() => {});
+}
+function restoreSnapshot(snapId) {
+  if (state.readonly || !state.projectId) return;
+  // Non-destructive: checkpoint the current state first, then load the chosen one.
+  snapApi('POST', '', { label: 'Before restore', data: JSON.parse(serialize()) })
+    .then(() => snapApi('GET', '/' + snapId))
+    .then((snap) => {
+      if (!snap || !snap.data) return;
+      state.loading = true;
+      applyShowData(snap.data);
+      closeDetail();
+      state.loading = false;
+      render();
+      doSave(); // persist the restored version as the live show
+      closeSnapshotsDrawer();
+      setSaveInd('saved');
+    }).catch(() => {});
+}
+function closeSnapshotsDrawer() {
+  const d = document.getElementById('snap-drawer'); if (d) d.remove();
+  const ov = document.getElementById('snap-overlay'); if (ov) ov.remove();
+}
+function openSnapshotsDrawer() {
+  closeShowPopover();
+  if (document.getElementById('snap-drawer')) { closeSnapshotsDrawer(); return; }
+  if (state.readonly || !state.projectId) return;
+
+  const overlay = el('div', { class: 'snap-overlay', id: 'snap-overlay' });
+  overlay.addEventListener('click', closeSnapshotsDrawer);
+  document.body.appendChild(overlay);
+
+  const drawer = el('div', { class: 'snap-drawer', id: 'snap-drawer' });
+  const head = el('div', { class: 'snap-head' });
+  head.appendChild(el('span', { class: 'snap-title', text: '⟲  Snapshots' }));
+  const saveBtn = el('button', { class: 'snap-save-btn', text: '＋ Save snapshot' });
+  saveBtn.addEventListener('click', () => {
+    const label = prompt('Name this snapshot:', snapDefaultLabel());
+    if (label === null) return;
+    saveSnapshot(label.trim() || snapDefaultLabel(), renderSnapList);
+  });
+  head.appendChild(saveBtn);
+  const xBtn = el('button', { class: 'snap-close', text: '✕', title: 'Close' });
+  xBtn.addEventListener('click', closeSnapshotsDrawer);
+  head.appendChild(xBtn);
+  drawer.appendChild(head);
+
+  const reassure = el('div', { class: 'snap-reassure', text: 'Restoring saves your current version first — nothing is ever lost.' });
+  drawer.appendChild(reassure);
+
+  const list = el('div', { class: 'snap-list' });
+  drawer.appendChild(list);
+  document.body.appendChild(drawer);
+
+  function renderSnapList() {
+    snapApi('GET', '').then((snaps) => {
+      list.innerHTML = '';
+      if (!snaps || !snaps.length) {
+        list.appendChild(el('div', { class: 'snap-empty', text: 'No snapshots yet. Save one before a big change.' }));
+        return;
+      }
+      snaps.forEach((s) => list.appendChild(snapRow(s)));
+    }).catch(() => {});
+  }
+  function snapRow(s) {
+    const row = el('div', { class: 'snap-row' });
+    const top = el('div', { class: 'snap-row-top' });
+    top.appendChild(el('span', { class: 'snap-label', text: s.label || snapDefaultLabel() }));
+    top.appendChild(el('span', { class: 'snap-time', text: snapRelTime(s.ts) }));
+    row.appendChild(top);
+    const actions = el('div', { class: 'snap-actions' });
+    const restore = el('button', { class: 'snap-restore', text: '⟲ Restore' });
+    restore.addEventListener('click', () => {
+      if (confirm('Restore "' + (s.label || 'this snapshot') + '"?\n\nYour current version will be snapshotted first, so this is safe.')) restoreSnapshot(s.id);
+    });
+    const rename = el('button', { class: 'snap-act', text: 'Rename' });
+    rename.addEventListener('click', () => {
+      const nl = prompt('Rename snapshot:', s.label || '');
+      if (nl === null) return;
+      snapApi('PUT', '/' + s.id, { label: nl.trim() }).then(renderSnapList).catch(() => {});
+    });
+    const del = el('button', { class: 'snap-act danger', text: 'Delete' });
+    del.addEventListener('click', () => {
+      if (confirm('Delete this snapshot? This can’t be undone.')) snapApi('DELETE', '/' + s.id).then(renderSnapList).catch(() => {});
+    });
+    [restore, rename, del].forEach((b) => actions.appendChild(b));
+    row.appendChild(actions);
+    return row;
+  }
+  renderSnapList();
 }
 
 function openShowSettingsModal() {
@@ -2693,6 +2820,7 @@ function initControls() {
 
   // show switcher popover
   document.getElementById('sb-show-btn').addEventListener('click', (e) => { e.stopPropagation(); showShowPopover(); });
+  document.getElementById('sb-snapshots').addEventListener('click', (e) => { e.stopPropagation(); openSnapshotsDrawer(); });
 
   // show settings modal
   document.getElementById('ssm-cancel').addEventListener('click', closeShowSettingsModal);

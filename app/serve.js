@@ -26,6 +26,10 @@ const SEED_DIR = path.join(ROOT, 'seed-shows');
 const USERS_FILE = path.join(ROOT, 'users.json');
 const SECRET_FILE = path.join(ROOT, 'secret.txt');
 try { fs.mkdirSync(SHOWS_DIR, { recursive: true }); } catch (e) { /* exists */ }
+// Whole-show version history. Kept in a sibling dir (not SHOWS_DIR) so the show
+// list endpoint, which scans every *.json in SHOWS_DIR, never trips over them.
+const SNAPS_DIR = process.env.SNAPS_DIR || path.join(ROOT, 'snapshots');
+try { fs.mkdirSync(SNAPS_DIR, { recursive: true }); } catch (e) { /* exists */ }
 
 // Seed example shows into the data dir on first run. Never overwrites an
 // existing file, so live edits are always preserved across restarts/deploys.
@@ -64,6 +68,9 @@ function sendJSON(res, code, obj) {
 function safeId(id) { return /^[a-z0-9-]+$/.test(id || '') ? id : null; }
 function readBody(req, cb) { let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => cb(b)); }
 function fileFor(id) { return path.join(SHOWS_DIR, id + '.json'); }
+function snapFileFor(id) { return path.join(SNAPS_DIR, id + '.json'); }
+function loadSnaps(id) { try { return JSON.parse(fs.readFileSync(snapFileFor(id), 'utf8')); } catch (_) { return { snapshots: [] }; } }
+function saveSnaps(id, obj) { fs.writeFileSync(snapFileFor(id), JSON.stringify(obj)); }
 
 // ---- Auth helpers --------------------------------------------------------
 function loadUsers() { try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); } catch (_) { return []; } }
@@ -189,6 +196,53 @@ function handleApi(req, res, parts, user) {
     });
   }
 
+  // Sub-action: /api/shows/:id/snapshots — whole-show version history.
+  // GET (list metadata) · POST (create) · GET/:snapId (full data) ·
+  // PUT/:snapId (rename) · DELETE/:snapId. Access already enforced above.
+  if (parts[3] === 'snapshots') {
+    if (!existing) return sendJSON(res, 404, { error: 'not found' });
+    const snapId = parts[4] ? safeId(parts[4]) : null;
+    const store = loadSnaps(sid);
+    const meta = (s) => ({ id: s.id, label: s.label, ts: s.ts });
+
+    if (req.method === 'GET' && !snapId) return sendJSON(res, 200, store.snapshots.map(meta));
+    if (req.method === 'GET' && snapId) {
+      const snap = store.snapshots.find((s) => s.id === snapId);
+      return snap ? sendJSON(res, 200, snap) : sendJSON(res, 404, { error: 'not found' });
+    }
+    if (req.method === 'POST' && !snapId) {
+      return readBody(req, (body) => {
+        let d; try { d = JSON.parse(body || '{}'); } catch (_) { d = {}; }
+        const snap = {
+          id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+          label: (typeof d.label === 'string' ? d.label.trim() : '').slice(0, 120),
+          ts: Date.now(),
+          data: (d.data && typeof d.data === 'object') ? d.data : {},
+        };
+        store.snapshots.unshift(snap);
+        if (store.snapshots.length > 30) store.snapshots.length = 30; // cap; drop oldest
+        try { saveSnaps(sid, store); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
+        return sendJSON(res, 200, meta(snap));
+      });
+    }
+    if (req.method === 'PUT' && snapId) {
+      return readBody(req, (body) => {
+        let d; try { d = JSON.parse(body || '{}'); } catch (_) { d = {}; }
+        const snap = store.snapshots.find((s) => s.id === snapId);
+        if (!snap) return sendJSON(res, 404, { error: 'not found' });
+        if (typeof d.label === 'string') snap.label = d.label.trim().slice(0, 120);
+        try { saveSnaps(sid, store); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
+        return sendJSON(res, 200, meta(snap));
+      });
+    }
+    if (req.method === 'DELETE' && snapId) {
+      store.snapshots = store.snapshots.filter((s) => s.id !== snapId);
+      try { saveSnaps(sid, store); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
+      return sendJSON(res, 200, { ok: true });
+    }
+    return sendJSON(res, 405, { error: 'method' });
+  }
+
   if (req.method === 'GET') {
     if (!existing) return sendJSON(res, 404, { error: 'not found' });
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
@@ -208,6 +262,7 @@ function handleApi(req, res, parts, user) {
   }
   if (req.method === 'DELETE') {
     try { fs.unlinkSync(fileFor(sid)); } catch (_) { /* gone */ }
+    try { fs.unlinkSync(snapFileFor(sid)); } catch (_) { /* none */ }
     sendJSON(res, 200, { ok: true });
     return;
   }
