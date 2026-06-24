@@ -436,6 +436,17 @@ and intermission-balance checks and relocates the "11 o'clock"-equivalent expect
    contour to ghost); scaffold-load **deferred** to optional — see §7 reframing (2026-06-23).
 7. **Diagnostics engine** — ⬜ TODO. Turn on the lint once cards carry real data (§9).
 8. **Export** — 🟡 PARTIAL. Print/PDF via Print View done; MD running order + production report TODO.
+9. **Snapshots** *(added; see §13d)* — ✅ DONE. Whole-show version history: named, timestamped
+   checkpoints with non-destructive restore (auto-checkpoints the current state first). A
+   sibling-file sub-resource API (`/api/shows/:id/snapshots`); the baseline primitive revisions reuse.
+10. **Manuscript foundations** *(see §13a–b)* — ⬜ TODO, the next major substrate: a structured
+    **line-identity model** plus a pixel-perfect, **multi-column-aware pagination/measurement
+    engine**. Gates revisions, dual dialogue, and per-card variants — built once, deliberately.
+11. **Revisions & dual dialogue** *(see §13a, §13c)* — ⬜ TODO. FD-style revision marks/sets
+    (Half A on the line model + snapshots; Half B's page-locking after pagination) and simultaneous
+    dual-column dialogue/lyrics (counterpoint), built on Phase 10.
+12. **Variants** *(see §13d)* — ⬜ TODO. Per-scene alternate takes on the line model; "active
+    variant only" guardrail.
 
 **Protect Phases 1–2.** The original bet was "if dragging a card and watching the divergence band
 breathe doesn't feel good, no amount of lint or reference data saves it." The contour lost that
@@ -468,3 +479,95 @@ The spec assumed a single-user local tool. It's now a deployed multi-user web ap
 - **Chrome.** Navigation is a **top brand bar** (deep-purple identity band, centered pill nav,
   green "saved" indicator) over a per-page contextual ribbon — replacing the original left
   sidebar. See §6b for the ribbon system.
+
+---
+
+## 13. Manuscript foundations — pagination engine, line model, revisions & dual dialogue (planned)
+
+> **Thesis (2026-06-23).** Four wanted features — **pixel-perfect pagination**, **Final Draft-style
+> revisions**, **dual (simultaneous) dialogue/lyrics**, and **per-card variants** — are not four
+> independent builds. They sit on **two shared foundations**: a deterministic *measurement/layout
+> engine* and a *line-identity model*. Build those two once, deliberately, and the four features
+> become extensions. Build the features ad hoc and each one re-litigates the same hard problems.
+
+### 13a. The measurement / layout engine (the substrate)
+
+Print View already paginates, but by an approximate line-count heuristic (6 lines/inch, fixed
+metrics). **Pixel-perfect** means a deterministic engine that knows the *true rendered height of
+any block* and places it: fill a page, find the real overflow point, break, repeat — honoring
+keep-together rules (a character cue never orphaned from its first line; a section header never
+stranded at a page foot).
+
+**Dual dialogue is folded in here as a day-one constraint, not a later retrofit.** Simultaneous
+speech/song renders as two (or more) side-by-side columns; the engine measures **the taller
+column** as the block's height and treats the pair as one placeable unit. Measurement + fit/break
+is *exactly* what pagination already needs, so multi-column costs little **if the engine is built
+for variable-width blocks from the start** — and is painful to bolt on after. Requirements it must
+carry from day one:
+
+- A block is either **single-column (full width) or multi-column** (N narrower columns); block
+  height = `max(column heights)`.
+- **Keep-together / keep-with-next** are block-level rules, applied uniformly to single and dual
+  blocks.
+- **The hard case:** a block taller than a page must split — for a dual block, both columns split
+  at a coordinated page boundary and resume on the next page under repeated cues. (Even Final Draft
+  handles this awkwardly; we define the rule explicitly rather than discover it later.)
+
+### 13b. The line-identity model — *the* fork
+
+Today a card's libretto is a **single text blob** (`lyrics` / `note`), tokenized on the fly by
+`parseLyricLines`; lines have no stable identity. Three features need to attribute state *to a
+line* — revision asterisks ("this line changed since rev 2"), dual-pairing ("this block sings
+against that one"), and fine-grained diffing. That forces one decision:
+
+| | **A — Text-diff over the blob** | **B — Structured line model** |
+|---|---|---|
+| Model | Keep the blob; diff baseline vs current to derive changes | Each line/element is `{id, type, text, lastRevised}` |
+| Revision marks | Derived by diff — noisy on reflow / moves | Exact; survive reordering (FD-accurate) |
+| Dual dialogue | Pairing encoded in blob syntax | Natural — a block references its sibling by id |
+| Variants | Whole-field swap only | Per-line / per-section variants possible |
+| Effort | Days; no schema change | 1–2 weeks; refactors the lyric/manuscript data layer |
+| Risk | Low, reversible | Higher — touches editor, parser, export |
+
+**Recommendation: B, but staged.** Move to a structured line model as the foundation for this whole
+tranche, because it's the *same* refactor revisions, dual dialogue, and variants each separately
+want — pay once. Mitigate risk by keeping the **seamless CAPS-cue text format as the import/export
+representation** (round-trip blob ↔ structured), so the *writing experience and the saved format
+don't change* — only the in-memory model gains identity. If timeline forces it, ship revisions
+Half-A on approach A first, but expect to redo the marks logic when B lands.
+
+### 13c. Revisions (Final Draft-style)
+
+Two halves with different dependencies:
+
+- **Half A — change marking + revision sets** — margin asterisks, named/colored revision drafts,
+  "start new revision" re-baselines. Content-level; **reuses snapshots as the baseline** (a locked
+  revision = a snapshot tagged as the rev baseline) and **needs the line model** (13b) for accurate
+  marks. *Can ship before pixel-perfect pagination.*
+- **Half B — page-stable production revisions** — locked pages, A-pages (a change on p.14 becomes
+  "14A" instead of repaginating), "print revised pages only," per-page revision color. The value
+  *is* page-number stability, so it **requires the engine** (13a). *After pagination.*
+
+### 13d. How snapshots & variants relate
+
+- **Snapshots** (✅ shipped, §11.9) — coarse, whole-show checkpoints. They are the **baseline
+  primitive** Half-A reuses, and the sibling-file sub-resource pattern carries over. They are *not*
+  the revision feature themselves.
+- **Variants** — per-scene alternate takes. They fall out cheaply *once the line model exists*: a
+  card holds alternate sections, with "only the active variant counts toward board / runtime /
+  manuscript / export" as the guardrail. Avoid a full branch/merge model — too heavy for a solo
+  writing tool.
+
+### 13e. Sequence
+
+1. **Snapshots** ✅ — safety net + baseline primitive.
+2. **Line-identity model (13b)** — the gating refactor; round-trips the seamless format.
+3. **Pagination / measurement engine (13a)** — built multi-column-aware from day one.
+4. **Dual dialogue (13a/d)** — pairing flag + two-column layout on the engine.
+5. **Revisions Half A (13c)** — asterisks + revision sets on the line model; snapshots as baseline.
+6. **Revisions Half B (13c)** — locked pages / A-pages on the engine.
+7. **Variants (13d)** — per-card alternates on the line model.
+
+The through-line: **two foundations (13a engine + 13b line model) unlock four features.** Resist
+building any of the four before its foundation — the same lesson the dual-contour cut taught (§3):
+don't ship the fancy layer before the substrate earns it.
