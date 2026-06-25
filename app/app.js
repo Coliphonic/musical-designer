@@ -260,6 +260,7 @@ function libRefCard(key) {
   meta.appendChild(el('span', { class: 'lib-fmt', text: r.form === 'two-act' ? 'Two-act' : (r.form ? r.form.replace(/-/g, ' ') : 'Reference') }));
   if (r.year) { meta.appendChild(el('span', { class: 'lib-dot', text: '·' })); meta.appendChild(el('span', { text: String(r.year) })); }
   card.appendChild(meta);
+  if (r.teaches) card.appendChild(el('div', { class: 'lib-teaches', text: r.teaches }));
   const tags = el('div', { class: 'lib-card-tags' });
   tags.appendChild(el('span', { class: 'lib-badge lib-ref-badge', text: 'Reference' }));
   card.appendChild(tags);

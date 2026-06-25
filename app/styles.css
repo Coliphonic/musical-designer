@@ -1217,6 +1217,7 @@ body.dark .ms-style-hint { color: #8b83a8; }
 .lib-card-dots:hover { background: var(--hover); color: var(--ink); }
 .lib-card-meta { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); }
 .lib-dot { opacity: 0.6; }
+.lib-teaches { font-size: 12px; line-height: 1.4; color: var(--muted); margin-top: 7px; }
 .lib-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
 .lib-badge {
   font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
