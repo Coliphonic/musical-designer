@@ -1042,19 +1042,23 @@ function parseLyricLines(text, defaultSung) {
       else if (/^#\d+[\s\-]/i.test(inner)) subtype = 'song-num';
       out.push({ type: 'section', subtype, text: inner }); continue;
     }
-    if (/^@.+/.test(t)) {
-      const { name, sung } = splitCueMode(t.slice(1).trim(), defaultSung);
+    // Fountain dual-dialogue marker: a trailing ^ means "simultaneous with the
+    // previous cue" — the two render side by side. Strip it before classifying.
+    let dual = false, body = t;
+    if (/\s*\^$/.test(t)) { dual = true; body = t.replace(/\s*\^\s*$/, '').trim(); }
+    if (/^@.+/.test(body)) {
+      const { name, sung } = splitCueMode(body.slice(1).trim(), defaultSung);
       inCharBlock = true; blockSung = sung;
-      out.push({ type: 'cue', text: name }); continue;
+      out.push({ type: 'cue', text: name, dual }); continue;
     }
     if (/^~/.test(t)) { inCharBlock = true; out.push({ type: 'sung', text: t.slice(1).trim() }); continue; } // ~ forces this line only
     if (/^\(.*\)$/.test(t)) { out.push({ type: 'paren', text: t }); continue; }
     // Implicit cue: an ALL-CAPS line that opens a block (Fountain convention —
     // a blank line or section/cue must precede it, so caps lyrics aren't eaten).
-    if (!inCharBlock && looksLikeCue(t)) {
-      const { name, sung } = splitCueMode(t, defaultSung);
+    if (!inCharBlock && looksLikeCue(body)) {
+      const { name, sung } = splitCueMode(body, defaultSung);
       inCharBlock = true; blockSung = sung;
-      out.push({ type: 'cue', text: name }); continue;
+      out.push({ type: 'cue', text: name, dual }); continue;
     }
     if (inCharBlock) { out.push(blockSung ? { type: 'sung', text: t } : { type: 'dialogue', text: ln }); continue; }
     out.push({ type: 'action', text: ln });
@@ -1096,6 +1100,7 @@ function serializeRows(rows, isSong) {
       let label = text.toUpperCase();
       if (blockSung && !isSong) label += ' (sings)';
       else if (!blockSung && isSong) label += ' (spoken)';
+      if (row.dual) label += ' ^'; // preserve Fountain dual-dialogue marker
       if (parts.length && parts[parts.length - 1] !== '') parts.push('');
       parts.push(label);
     } else if (type === 'sung') {
@@ -1113,7 +1118,7 @@ function serializeRows(rows, isSong) {
 
 function seamlessToLines(text, defaultSung) {
   return parseLyricLines(text || '', defaultSung).map((tok) => ({
-    id: lid(), type: tok.type, text: tok.text || '', subtype: tok.subtype,
+    id: lid(), type: tok.type, text: tok.text || '', subtype: tok.subtype, dual: tok.dual,
   }));
 }
 function linesToSeamless(lines, isSong) { return serializeRows(lines || [], isSong); }
@@ -1171,18 +1176,23 @@ const RICH_EL_CYCLE  = ['cue', 'dialogue', 'sung', 'paren', 'action', 'section']
 function buildRichEditor({ text, isSong, onSave, autofocus }) {
   const smartNext = (type) => (type === 'cue' || type === 'paren') ? (isSong ? 'sung' : 'dialogue') : type;
   const tabNext   = (type) => { const i = RICH_EL_CYCLE.indexOf(type); return RICH_EL_CYCLE[(i + 1) % RICH_EL_CYCLE.length]; };
-  const mkLine = (type, t) => {
+  const mkLine = (type, t, dual) => {
     const div = el('div', { class: 'ms-el ' + (RICH_EL_CLASS[type] || 'ms-el-blank'), 'data-type': type });
     div.contentEditable = 'true';
+    if (dual && type === 'cue') div.dataset.dual = '1';
     let display = (t || '');
     if (type === 'paren')   display = display.replace(/^\(/, '').replace(/\)$/, '');
     if (type === 'section') display = display.replace(/^\[/, '').replace(/\]$/, '');
     div.textContent = display;
     return div;
   };
-  const setLineType = (div, type) => { div.dataset.type = type; div.className = 'ms-el ' + (RICH_EL_CLASS[type] || 'ms-el-blank'); };
+  const setLineType = (div, type) => {
+    div.dataset.type = type;
+    div.className = 'ms-el ' + (RICH_EL_CLASS[type] || 'ms-el-blank');
+    if (type !== 'cue') delete div.dataset.dual; // dual only applies to cues
+  };
   const serializeLines = (lineEd) => serializeRows(
-    [...lineEd.querySelectorAll('.ms-el')].map((div) => ({ type: div.dataset.type, text: (div.textContent || '').trim() })),
+    [...lineEd.querySelectorAll('.ms-el')].map((div) => ({ type: div.dataset.type, text: (div.textContent || '').trim(), dual: div.dataset.dual === '1' })),
     isSong,
   );
   const getFocusedLine = (lineEd) => {
@@ -1213,12 +1223,23 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
     styleSel.appendChild(el('option', { value: val, text: n ? label + '  (' + modKey + n + ')' : label }));
   });
   styleBar.appendChild(styleSel);
+  // Dual-dialogue toggle: marks the focused character cue as simultaneous with
+  // the cue before it (renders side by side in Print View).
+  const dualBtn = el('button', { class: 'ms-dual-btn', type: 'button', text: 'Dual ⇄', title: 'Mark this character as speaking with the one above (' + modKey + 'D)' });
+  const toggleDual = (line) => {
+    if (!line || line.dataset.type !== 'cue') return false;
+    if (line.dataset.dual === '1') delete line.dataset.dual; else line.dataset.dual = '1';
+    dualBtn.classList.toggle('active', line.dataset.dual === '1');
+    return true;
+  };
+  dualBtn.addEventListener('mousedown', (e) => { e.preventDefault(); toggleDual(getFocusedLine(lineEd)); });
+  styleBar.appendChild(dualBtn);
   styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Tab · cycle   Enter · new line   ' + modKey + '1–6 · jump' }));
 
   const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
   const toks = parseLyricLines(text || '', isSong);
   if (!toks.some((t) => t.type !== 'blank')) lineEd.appendChild(mkLine('cue', ''));
-  else toks.forEach((tok) => lineEd.appendChild(mkLine(tok.type, tok.text)));
+  else toks.forEach((tok) => lineEd.appendChild(mkLine(tok.type, tok.text, tok.dual)));
 
   // ---- FD-style character-name autocomplete (cue lines only) ----
   const acBox = el('div', { class: 'rich-ac', style: 'display:none' });
@@ -1266,6 +1287,8 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
   const syncPicker = () => {
     const line = getFocusedLine(lineEd);
     if (line) styleSel.value = line.dataset.type;
+    dualBtn.disabled = !(line && line.dataset.type === 'cue');
+    dualBtn.classList.toggle('active', !!(line && line.dataset.dual === '1'));
     if (line !== ac.lastFocus) { ac.lastFocus = line; ac.dismissed = false; ac.index = 0; }
     refreshAc(line);
   };
@@ -1291,6 +1314,10 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
     // Final Draft-style direct jumps: Ctrl/⌘ + 1–6 set the current line's
     // element type outright, no Tab-cycling. Order matches RICH_EL_CYCLE so the
     // numbers line up with the style-bar labels (1 Character … 6 Section).
+    // Ctrl/⌘+D toggles dual dialogue on the current character cue.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
+      if (toggleDual(line)) { e.preventDefault(); return; }
+    }
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key >= '1' && e.key <= '6') {
       e.preventDefault();
       const newType = RICH_EL_CYCLE[parseInt(e.key, 10) - 1];
@@ -1429,6 +1456,7 @@ function buildContentTokens(sceneId) {
 function buildBlocks(toks) {
   const blocks = [];
   let i = 0;
+  let prevRealType = null; // last non-blank token type seen
   while (i < toks.length) {
     const tok = toks[i];
     if (tok.type === 'cue') {
@@ -1443,12 +1471,30 @@ function buildBlocks(toks) {
         j++;
       }
       i = j;
+      prevRealType = tokens[tokens.length - 1].type;
+      // Dual dialogue: pair this cue with the one before it as side-by-side
+      // columns. Drop any blank spacers sitting between them, then either start a
+      // two-column block or extend an existing one (3+ way duals).
+      if (tok.dual) {
+        while (blocks.length && blocks[blocks.length - 1].blank) blocks.pop();
+        const prev = blocks[blocks.length - 1];
+        if (prev && !prev.blank && !prev.header) {
+          blocks.pop();
+          const cols = prev.columns ? [...prev.columns, tokens] : [prev.tokens, tokens];
+          blocks.push({ tokens: [{ type: 'dual', columns: cols }], header: false, splittable: false, columns: cols });
+          continue;
+        }
+      }
       blocks.push({ tokens, header: false, splittable: true, columns: null });
       continue;
     }
     if (tok.type === 'blank') { blocks.push({ tokens: [tok], blank: true, columns: null }); i++; continue; }
     const header = tok.type === 'act-header' || tok.type === 'scene-header' || tok.type === 'song-num';
-    blocks.push({ tokens: [tok], header, splittable: false, columns: null });
+    // Scene headings start a fresh page (screenplay/libretto convention) — except
+    // the first scene under an act header, which rides on the act header's page.
+    const forceBreak = tok.type === 'scene-header' && prevRealType !== 'act-header';
+    blocks.push({ tokens: [tok], header, splittable: false, columns: null, forceBreak });
+    prevRealType = tok.type;
     i++;
   }
   return blocks;
@@ -1507,6 +1553,7 @@ function paginateBlocks(blocks) {
 
   blocks.forEach((b) => {
     if (b.blank) { pending.push(b.tokens[0]); return; } // defer — decide at the next real block
+    if (b.forceBreak && page.length > 0) breakPage(); // scene starts a new page
     placeUnit(b.tokens, !!b.header);
   });
   // trailing pending blanks are intentionally dropped (no spacer at a page foot)
@@ -1556,6 +1603,16 @@ function renderPageToken(tok, container) {
   } else if (tok.type === 'paren')    { container.appendChild(el('div', { class: 'lw-paren', text: tok.text }));
   } else if (tok.type === 'dialogue') { container.appendChild(el('div', { class: 'lw-dialogue', text: tok.text }));
   } else if (tok.type === 'action')   { container.appendChild(el('div', { class: 'lw-action', text: tok.text }));
+  } else if (tok.type === 'dual') {
+    // Side-by-side columns. Each column renders its own token list; the row's
+    // height is naturally max(column heights), which the placer measures.
+    const row = el('div', { class: 'lw-dual' });
+    tok.columns.forEach((col) => {
+      const cell = el('div', { class: 'lw-col' });
+      col.forEach((t) => renderPageToken(t, cell));
+      row.appendChild(cell);
+    });
+    container.appendChild(row);
   }
 }
 
@@ -2300,9 +2357,11 @@ function buildManuscriptPage(sceneId) {
   const layoutTab = el('button', { text: 'Print View' });
   modeSeg.appendChild(editTab);
   modeSeg.appendChild(layoutTab);
-  const printBtn = el('button', { class: 'ms-print-btn', title: 'Print / Save as PDF', text: '⎙ Print' });
+  const printBtn = el('button', { class: 'ms-print-btn', title: 'Print / Save as PDF' });
+  printBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span>Print</span>';
   printBtn.addEventListener('click', () => exportPDF(true));
-  const settingsBtn = el('button', { class: 'ms-settings-btn', title: 'Page settings', text: '⚙' });
+  const settingsBtn = el('button', { class: 'ms-settings-btn', title: 'Page settings' });
+  settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
   const navBtn = el('button', { class: 'ms-nav-btn', title: 'Show/hide the outline navigation', text: '☰ Navigation' });
 
   const saveMsOpts = () => { try { localStorage.setItem('md-ms-opts', JSON.stringify(state.msOptions)); } catch (_) {} };
@@ -2408,7 +2467,10 @@ function buildManuscriptPage(sceneId) {
     const scrollTop = oldBody ? oldBody.scrollTop : 0;
     if (oldBody) oldBody.remove();
     const newBody = el('div', { class: 'ms-body' });
-    const doc = el('div', { class: 'ms-edit-doc' });
+    // Mirror the Print view's "Section tags" toggle here: hide section pills in
+    // both the static render and the rich editor when the option is off. CSS
+    // hides them (lines stay in the DOM, so they round-trip and reappear on).
+    const doc = el('div', { class: 'ms-edit-doc' + (state.msOptions.showSectionTags === false ? ' hide-sections' : '') });
 
     editOrder().forEach((idx) => {
       const c = state.cards[idx];

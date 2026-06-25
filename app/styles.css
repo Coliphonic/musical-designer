@@ -303,7 +303,12 @@ textarea.lyrictext { min-height: 120px; font-family: ui-monospace, Menlo, Consol
 body.dark .ms-body { background: var(--bg); }
 /* Settings is the icon variant of the shared ribbon button: square, no text,
    a larger glyph. Height/border/hover come from the shared rule below. */
-.ms-settings-btn { width: 32px; padding: 0; justify-content: center; font-size: 15px; }
+.ms-settings-btn { width: 32px; padding: 0; justify-content: center; }
+.ms-print-btn svg { display: block; flex-shrink: 0; }
+.ms-settings-btn svg { display: block; flex-shrink: 0; width: 19px; height: 19px; }
+/* "Section tags" toggle hides section pills in the Edit/Rich view too. */
+.ms-edit-doc.hide-sections .lw-section-row,
+.ms-edit-doc.hide-sections .ms-el.lw-section-row { display: none; }
 .ms-opt-toggle { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); cursor: pointer; margin-left: 12px; white-space: nowrap; user-select: none; }
 .ms-opt-toggle input { cursor: pointer; accent-color: var(--energy); }
 
@@ -429,6 +434,21 @@ body.dark .ms-body { background: var(--bg); }
 .ms-sheet-content .lw-paren        { margin-left: 168px; margin-right: 24px; padding-left: 0; color: #555; text-align: left; }
 /* FD Action: SpaceBefore="12" */
 .ms-sheet-content .lw-action       { margin-top: 12pt; padding-left: 0; text-align: left; }
+/* Avoid double gaps: when a literal blank-line token already precedes an element
+   that carries SpaceBefore, drop the margin so the gap is one line, not two. */
+.ms-sheet-content .lw-blank + .lw-char,
+.ms-sheet-content .lw-blank + .lw-action,
+.ms-sheet-content .lw-blank + .lw-scene-header,
+.ms-sheet-content .lw-blank + .lw-song-header { margin-top: 0; }
+/* Dual dialogue: two (or more) cues side by side. Columns share the content
+   width; inside a column the cue/lyrics indents collapse to fit the narrow box. */
+.ms-sheet-content .lw-dual { display: flex; gap: 24px; margin-top: 12pt; align-items: flex-start; }
+.ms-sheet-content .lw-dual .lw-col { flex: 1 1 0; min-width: 0; }
+.ms-sheet-content .lw-dual .lw-char { margin-left: 0; margin-top: 0; text-align: center; }
+.ms-sheet-content .lw-dual .lw-sung,
+.ms-sheet-content .lw-dual .lw-dialogue { margin-left: 0; margin-right: 0; }
+.ms-sheet-content .lw-dual .lw-paren { margin-left: 0; margin-right: 0; text-align: center; }
+.ms-sheet-content .lw-dual .lw-col > .lw-blank:first-child { display: none; }
 
 /* Print export root — built off-screen, revealed only when printing */
 #pdf-print-root { display: none; }
@@ -575,6 +595,7 @@ body.dark .topnav {
 }
 .tn-iconbtn:hover { background: var(--tn-hover); color: var(--tn-ink); }
 .tn-library { color: var(--tn-muted); }
+.tn-library svg { display: block; flex-shrink: 0; }
 .tn-library.active, .tn-library.active:hover { background: var(--tn-active-bg); color: var(--tn-active-ink); }
 
 .tn-show-btn {
@@ -985,6 +1006,30 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
   outline: none;
 }
 .ms-style-sel:focus { border-color: #8b7fe8; }
+.ms-dual-btn {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border: 1px solid #c9c5f0;
+  border-radius: 5px;
+  background: #fff;
+  color: #3c3489;
+  cursor: pointer;
+  outline: none;
+}
+.ms-dual-btn:disabled { opacity: 0.4; cursor: default; }
+.ms-dual-btn.active { background: var(--energy); border-color: var(--energy); color: #fff; }
+body.dark .ms-dual-btn { background: #2a2540; border-color: #3d3760; color: #b8aef0; }
+body.dark .ms-dual-btn.active { background: var(--energy); border-color: var(--energy); color: #fff; }
+/* Mark a dual cue in the editor so the writer sees the pairing. */
+.ms-el[data-dual="1"]::after {
+  content: ' ⇄ dual';
+  font-size: 0.7em;
+  font-weight: 600;
+  color: var(--energy);
+  letter-spacing: 0.04em;
+  -webkit-text-fill-color: var(--energy);
+}
 .ms-style-hint { font-size: 11px; color: #aaa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 body.dark .ms-style-bar { background: #1e1b2e; border-bottom-color: #2e2a45; }
 body.dark .ms-style-sel { background: #2a2540; border-color: #3d3760; color: #b8aef0; }
