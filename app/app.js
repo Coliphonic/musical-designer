@@ -39,6 +39,8 @@ const state = {
   page: 'board',
   sidebarOpen: (() => { try { return localStorage.getItem('md-sidebar') !== 'closed'; } catch (_) { return true; } })(),
   cards: [],
+  revisions: [],     // [{id, name, color, date}] — Final Draft-style revision sets
+  currentRev: null,  // id of the active revision; null = not tracking (no marks)
   characters: {},
   titlePage: { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } },
   scriptHeader: { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false },
@@ -107,6 +109,7 @@ function openReference(key) {
   else { const lanes = assignLanes(show.numbers); state.cards = show.numbers.map((t, i) => { const c = cardFromTuple(t); c.act = lanes[i]; return c; }); }
   // Enriched references may carry a character registry and a title page (no lyrics).
   // Plain references have neither — fall back to empty so stale project data never leaks in.
+  state.revisions = []; state.currentRev = null; // references aren't revised
   state.characters = show.characters ? JSON.parse(JSON.stringify(show.characters)) : {};
   const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
   state.titlePage = Object.assign({}, tpDefaults, show.titlePage || {});
@@ -127,6 +130,8 @@ function openReference(key) {
 // Does not touch projectId/showKey/readonly or render — the caller owns those.
 function applyShowData(d) {
   state.cards = (d.cards || []).map(cardFromStored);
+  state.revisions = d.revisions || [];
+  state.currentRev = d.currentRev || null;
   state.characters = d.characters || {};
   const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
   state.titlePage = Object.assign({}, tpDefaults, d.titlePage || {});
@@ -159,6 +164,8 @@ function serialize() {
   return JSON.stringify({
     title: state.title, mode: state.mode, status: state.status || 'active', folder: state.folder || '', updated: Date.now(),
     cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
+    revisions: state.revisions,
+    currentRev: state.currentRev,
     characters: state.characters,
     titlePage: state.titlePage,
     scriptHeader: state.scriptHeader,
@@ -1133,6 +1140,15 @@ function seamlessToLines(text, defaultSung) {
 }
 function linesToSeamless(lines, isSong) { return serializeRows(lines || [], isSong); }
 
+// Tokens for a card's manuscript body, sourced from its persisted lines (so each
+// carries lastRev for revision marks) when present, else parsed from the blob.
+function cardBodyTokens(c) {
+  if (Array.isArray(c.lines) && c.lines.length) {
+    return c.lines.map((l) => ({ type: l.type, text: l.text, subtype: l.subtype, dual: l.dual, lastRev: l.lastRev }));
+  }
+  return parseLyricLines(c[cardBodyField(c)] || '', c.type === 'song');
+}
+
 // ---- Step 2: persisted structured lines -----------------------------------
 // `card.lines` is the identity sidecar for the manuscript body. The text blob
 // (lyrics/note) stays canonical for the dozen readers that consume it; `lines`
@@ -1140,12 +1156,43 @@ function linesToSeamless(lines, isSong) { return serializeRows(lines || [], isSo
 // that revisions/variants can attach to. Migration is lazy: a card gains `lines`
 // the first time its body is edited.
 
+// Final Draft-style revision sets, in standard issue order (paper colors).
+const REV_COLORS = [
+  { name: 'Blue',      hex: '#2b6cb0' },
+  { name: 'Pink',      hex: '#d53f8c' },
+  { name: 'Yellow',    hex: '#b7791f' },
+  { name: 'Green',     hex: '#2f855a' },
+  { name: 'Goldenrod', hex: '#9c6f1a' },
+  { name: 'Buff',      hex: '#8a6d3b' },
+  { name: 'Salmon',    hex: '#c05621' },
+  { name: 'Cherry',    hex: '#c53030' },
+];
+const currentRevColor = () => {
+  const r = (state.revisions || []).find((x) => x.id === state.currentRev);
+  return r ? r.hex : '#2b6cb0';
+};
+
+// Stamp lastRev on lines that changed (or are new) under the active revision, so
+// each marked line shows a revision asterisk. No-ops when not tracking — the base
+// draft stays unmarked until the writer issues the first revision (FD behavior).
+function stampRevisions(oldLines, newLines) {
+  const rev = state.currentRev;
+  if (!rev) return newLines;
+  const byId = {};
+  (oldLines || []).forEach((l) => { if (l && l.id) byId[l.id] = l; });
+  return newLines.map((nl) => {
+    const old = byId[nl.id];
+    const changed = !old || old.text !== nl.text || old.type !== nl.type;
+    return Object.assign({}, nl, { lastRev: changed ? rev : old.lastRev });
+  });
+}
+
 // Editor path — the rich editor hands back id-carrying rows, so an edited line
 // keeps its identity exactly (not a heuristic match). lines becomes canonical;
 // the blob is derived from it.
 function setCardLines(c, lines) {
-  c.lines = lines;
-  c[cardBodyField(c)] = linesToSeamless(lines, c.type === 'song');
+  c.lines = stampRevisions(c.lines, lines);
+  c[cardBodyField(c)] = linesToSeamless(c.lines, c.type === 'song');
 }
 
 // Text path — a raw-text write (Fountain textarea, drawer note, paste). Re-derive
@@ -1156,7 +1203,7 @@ function setCardBody(c, field, text) {
   if ((c[field] || '') === (text || '')) return false;
   c[field] = text;
   if (field === cardBodyField(c)) {
-    c.lines = mergeLineIds(c.lines, seamlessToLines(text, c.type === 'song'));
+    c.lines = stampRevisions(c.lines, mergeLineIds(c.lines, seamlessToLines(text, c.type === 'song')));
   }
   return true;
 }
@@ -1432,18 +1479,22 @@ function buildContentTokens(sceneId) {
     toks.push(t);
   };
 
+  // Whole-note action blocks aren't line-split; mark the block if any of its
+  // lines changed under the current revision.
+  const noteRev = (c) => (Array.isArray(c.lines) && state.currentRev && c.lines.some((l) => l.lastRev === state.currentRev)) ? state.currentRev : undefined;
+
   const emitCard = (c) => {
     if (c.type === 'scene') {
       toks.push({ type: 'scene-header', text: c.title || 'Scene' });
-      if (c.note && c.note.trim()) { toks.push({ type: 'blank' }); toks.push({ type: 'action', text: c.note }); toks.push({ type: 'blank' }); }
+      if (c.note && c.note.trim()) { toks.push({ type: 'blank' }); toks.push({ type: 'action', text: c.note, lastRev: noteRev(c) }); toks.push({ type: 'blank' }); }
     } else if (c.type === 'beat') {
-      if (c.note && c.note.trim()) { toks.push({ type: 'action', text: c.note }); toks.push({ type: 'blank' }); }
-      if (c.lyrics && c.lyrics.trim()) { parseLyricLines(c.lyrics, c.type === 'song').forEach(pushLyric); toks.push({ type: 'blank' }); }
+      if (c.note && c.note.trim()) { toks.push({ type: 'action', text: c.note, lastRev: noteRev(c) }); toks.push({ type: 'blank' }); }
+      if (c.lyrics && c.lyrics.trim()) { cardBodyTokens(c).forEach(pushLyric); toks.push({ type: 'blank' }); }
     } else if (c.type === 'song') {
       songNum++;
       toks.push({ type: 'song-num', num: songNum, title: c.title || 'Untitled' });
       toks.push({ type: 'blank' });
-      if (c.lyrics && c.lyrics.trim()) parseLyricLines(c.lyrics, c.type === 'song').forEach(pushLyric);
+      if (c.lyrics && c.lyrics.trim()) cardBodyTokens(c).forEach(pushLyric);
       else toks.push({ type: 'action', text: state.readonly ? '(lyrics not reproduced)' : '(no lyrics yet)' });
       toks.push({ type: 'blank' });
     }
@@ -1456,7 +1507,7 @@ function buildContentTokens(sceneId) {
       songNum = order.slice(0, startPos).filter((i) => state.cards[i].type === 'song').length;
       toks.push({ type: 'scene-header', text: sc.title || 'Scene' });
       toks.push({ type: 'blank' });
-      if (sc.note) { toks.push({ type: 'action', text: sc.note }); toks.push({ type: 'blank' }); }
+      if (sc.note) { toks.push({ type: 'action', text: sc.note, lastRev: noteRev(sc) }); toks.push({ type: 'blank' }); }
       for (let j = startPos + 1; j < order.length; j++) {
         const c = state.cards[order[j]];
         if (c.type === 'scene') break;
@@ -1675,6 +1726,11 @@ function renderPageToken(tok, container) {
       row.appendChild(cell);
     });
     container.appendChild(row);
+  }
+  // Revision mark: a margin asterisk on any line changed under the active revision.
+  if (tok.lastRev && state.currentRev && tok.lastRev === state.currentRev && state.msOptions.showRevisions !== false) {
+    const node = container.lastElementChild;
+    if (node) { node.classList.add('lw-rev'); node.style.setProperty('--revc', currentRevColor()); }
   }
 }
 
@@ -2480,7 +2536,7 @@ function buildManuscriptPage(sceneId) {
         : (c.type === 'scene' ? '(scene heading — click to write)' : c.type === 'beat' ? '(new beat — click to write)' : '(no lyrics yet — click to write)');
       inner.appendChild(el('div', { class: 'ms-card-placeholder', text: phText }));
     } else {
-      parseLyricLines(text, c.type === 'song').forEach((tok) => renderPageToken(tok, inner));
+      cardBodyTokens(c).forEach((tok) => renderPageToken(tok, inner));
     }
     sec.appendChild(inner);
   };
@@ -2581,6 +2637,59 @@ function buildManuscriptPage(sceneId) {
   drawerInner.appendChild(mkDrawerToggle('Show title', 'showTitle', false));
   drawerInner.appendChild(mkDrawerToggle('Act headers', 'showActHeaders', true));
   drawerInner.appendChild(mkDrawerToggle('Section tags', 'showSectionTags', false));
+
+  // ── Revisions (Final Draft-style) ─────────────────────────────────
+  if (!state.readonly) {
+    const rerenderMs = () => { if (msMode === 'layout') rebuildSheets(); else rebuildEdit(); };
+    drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
+    const revSection = el('div', { class: 'ms-rev-section' });
+    drawerInner.appendChild(revSection);
+    const renderRevSection = () => {
+      revSection.innerHTML = '';
+      revSection.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Revisions' }));
+      const cur = (state.revisions || []).find((r) => r.id === state.currentRev);
+      if (cur) {
+        const row = el('div', { class: 'ms-rev-current' });
+        row.appendChild(el('span', { class: 'ms-rev-swatch', style: 'background:' + cur.hex }));
+        row.appendChild(el('span', { class: 'ms-rev-name', text: cur.name + ' Revision' }));
+        revSection.appendChild(row);
+        revSection.appendChild(mkDrawerToggle('Show revision marks', 'showRevisions', true));
+      } else {
+        revSection.appendChild(el('div', { class: 'ms-rev-none', text: 'Not tracking yet — start a revision to mark changes from here on.' }));
+      }
+      const startBtn = el('button', { class: 'ms-rev-btn', text: cur ? 'Start new revision' : 'Start tracking revisions' });
+      startBtn.addEventListener('click', () => {
+        // Baseline every card to identified lines (unstamped) so the next revision
+        // only marks lines that actually change from here on, not whole cards on
+        // their first edit (FD treats all existing lines as the baseline).
+        state.cards.forEach((c) => {
+          if (!Array.isArray(c.lines)) {
+            const f = cardBodyField(c);
+            if ((c[f] || '').trim()) c.lines = seamlessToLines(c[f], c.type === 'song');
+          }
+        });
+        const color = REV_COLORS[(state.revisions || []).length % REV_COLORS.length];
+        state.revisions = (state.revisions || []).concat([{ id: uid(), name: color.name, hex: color.hex, date: Date.now() }]);
+        state.currentRev = state.revisions[state.revisions.length - 1].id;
+        if (state.msOptions.showRevisions === undefined) { state.msOptions.showRevisions = true; saveMsOpts(); }
+        doSave();
+        renderRevSection();
+        rerenderMs();
+      });
+      revSection.appendChild(startBtn);
+      if ((state.revisions || []).length) {
+        const list = el('div', { class: 'ms-rev-list' });
+        state.revisions.forEach((r) => {
+          const item = el('div', { class: 'ms-rev-item' + (r.id === state.currentRev ? ' active' : '') });
+          item.appendChild(el('span', { class: 'ms-rev-swatch', style: 'background:' + r.hex }));
+          item.appendChild(el('span', { text: r.name + (r.id === state.currentRev ? ' · current' : '') }));
+          list.appendChild(item);
+        });
+        revSection.appendChild(list);
+      }
+    };
+    renderRevSection();
+  }
 
   const applyZoom = () => {
     const vp = msWrap.querySelector('.ms-viewport');
