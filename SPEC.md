@@ -1,589 +1,380 @@
 # Musical Designer — Spec
 
-An app for **writing musicals** — not plays or screenplays. A musical's songs *are* its
-structure, so the tool is built around **song spotting** (deciding where a song happens and
-why) rather than around scenes and dialogue.
+A **word processor for musicals**. You write the book and lyrics in a real, paginated
+libretto editor, and you plan the score on a card board that knows a musical's songs *are*
+its structure. One tool takes you from "where does this show sing, and why?" to a printable,
+Final Draft-formatted script.
 
-Chosen direction: **The Song Plot** — an interactive number list / running order with a
-diagnostic engine, a reference/template library, and an embedded lyric-craft bench.
-
-> **Vision update (2026-06-23).** The original spec scoped a single-user *song-plot board* —
-> a diagnostic surface for spotting numbers. In use it grew into a full **writing
-> environment**: the board is still the hinge, but it now feeds a paginated **Manuscript** view
-> that produces real Final-Draft-formatted libretto pages, a **Characters** registry, and
-> **Title pages** — so a writer can go from spotting a number to a printable script in one tool.
-> It also became a **deployed, multi-user web app** (accounts, a Library of shows with folders &
-> archiving, async sharing). The song-plot vision is intact and load-bearing; what changed is
-> that the app no longer stops at the board. The page model is now **Board · Title pages ·
-> Manuscript · Characters · Export**, plus a **Library**. See §6b (Manuscript), §6c (Characters /
-> Title pages), and §12 (Platform) for the surfaces the original spec didn't anticipate.
+> **What this document is.** A from-scratch rewrite (2026-06-25) describing the app as it now
+> exists, working toward its **first full working version**. Earlier drafts framed the writing
+> environment as an add-on to a diagnostic "song-plot board"; that's backwards. The **manuscript
+> editor is the primary surface** — the board is the planning companion to it. Deprecated ideas
+> (the dual energy/tension contour, ghost-contour overlays, scaffold-as-pillar) have been removed,
+> not archived. What remains is what the app does.
 
 ---
 
-## 1. Core principle
+## 1. What the app is
 
-> A character speaks until speech can't hold the emotion anymore, then they sing; and sings
-> until singing can't hold it, then they dance.
+Three things, in priority order:
 
-The app exists to help a writer decide *where the show sings* and *why*, then keep the whole
-score balanced in pace, voice, and key.
+1. **A libretto word processor.** Write book scenes, dialogue, and lyrics in a continuous editor
+   and read them back as paginated, Final Draft-formatted pages — character cues, dialogue and
+   lyric margins, 12pt Courier Prime, scene headings on fresh pages, dual (simultaneous) dialogue
+   in columns. Print or export to PDF. This is where the writing happens.
+2. **A song-plot board.** A drag-to-arrange running order of the show's scenes, songs, and beats,
+   with each number tagged by its dramatic **function** (Opening, I Want, Act Finale, 11 O'Clock…)
+   and placed on a fixed three-act spine. The board decides *where the show sings*; its content
+   flows straight into the manuscript.
+3. **A study library.** Ten canonical shows, digitized as read-only boards + manuscripts, plus
+   your own projects — so you can read how *Gypsy* stages its Act 1 finale right next to your draft.
+
+A lyric-craft bench (rhyme + syllable tools, CMU dictionary) lives inside song cards, and an
+Export surface produces backups, Fountain, and PDF.
+
+### Guiding principle
+
+> A character speaks until speech can't hold the emotion anymore, then they sing; and sings until
+> singing can't hold it, then they dance.
+
+The app helps a writer decide where the show sings and why, then actually write it — keeping the
+score balanced in pace, voice, and function along the way.
 
 ---
 
-## 2. Architecture — three layers off one hinge
+## 2. Architecture — the card is the hinge between board and page
 
-Everything hangs off a single object, the **Song Card**. At the macro scale it's a tile on the
-plot board; opened up, it's a lyric workspace. The reference library feeds both scales; the
-diagnostics engine reads across all of them.
+Everything hangs off one object, the **Card**. On the board it's a tile in the running order;
+its body (`note` for scenes/beats, `lyrics` for songs) is the libretto content that flows into the
+**Manuscript**. The same card, two zoom levels — plan it on the board, write it on the page.
 
 ```
-            ┌─────────────────── Reference & template library ───────────────────┐
-            │   scaffolds · digitized song plots · contour overlays · taxonomy    │
-            └───────────────┬─────────────────┬─────────────────┬─────────────────┘
-                            ▼                 ▼                 ▼
-        ┌── Macro · plot board ──┐   ┌─ The song card ─┐   ┌─ Micro · lyric bench ─┐
-        │ running order + cards  │←→ │  (the hinge)    │ ←→│ scansion + meter       │
-        │ energy ⇄ tension toggle│   │ function·key·   │   │ rhyme-scheme map       │
-        │ drag to re-spot        │   │ purpose·motifs  │   │ prosody warnings       │
-        │ character threads      │   │ status·runtime  │   │ singability flags      │
-        └────────────────────────┘   └─────────────────┘   └────────────────────────┘
-                            └──────── Diagnostics engine ───────┘
-                            └──── Export: number list / report ──┘
+        ┌─────────────────────── LIBRARY ───────────────────────┐
+        │  your projects  ·  10 read-only reference shows        │
+        └───────────────────────────┬───────────────────────────┘
+                                     │  open a show
+                                     ▼
+   ╔═══════════════════════════ THE CARD ═══════════════════════════╗
+   ║   scene · song · beat   —   title, act-lane, function,         ║
+   ║   voicing, runtime, status   +   body (dialogue / lyrics)      ║
+   ╚════════════╤═══════════════════════════════════╤══════════════╝
+                │ plan                               │ write
+                ▼                                    ▼
+   ┌──── BOARD (plan) ────┐            ┌──────── MANUSCRIPT (write) ────────┐
+   │ 3-act spine, 4 lanes │            │ Edit: continuous libretto editor   │
+   │ drag to re-spot      │  ──────▶   │ Print View: paginated FD pages      │
+   │ function pills       │   flows    │ scene-per-page · dual dialogue      │
+   │ % through the story  │   into     │ outline nav · print / PDF           │
+   └──────────────────────┘            └─────────────────────────────────────┘
+        │                                         │
+        ▼                                         ▼
+   Characters registry              Title pages · Export · Snapshots
+   (auto from cues)                 (front matter, backup, Fountain, PDF, history)
 ```
 
-Two load-bearing design decisions:
+Two load-bearing decisions:
 
-- **The Lyric lives *inside* the Card, not beside it.** `energy`/`tempo` on the card front and
-  the scanned lyric lines inside are the same object at two zoom levels. A prosody fix in the
-  bench updates the card's singability flag, which the diagnostics engine then reads.
-- **ReferenceShows are just Shows with a `readonly` flag.** Digitizing a canonical musical uses
-  the same schema as the user's own draft, so "overlay a reference contour" is free once the
-  board exists, and templates are just Shows with empty cards.
-
----
-
-## 3. The dual contour (REMOVED — kept here as a design learning)
-
-> **Phase 1 learning (2026-06-16), confirmed removed (2026-06-23):** in real use the contour
-> didn't earn its prominence for the writing task — the **cards are what matters**. It was first
-> demoted to an optional toggle, then **removed entirely** from the live app: there is no curve,
-> divergence band, or toggle. The `energy` / `tension` *fields* have been **deprecated and removed** from the data model
-> (2026-06-23): stripped from templates, reference data, the seed show, and the model functions.
-> Legacy show files on the server that still carry these keys will have them silently dropped on
-> next save. If a contour view returns in future it will need fresh data entry. The cards-first board with per-card **% through the story** is the primary
-> surface. See §6a. The original idea is preserved below because the *reasoning* (the gap between
-> the curves is the real signal) is still sound and may feed a future diagnostics view.
-
-The original concept: the plot board draws a curve across the show. A toggle switches the axis:
-
-- **Energy / tempo** — ballad vs. barn-burner.
-- **Dramatic tension** — stakes rising.
-
-The insight is **the gap between the two curves**:
-
-- High tension + low energy = the quiet devastating number (whole house holds its breath).
-- High energy + low tension = pure entertainment / release valve.
-- All-convergence = mechanical; no-convergence = the audience never rests.
-
-A third view shades the **divergence band** between the curves and labels what kind of moment
-each song is.
+- **The libretto lives *inside* the card.** A song card's `lyrics` and a scene card's `note` are
+  the same text the Manuscript paginates. Writing on the page and planning on the board never
+  diverge because they read the same field.
+- **Reference shows are just shows with a `readonly` flag.** Digitizing a canonical musical uses
+  the identical schema as your own draft, so studying *Hamilton* on the same board + manuscript
+  surfaces is free.
 
 ---
 
-## 4. The song-function taxonomy (the app's vocabulary)
+## 3. The page model
 
-Shipped as an editable library so writers can add their own. Starter set:
+The app is organized as a top brand bar (deep-purple identity band, centered pill nav, "saved"
+indicator) over a per-page contextual ribbon. The pages:
 
-| Function | Job | Example |
-|---|---|---|
-| Opening Number | Sets tone, world, "rules" of the show | *Tradition* |
-| I Want | Protagonist's yearning; engine of the show | *Part of Your World* |
-| Charm Song | Light; makes us fall for a character | *My Favorite Things* |
-| Conditional Love ("If") | Circling falling in love without admitting it | *If I Loved You* |
-| Production Number | Big ensemble spectacle, mid-act lift | *Hello, Dolly!* |
-| Soliloquy | Internal decision in real time | *Soliloquy* (Carousel) |
-| Act 1 Finale | Raise stakes, cliffhanger into intermission | *One Day More* |
-| 11 O'Clock Number | Late-show showstopper; emotional peak | *Rose's Turn* |
-| Reprise | A melody returns, recontextualized | — |
-| Finale Ultimo | Resolution; weaves themes back | — |
-
-Modifiers: patter, anthem, want-vs-need, musical scene (number carrying dialogue/action).
+| Page | What it is |
+|---|---|
+| **Library** | Card grid of your projects (draft / active / archived, folders) + a Reference section of 10 study shows. Open-book icon in the nav. |
+| **Board** | The song-plot running order — the planning surface (§4). |
+| **Title pages** | Generated front matter (title, authors, contact, cast list, song list, settings), rendered on the same print sheets as the Manuscript, with per-block include toggles. |
+| **Manuscript** | The libretto word processor — Edit + Print View (§5). The primary surface. |
+| **Characters** | A registry card per character (voice type, description, notes, auto "appears in"), synced from lyric cues (§6). |
+| **Export** | Backup (.songplot JSON), Fountain (.fountain), PDF (via Print View), and import (§7). |
 
 ---
 
-## 5. Data model
+## 4. The board — planning the song plot
 
-| Entity | Holds | Powers |
-|---|---|---|
-| **Show** | `form` (two-act \| one-act-90), acts, runtime target, intermission point | act-balance + clock diagnostics (form-aware) |
-| **Card** | `type` (song \| beat), act, title, runtime, derived `pct` | unifies songs + beats in the running order |
-| **Song Card** | (a Card) + function, characters[], voicing, tempo, key/mode, style, diegetic?, dramatic purpose, status, `energy`, `tension`, `reprise_of`, button type | the hinge — everything |
-| **Beat Card** | (a Card) + note | non-song book scene / dramatic beat between numbers |
-| **Character** | vocal range, want, need, musical style | threads, vocal-load, want/need arc |
-| **Motif** | name, meaning-states[], appearances[] | reprise arcs, counterpoint |
-| **Lyric** *(inside a Card)* | sections, lines w/ syllable + stress data, rhyme scheme | the lyric bench |
-| **Beat** *(book outline)* | scene, tension, song-flag | spotting mode |
-| **ReferenceShow / Template** | digitized song plot / ordered function slots | reference library |
+The board is a **Save the Cat-style act-lane layout**: each act is a horizontal lane with a
+vertical act label; cards tile left-to-right and wrap within the lane.
 
-Card statuses: `idea → lyric draft → music draft → demo → locked`.
-
----
-
-## 6a. Cards-first board (primary surface, from Phase 1 use)
-
-- **Two card types**: **song** cards (function pill, voicing, energy/tension, runtime) and
-  **beat** cards (non-song book scenes / dramatic beats — dashed, neutral, with a note). Beats
-  interleave freely with songs in the running order.
-- **% through the story** on every card — weighted by cumulative runtime (a card halfway through
-  the show's minutes reads ~50%; one dropped between the 20% and 30% cards lands ~25%). Beat
-  cards carry a short default duration so they participate. Recomputes live on add/move/reorder.
-  (Open question: runtime-weighted vs. pure even-spacing-by-count — went with runtime-weighted.)
-- **Add affordances** — a `+` in the gap between any two cards inserts a song or beat there.
-- **Double-click to rename**; drag to reorder. Deeper field editing is Phase 2.
-- **Act-lane board** (Save the Cat-style) — each act is a horizontal lane with a vertical act
-  label; cards tile left-to-right and wrap within the lane. **Two-axis drag**: sideways = reorder
-  within an act; into another lane = change the card's act (running order + % recompute). Add tile
-  per lane inserts a song/beat into that act. (Superseded the horizontal rail + vertical-list.)
-- **Fixed 3-act spine, always 4 lanes**: Act 1 · Act 2A · Act 2B · Act 3. The marker between 2A
+- **Three card types.**
+  - **Scene** — a book scene heading; its `note` is the scene's prose/action and book dialogue.
+  - **Song** — a number, tagged with a **function pill** (see taxonomy below), voicing, runtime,
+    key/style fields; its `lyrics` hold the sung text.
+  - **Beat** — a smaller dramatic beat between numbers, carrying a freeform, typable
+    **story-function label** ("Inciting Incident", "Dark Night of the Soul", "Set up the Want").
+  All three interleave freely in the running order and flow into the manuscript in order.
+- **Fixed 3-act spine, always 4 lanes:** Act 1 · Act 2A · Act 2B · Act 3. The marker between 2A
   and 2B is the **Intermission** in *Full length* mode or the **Midpoint** in *One-act (90)* mode
-  (a `Length` toggle; maps to `Show.form` two-act vs one-act-90). Seed shows auto-map their
-  musical acts onto the spine so the **2A│2B divide lands on the show's real intermission**, with
-  Break-into-2 (~first 30% of Act 1) and Break-into-3 (~last 20% of Act 2) as the sub-cuts.
-  `card.act` now holds a lane key (`'1' | '2A' | '2B' | '3'`).
-- **View filter**: *Full story* (songs + beats) vs *Songs only* (just the numbers, e.g. 16 for
-  Newsies). Percentages stay full-story-relative in both views; inserting a beat auto-switches to
-  Full story so it's visible.
+  (a `Length` toggle mapping to `Show.form`). `card.act` holds the lane key (`'1' | '2A' | '2B' | '3'`).
+- **Two-axis drag.** Sideways = reorder within an act; into another lane = change the card's act.
+  Running order and percentages recompute live.
+- **% through the story** on every card — weighted by cumulative runtime, so a number halfway
+  through the show's minutes reads ~50%. Recomputes on every add / move / reorder.
+- **Add affordances.** A `+` in the gap between any two cards, or a per-lane add tile, inserts a
+  scene / song / beat there.
+- **View filter:** *Full story* (scenes + songs + beats) vs *Songs only* (just the numbers).
+  Percentages stay full-story-relative in both.
+- **Reference banner.** When a read-only reference show is open, a banner names what that show
+  *teaches* (e.g. Fiddler → "Opening number establishes world + rules"), and the same hook appears
+  on the Library card, so you know what to study.
 
-## 6b. Manuscript — the libretto view (added Phase 2, not in original spec)
+### The song-function taxonomy (the board's vocabulary)
 
-The board says *where* the show sings; the **Manuscript** is where the book and lyrics are
-actually written and read as a script. Every Card's content (dialogue for beats, lyrics for
-songs) flows into one continuous, paginated document.
+Each song card carries one function (`FN` in `data.js`), color-coded by family:
 
-- **Two modes.** *Edit* (default) — a dark-friendly continuous editor where each card is a
-  section under a divider (◆ scene · ♪ song · ● beat). *Print View* — paginated 8.5×11" white
-  sheets laid out to **Final Draft conventions** (character cue at 3.0", dialogue/lyric margins,
-  12pt Courier Prime, 6 lines/inch), ready to print or export to PDF.
-- **Outline navigator** (Edit only) — a left panel listing every card grouped by act lane; click
-  a row to smooth-scroll to that card; the card nearest the top of the viewport highlights via an
-  `IntersectionObserver`. Toggled from a **☰ Navigation** button in the ribbon. Hidden in Print
-  View (print tokens aren't card-id-tagged — a known limitation).
-- **Contextual ribbon** — a per-page toolbar directly under the top nav, shared as one `.ribbon`
-  system across Board / Manuscript / Characters. Manuscript's holds Navigation · Edit/Print
-  toggle · centered zoom · Print · Settings (the settings drawer opens on the right; print/settings
-  sit far-right to mirror that).
-- **Rich line editor** — the Tab/Enter element editor (character / dialogue / lyric / parenthetical
-  / action / section) is a shared `buildRichEditor()` factory used by both the Manuscript Edit
-  mode and the lyric window's Rich tab, so book and lyric editing feel identical.
+| Function | Job |
+|---|---|
+| Opening | Sets tone, world, the "rules" of the show |
+| I Want | Protagonist's yearning; the engine of the show |
+| Charm | Light; makes us fall for a character |
+| Love | Circling / declaring love |
+| Production | Big ensemble spectacle, mid-act lift |
+| Soliloquy | Internal decision in real time |
+| Ballad | The slow, sustained emotional number |
+| Act Finale | Raise stakes, cliffhanger into intermission |
+| 11 O'Clock | Late-show showstopper; emotional peak |
+| Reprise | A melody returns, recontextualized |
+| Finale | Resolution; weaves themes back (finale ultimo) |
+| Villain · Comedy · Anthem · Diegetic · Establishing · Plot · Motif | Modifiers / supporting roles |
 
-## 6c. Characters & Title pages (added Phase 2)
+Card statuses (shown as a dot): `idea → lyric draft → music draft → demo → locked`.
 
-- **Characters page** — a registry card per character (voice type, brief description, notes, and
-  an auto-computed "appears in" list of the songs/scenes they're cued in). **Sync from lyrics**
-  scans every card via `parseLyricLines` to discover names from cues. Powers the FD-style
-  character-name autocomplete in the editor and (future) vocal-load diagnostics.
-- **Title pages** — generated front matter (title, authors, contact, cast list, song list,
+---
+
+## 5. The Manuscript — the libretto word processor (primary surface)
+
+The board says *where* the show sings; the Manuscript is where the book and lyrics are **written
+and read as a script**. Every card's body flows into one continuous, paginated document.
+
+### Two modes
+
+- **Edit** (default) — a dark-friendly continuous editor. Each card is a section under a divider
+  (◆ scene · ♪ song · ● beat). Clicking into a section opens the **rich line editor** in place.
+- **Print View** — paginated 8.5×11" white sheets laid out to **Final Draft conventions**:
+  character cue at 3.0", dialogue and lyric margins, 12pt Courier Prime, running headers, CONT'D
+  marking when a character's speech crosses a page.
+
+### The rich line editor
+
+A shared `buildRichEditor()` factory (used by both Manuscript Edit and the lyric window's Rich
+tab, so book and lyric editing feel identical). Each line is a typed **element** — Character,
+Lyrics, Dialogue, Parenthetical, Action, Section.
+
+- **Tab** cycles element type; **Enter** starts the next logical line; **Ctrl/⌘ + 1–6** jump
+  straight to an element type (Final Draft-style).
+- **Character-name autocomplete** on cue lines, fed by the Characters registry.
+- **Seamless input format.** No markup required: an ALL-CAPS line is a character cue; lines default
+  to **sung** in songs / **spoken** in scenes & beats; a trailing `(sings)` / `(spoken)` overrides
+  the block. `parseLyricLines(text, defaultSung)` is the single source of truth — it classifies
+  each line 1:1 and drives rendering, the syllable gutter, rhyme tools, and the pages. Legacy
+  `@cue` / `~sung` still parse.
+
+### Pagination engine
+
+A deterministic, **measurement-based** engine — not a line-count heuristic. It renders blocks into
+an off-screen sheet sized exactly like the page, measures their true height, and places them:
+
+- **Blocks** (`buildBlocks`) are atomic layout units — a character cue stays welded to its first
+  line; headers stand alone with orphan control; blank spacers are deferred so they never overflow
+  or lead a page.
+- **Placement** (`paginateBlocks`) fills a page, finds the real overflow point, breaks, repeats.
+  An over-tall block (rare) splits token-by-token so nothing ever clips.
+- **Scene-per-page.** Each scene heading starts a fresh page (libretto convention) — except the
+  first scene under an act header, which rides on the act header's page.
+- **Dual dialogue.** A character cue marked with a trailing `^` (Fountain convention) sings or
+  speaks **simultaneously** with the cue before it. `buildBlocks` pairs them into one non-splittable
+  **two-column** block, the placer measures it as `max(column heights)`, and Print View renders the
+  parts side by side. An editor **Dual ⇄** button (Ctrl/⌘ + D) toggles it without typing markup;
+  the pairing round-trips losslessly through the seamless format.
+
+### Supporting chrome
+
+- **Outline navigator** (Edit) — a left panel listing every card grouped by act lane; click a row
+  to smooth-scroll to it; the card nearest the viewport top highlights via an `IntersectionObserver`.
+  Toggled from a **☰ Navigation** button.
+- **Contextual ribbon** — Navigation · Edit/Print toggle · centered zoom · Print · Settings. The
+  settings drawer (right) toggles document elements: show title, act headers, and **section tags**
+  (which now hide/show in both Print View and the Edit editor).
+
+---
+
+## 6. Characters & Title pages
+
+- **Characters page** — a registry card per character: voice type (Soprano … Speaking, Ensemble),
+  a short description, notes, and an auto-computed "appears in" list of the songs/scenes they're
+  cued in. **Sync from lyrics** scans every card via `parseLyricLines` to discover names from cues;
+  these power the editor's name autocomplete and (future) vocal-load diagnostics.
+- **Title pages** — generated front matter (title, authors, contact, cast list, song list, page
   settings) rendered on the same print sheets as the Manuscript, with per-block include toggles.
 
-## 6. Views
+---
 
-1. **Running Order** — horizontal timeline of numbers (primary view).
-2. **Energy / Tension Contour** — dual curve with divergence band (toggle).
-3. **Character Threads** — swim lanes per character; reveals "the mother vanishes in Act 2."
-4. **Key / Tempo Heat Strip** — catch tonal clustering.
-5. **Act Balance Bars** — runtime + song count per act.
+## 7. Export & backup
+
+The Export page offers:
+
+- **Save backup** — download a `.songplot` JSON of the whole show.
+- **Open backup** — import a `.songplot` as a new project.
+- **Export as Fountain** — a `.fountain` plain-text screenplay file compatible with Final Draft,
+  Highland, and Fade In; lyrics use standard Fountain character/dialogue blocks.
+- **PDF** — via Print View's print dialog (the FD-formatted pages).
+
+Reference shows are read-only, so their export buttons are disabled.
 
 ---
 
-## 7. Reference & template library (pillar)
+## 8. The reference & study library
 
-> **Reframed (2026-06-23): a bookshelf, not a template machine.** The original spec leaned on
-> two ideas that haven't held up. (1) The **comparative contour overlay** — "ghost a famous
-> show's contour behind your own" — was built around the dual energy/tension contour, which we
-> **removed in Phase 3** (see §3). With no contour, there is nothing to ghost; this feature is
-> **cut.** (2) **Scaffolds** that drop you into pre-labeled empty function slots risk
-> paint-by-numbers — the antithesis of what makes a musical original. Two shows can share the
-> "opening number" slot and teach opposite lessons (Fiddler's *Tradition* vs. Hamilton's opener).
-> So scaffolds are **downgraded** from a pillar to an optional, dismissible starting frame, built
-> only if it earns its place later. The library's real value is **study, not prescription.**
+> **A bookshelf, not a template machine.** The library's value is **study, not prescription.** You
+> read proven shows as study objects — running order, song titles, voicing, act breaks, function
+> tags, and full scene/beat scaffolds, laid out exactly like your own board and manuscript. You
+> browse a master's anatomy to learn from it, not to copy its slots. (Scaffold-load — dropping into
+> pre-labeled empty slots — is deliberately **not** a feature; two shows can share the "opening
+> number" slot and teach opposite lessons.)
 
-The library is where you **read proven shows as study objects** — running order, song titles,
-voicing, act breaks, and function tags laid out the same way your own board is. You browse a
-master's anatomy to learn from it, not to copy its slots.
+Each reference show renders read-only with the same card + manuscript surfaces as a draft, and
+carries a **`teaches`** hook surfaced on its Library card and as a board banner.
 
-- **Rich browsing** *(the core)* — each reference show renders read-only with the same card +
-  manuscript surfaces as a draft, so a writer can study how *Gypsy* stages its Act 1 finale or
-  how *Hamilton* packs motif density, side by side with their own work.
-- **Diagnostic comparison, not fill-in** *(future, ties to §9)* — surface gentle prompts like
-  "your show has no number doing the work an Act 1 finale usually does — here's how three
-  reference shows handle that beat." A prompt to *think*, never a slot to fill.
-- **Onboarding** — exploring a known show's anatomy before writing a note is a first-run path.
-- **Optional scaffold** *(deferred, not a pillar)* — if ever built, a known structural skeleton
-  (Golden Age book musical, modern sung-through) loads as a faint, fully-dismissible frame of
-  suggested function beats — never a mandatory grid.
+### Digitized shows (10, enriched)
 
-### Seed set (11 shows, each teaches a distinct lesson)
+Each is a full scaffold: `characters` (voice type + description), `titlePage`, and ordered
+`cards` (scenes / songs / beats with function, voicing, runtime ballpark, and per-card notes).
+**No lyrics are reproduced** — these are structural study objects. Keys / tempo / exact runtimes
+are left unset ("needs score") rather than fabricated.
 
-Digitized files live in `reference-library/`. **High confidence** on running order, song titles,
-voicing, act breaks, and function tags. Energy/tension contour values and **per-number runtime
-estimates** are **interpretive** starting reads (the runtime estimate is fine to ballpark; it
-feeds act-balance math). Keys / tempo (BPM) / *exact* runtimes are left **`null` ("needs
-score")** — never fabricated.
-
-| Show | Era | Teaches |
+| Show | Year | Teaches |
 |---|---|---|
-| Fiddler on the Roof | 1964 | Opening number ("Tradition") |
-| Gypsy | 1959 | 11 o'clock + Act 1 finale |
-| Guys and Dolls | 1950 | Classic book-musical balance |
+| Fiddler on the Roof | 1964 | Opening number ("Tradition") establishes world + rules |
+| Gypsy | 1959 | The 11 o'clock number + Act 1 finale |
 | Chicago | 1975 | Diegetic vaudeville structure |
-| The Little Mermaid | 2008 | Textbook I Want |
-| Into the Woods | 1987 | Two-act contrast |
-| Les Misérables | 1985 | Sung-through + counterpoint finale |
+| The Little Mermaid | 2008 | Textbook "I Want" + a wall-to-wall villain |
+| Legally Blonde | 2007 | Contemporary comedy; a driving I-Want |
 | Newsies | 2011 | Anthem + ensemble production numbers |
-| Wicked | 2003 | Contemporary Act 1 finale |
-| Dear Evan Hansen | 2015 | Contemporary pop, intimate scale |
-| Hamilton | 2015 | Through-composed + motif density |
+| Wicked | 2003 | Contemporary Act 1 finale; friendship as the spine |
+| Dear Evan Hansen | 2015 | Contemporary intimate pop; the Act 1 finale as engine |
+| Hamilton | 2015 | Through-composition + motif density; delayed payoff |
+| The Hunchback of Notre Dame | 2015 | Choral storytelling + a true villain soliloquy |
 
-First digitizing batch (highest contrast, proves the format): **Fiddler** (opening) ·
-**Gypsy** (11 o'clock + finale) · **Hamilton** (sung-through + motif) — ✅ done, plus **Newsies**
-(contemporary anthem). Remaining 7 to digitize: Guys and Dolls, Chicago, The Little Mermaid,
-Into the Woods, Les Misérables, Wicked, Dear Evan Hansen.
+The shipped **demo project** (a fully-worked original with scenes, songs, lyrics, and book
+dialogue) is **Circuits & Sycamores**, seeded from `app/seed-shows/circuits.json` into a new
+user's data dir on first boot, never overwriting live edits.
 
-The reference shows render read-only in a "Reference" section of the Library. The **shipped demo
-show** (a fully-worked original example with songs, beats, lyrics, and book dialogue) is
-**Circuits & Sycamores** — seeded from `app/seed-shows/circuits.json` into a new user's data dir
-on first boot, never overwriting live edits. It replaced Fiddler as the default landing example.
-
-Format columns (per number): `# · Title · Function · Voicing · ~Min · Energy · Tension · Note`.
-Hamilton additionally carries a **motif map** table — the template for any motif-dense show.
-
-Known gap: no pure **soliloquy** exemplar after swapping out Carousel (Gypsy/Fiddler cover it
-partially). Candidate future add: Carousel or Sweeney Todd ("Epiphany").
-
-Later batch — **one-act / 90-minute** form (see `Show.form`): Spelling Bee, Urinetown,
-tick…tick…BOOM!. Held back only because the form needs distinct diagnostics, not because of data.
+*Future study adds:* a pure **soliloquy** exemplar (Carousel / Sweeney Todd), and the **one-act /
+90-minute** form (Spelling Bee, Urinetown, tick…tick…BOOM!) once that form earns distinct
+diagnostics.
 
 ---
 
-## 8. Lyric bench (pillar)
+## 9. The lyric bench (inside song cards)
 
-Lives **inside** the Song Card (the lyric and the card's `energy`/`tempo` are the same object at
-two zoom levels). A fix in the bench can flip the card's singability flag, which the diagnostics
-engine then reads.
+Rhyme and meter tools live **inside** the song card — the lyric and the card are the same object at
+two zoom levels.
 
-### Persona & priorities
-
-Target writer = **loose pop / contemporary**, not a Sondheim-strict craftsperson. That sets the
-defaults:
-
-- **Rhyme is the headline feature**, and the bar is **perfect rhyme.** Slant/near rhyme is
-  *allowed* (it's idiomatic in pop) but surfaced as a gentle, dismissible note — never an error.
-- **Scansion / prosody is secondary** — present but **low-severity, quiet hints.** It must never
-  nag. The wrenched-stress check stays, but as a soft suggestion, not a red flag.
-- Everything is **severity-ranked and dismissible.** The tool advises; the writer decides.
-
-### The reframe
-
-In a musical the **melody is the meter** — the question is never "is this iambic?" but "does the
-word's natural stress land on the melody's strong beat?" So the bench is an *alignment checker*
-between two stress patterns (word-stress vs. beat-grid), with two modes: **no melody** (analyze
-inherent rhythm; check later verses against verse 1) and **melody present** (check stress vs.
-the beat grid).
-
-### Input format (seamless, evolved from the original `@`/`~` syntax)
-
-`parseLyricLines(text, defaultSung)` is the single source of truth — it classifies each line 1:1
-and drives rendering, the syllable gutter, rhyme scheme, and the Manuscript pages. **No markup
-required:** an ALL-CAPS line is a character cue; lines default to **sung** in songs / **spoken**
-in beats; a trailing `(sings)` / `(spoken)` overrides the block. Legacy `@cue` / `~sung` still
-parse (backward compatible). The editor surfaces this two ways: a **Fountain** tab (plain-text
-main view) and a **Rich** tab (Tab/Enter element editor with section pills and parenthetical
-formatting), both round-tripping the same clean format.
-
-### The engine
-
-Workhorse = the **CMU Pronouncing Dictionary (CMUdict)** — ~134k words in ARPAbet phonemes with
-stress digits (`MUSICAL → M Y UW1 Z IH0 K AH0 L`). Ships client-side (~4MB). Vowel phonemes =
-syllable count; digits = stress; the rhyme tail powers rhyme classification. One resource does
-syllabification, stress, *and* rhyme.
-
-Pipeline per line: **tokenize → dictionary lookup → syllabify + stress → (align to beat grid) →
-run checks → annotate.**
-
-### Rhyme (the priority)
-
-Extract each line's **rhyme tail** — from the last stressed vowel to the end — and compare
-phonemes:
-
-- **Perfect** — tails match, preceding consonant differs (re·GRET / for·GET). The target.
-- **Near / slant** — close but not identical. Allowed; flagged as a soft note with a one-tap
-  "find a perfect rhyme instead" affordance.
-- **Identity** — same sound (eye / I). Not a rhyme; flag it (even loose writers usually want to
-  know).
-- Track **masculine vs. feminine** (motion / devotion) and **internal** rhyme.
-
-Plus: auto-detect the **scheme** (ABAB…) and map it; a **perfect-rhyme suggester** that, given a
-target word, returns true perfect rhymes ranked ahead of slant options. The tool **reports type,
-it doesn't moralize** — a streetwise character *should* rhyme loosely.
-
-### Scansion / prosody (secondary, quiet)
-
-- **Syllable / meter fit** — line syllable count + stress shape vs. the established pattern.
-- **Prosody mismatch** — unstressed syllable of a content word on a strong beat ("FOR-ev-er").
-  Kept, but as a low-severity hint for this persona.
-- **Singability** — open vowels (AH, AA) sustain; closed vowels (IY, UW) and diphthongs
-  (AY, OW) are hard on held/high notes; sibilants hiss when sustained. Flag a long/high note on
-  a closed vowel or diphthong.
-
-### Verse-to-verse consistency (build first — no melody needed)
-
-Derive verse 1's syllable-and-stress template; **diff every later verse against it** (they all
-sing to the same tune): "v2 line 3 is 9 syllables, v1 was 8 — won't fit." Pure string comparison
-once the stress engine exists; highest value-to-effort ratio in the whole bench.
-
-### Data model (inside a Card)
-
-```
-Lyric   sections: [ {type: verse|chorus|bridge|prechorus, lines: [Line] } ]
-Line    raw text · tokens: [Word] · rhymeTail (computed) · meterTemplate: [S|w] (optional)
-Word    text · pos (homograph disambiguation) · oov: bool · syllables: [Syllable]
-Syllable  phonemes · lexicalStress 0|1|2 · nucleusVowel · beatStrength (when aligned) · flags[]
-```
-
-### Honest hard problems
-
-- **Out-of-vocabulary words** (names, slang, invented) — g2p fallback, mark low-confidence, let
-  the user correct, then **cache** the correction.
-- **Homographs** (REcord / reCORD) — need light POS tagging to pick the right stress.
-- **Monosyllable stress is contextual** — needs a function-word list + basic POS or it's noisy.
-- **Don't be a scold** — every rule is breakable for effect; rank severity, allow dismiss.
-
-### Melody input — the shaping decision
-
-| Approach | Effort | When |
-|---|---|---|
-| Infer from verse 1 (no melody) | Low | Ship first |
-| Tap / mark the beat grid by hand (S/w) | Low | Unlocks prosody check |
-| Import MIDI / MusicXML (auto grid) | High | Much later, power feature |
-
-### Build order within the bench
-
-1. Stress engine (CMUdict + OOV fallback + homograph POS).
-2. **Rhyme suite** — classification, scheme map, perfect-rhyme suggester (the headline).
-3. Verse-to-verse consistency (no melody).
-4. Manual beat-grid tap → quiet prosody + singability hints.
-5. (Later) MusicXML import.
+- **Persona: loose pop / contemporary**, not Sondheim-strict. Rhyme is the headline; everything is
+  severity-ranked and dismissible. The tool advises; the writer decides.
+- **Engine:** the **CMU Pronouncing Dictionary** (`app/cmudict.txt`, ~135k words, packed to a rhyme
+  key + syllable count; loaded client-side by `app/lyric.js`). One resource does syllabification,
+  stress, and rhyme.
+- **Shipped today:** live per-line **syllable counts**, an **A/B/C rhyme scheme** by true
+  perfect-rhyme grouping (love ≠ move), a **perfect-rhyme suggester**, and a **verse-to-verse
+  syllable-mismatch** flag (later verses sing to verse 1's tune, so a line that's a syllable off
+  won't fit).
+- **Deferred (quiet by design):** prosody / wrenched-stress hints and slant-rhyme notes — present
+  in the design, held back so the bench never nags this persona.
+- **The reframe:** in a musical the melody *is* the meter — the real question is "does the word's
+  natural stress land on the melody's strong beat?" Beat-grid alignment and MusicXML import are
+  power features for much later.
 
 ---
 
-## 9. Diagnostics engine ("lint for musicals")
+## 10. Snapshots (version history)
 
-Reads structured cards and flags craft problems:
-
-- ⚠️ No I Want song in Act 1
-- ⚠️ Protagonist hasn't sung in N minutes
-- ⚠️ Three ballads in a row
-- ⚠️ Antagonist has no number
-- ⚠️ Act 2 song-starved (the classic second-act problem)
-- ⚠️ N consecutive numbers in the same key
-- ⚠️ Reprise of a song that doesn't exist (orphaned reprise)
-- ⚠️ Act runtime imbalance
-- ✅ Each principal has at least one solo moment
-
-**Form-aware:** diagnostics key off `Show.form`. A `one-act-90` show suppresses the Act 1 finale
-and intermission-balance checks and relocates the "11 o'clock"-equivalent expectation toward the
-~70-minute mark; a `two-act` show runs the full set above.
+Whole-show **snapshots**: named, timestamped checkpoints with **non-destructive restore** (restoring
+auto-checkpoints the current state first, so nothing is lost). Stored via a sibling-file
+sub-resource API (`/api/shows/:id/snapshots`), kept out of the show-list scan. A **History** icon in
+the top bar opens the drawer. Snapshots are the safety net for trying alternate takes on a scene,
+and the baseline primitive that Final Draft-style revisions will later reuse.
 
 ---
 
-## 10. Backlog ideas (post-MVP)
+## 11. Platform — accounts, storage, deployment
 
-- **Clock awareness** — real minutes axis; reason about the 11 o'clock slot, intermission math.
-- **Diegetic vs. book songs** — flag tonal-convention whiplash.
-- **Want/Need spine** — pin songs to the protagonist's want→need arc.
-- **Counterpoint / quodlibet** — combined numbers that braid earlier motifs (act-finale weaving).
-- **Key & modulation planning** — circle-of-fifths map; final-key-vs-opening relationship.
-- **Transitions & buttons** — track how numbers end/hand off; flag stop-start shows.
-- **Vocal load & casting** — tally vocal demand per performer; bridge to a production tool.
-- **Density / form detection** — dialogue-to-song ratio; name sung-through drift.
-- **Missing-song suggester** — highest-tension unsung beat → "most shows would sing here."
-- **Earworm budget** — track reprise-ability of the show's big tune.
-- **Audience-knowledge layer** — engineer dramatic irony per number.
-
----
-
-## 11. Build phases (UI-first)
-
-1. **Board shell** — ✅ DONE. Static cards in running order, drag-to-reorder. The make-or-break
-   demo. (Originally shipped with the dual contour + divergence band; the contour was later
-   **removed** once the cards proved to be what matters — see §3/§6a.)
-2. **Card opens** — ✅ DONE (v6). Right-side detail drawer: edit act/function/voicing/energy/
-   tension/duration/status/key/style/diegetic + the "why does this sing?" field (highlighted while
-   empty; new songs open straight into it = the creation gate). Status shows as a card dot; live re-render.
-3. **Lyric bench** *(pillar)* — ✅ DONE (v7). Real CMU pronouncing dictionary (135k words →
-   `app/cmudict.txt`, compact rhyme-key + syllable count) powers `app/lyric.js`. In the song editor:
-   live per-line syllable counts, A/B/C rhyme scheme by true perfect-rhyme grouping (love≠move),
-   the **perfect-rhyme suggester** (headline; orange→none), and a verse-to-verse syllable mismatch
-   flag. Quiet prosody/stress + slant-rhyme hints deferred (pop/contemporary persona). See §8.
-4. **Manuscript + book** *(added; see §6b)* — ✅ DONE. Paginated FD-format libretto (Edit + Print
-   View), seamless CAPS-cue input, Fountain/Rich editors, outline navigator. The vision expansion
-   that turned the board into a writing environment.
-5. **Characters & Title pages** *(added; see §6c)* — ✅ DONE. Character registry + sync-from-lyrics;
-   generated title/front-matter pages.
-6. **Reference library** *(pillar)* — 🟡 PARTIAL. 4 of 11 seed shows digitized + read-only in
-   Library. Next: finish the remaining 7 and make all of them **richly browsable** as study
-   objects (cards + manuscript, side by side with a draft). Ghost contour overlay **cut** (no
-   contour to ghost); scaffold-load **deferred** to optional — see §7 reframing (2026-06-23).
-7. **Diagnostics engine** — ⬜ TODO. Turn on the lint once cards carry real data (§9).
-8. **Export** — 🟡 PARTIAL. Print/PDF via Print View done; MD running order + production report TODO.
-9. **Snapshots** *(added; see §13d)* — ✅ DONE. Whole-show version history: named, timestamped
-   checkpoints with non-destructive restore (auto-checkpoints the current state first). A
-   sibling-file sub-resource API (`/api/shows/:id/snapshots`); the baseline primitive revisions reuse.
-10. **Manuscript foundations** *(see §13a–b)* — 🟡 IN PROGRESS, the next major substrate: a
-    structured **line-identity model** plus a pixel-perfect, **multi-column-aware pagination/
-    measurement engine**. Gates revisions, dual dialogue, and per-card variants.
-    - *Step 1 — round-trip core* ✅ DONE (2026-06-24): `seamlessToLines` / `linesToSeamless` /
-      `serializeRows` (shared with the editor so they can't drift) / `mergeLineIds`. Pure +
-      additive; round-trip verified as a lossless fixed point across all content cards.
-    - *Step 2 — persist structured lines* ⏸ DEFERRED (queued, do soon): store `card.lines`, derive
-      the blob, lazy-migrate old cards, editor carries ids. Intentionally held until we build the
-      revision marks that need persistent line identity — no point changing the saved shape early.
-    - *Pagination engine (13a)* 🟡 IN PROGRESS. **Already measurement-based** (off-screen probe
-      sized like the page; cue keep-together; header orphan control; CONT'D) — single-column
-      "pixel-perfect" is largely done. *Engine step 1 ✅ (2026-06-24, `18e339f`):* extracted the
-      block boundary — `buildBlocks` (token stream → layout units) + `paginateBlocks` (measure &
-      place). Each block reserves `columns` (dual dialogue), `splittable` (over-tall break),
-      `header`. *Engine step 2 ✅ (2026-06-24, `081ae9a`):* deferred blank spacers (never overflow
-      or lead a page — fixed the ~14px boundary overflow, now 0 overflowing pages) + token-by-token
-      split for blocks taller than a page (no clipping). **Next:** dual-dialogue columns (the
-      `columns` hook). The block boundary is the 13b seam: blocks can later carry line ids.
-11. **Revisions & dual dialogue** *(see §13a, §13c)* — ⬜ TODO. FD-style revision marks/sets
-    (Half A on the line model + snapshots; Half B's page-locking after pagination) and simultaneous
-    dual-column dialogue/lyrics (counterpoint), built on Phase 10.
-12. **Variants** *(see §13d)* — ⬜ TODO. Per-scene alternate takes on the line model; "active
-    variant only" guardrail.
-
-**Protect Phases 1–2.** The original bet was "if dragging a card and watching the divergence band
-breathe doesn't feel good, no amount of lint or reference data saves it." The contour lost that
-bet and was cut — but the principle held: **the tactile cards-first board is the thing that has to
-feel good first.** It does; everything else (Manuscript, library, diagnostics) builds on it.
-
----
-
-## 12. Platform — accounts, storage, deployment (added; not in original spec)
-
-The spec assumed a single-user local tool. It's now a deployed multi-user web app.
+A deployed, multi-user PWA (scale target: the author + 1–2 trusted collaborators — file-based, no
+database).
 
 - **Accounts & auth.** `users.js` CLI manages `users.json` (scrypt salt:hash). Stateless
-  signed-cookie sessions (`md_session` = `userId.HMAC`). Server gates `/` → `login.html` when
-  unauthenticated; `/api/shows*` returns 401. Scale target: just the author + 1–2 trusted
-  collaborators — file-based, no database.
-- **Library & file management.** A Library page (card grid) with per-show status (draft / active /
-  archived), folders, duplicate / archive / delete, and relative last-edited. Shows carry an
-  `owner` userId and `collaborators[]`.
-- **Sharing.** Owner-only share modal writes collaborators via `PUT /api/shows/:id/share`;
-  list/get/put/delete enforce owner-or-collaborator access. Roadmap: **document-locking** ("X is
-  editing") before any real-time CRDT — only 2–3 trusted editors, so locking suffices.
-- **Data storage.** Shows are user *data*, not code — not git-tracked. `serve.js` reads
-  `SHOWS_DIR` from env (external dir on the server) so `git pull` never collides with live data;
-  demo seeds copy in only if absent. An optional `USE_REMOTE_DATA` proxy lets local dev read prod
-  data through a stored prod session token (default off → sandbox data).
+  signed-cookie sessions (`md_session` = `userId.HMAC`). The server gates `/` → `login.html` when
+  unauthenticated; `/api/shows*` returns 401.
+- **Library & files.** Per-show status (draft / active / archived), folders, duplicate / archive /
+  delete, relative last-edited. Shows carry an `owner` and `collaborators[]`.
+- **Sharing.** Owner-only share modal writes collaborators via `PUT /api/shows/:id/share`; access is
+  enforced owner-or-collaborator. Roadmap: simple document-locking before any real-time model.
+- **Data storage.** Shows are user *data*, not code — not git-tracked. `serve.js` reads `SHOWS_DIR`
+  from env (an external dir on the server) so `git pull` never collides with live data; demo seeds
+  copy in only if absent. An optional `USE_REMOTE_DATA` proxy lets local dev read prod data.
 - **Deployment.** Live at `https://musicaldesigner.colincreates.com` (DreamCompute VPS, Ubuntu +
-  Node 20, pm2). Caddy reverse-proxies :443→:8090 with auto Let's Encrypt. **PWA**: manifest +
-  service worker + icons; installable, with iPad safe-area handling.
-- **Chrome.** Navigation is a **top brand bar** (deep-purple identity band, centered pill nav,
-  green "saved" indicator) over a per-page contextual ribbon — replacing the original left
-  sidebar. See §6b for the ribbon system.
+  Node 20, pm2; Caddy reverse-proxies :443→:8090 with auto Let's Encrypt). PWA: manifest + service
+  worker (`sw.js`, `CACHE` bumped each deploy) + icons; installable, with iPad safe-area handling.
+- **Stack.** Vanilla JS SPA, no build step. `app/app.js` (client), `app/data.js` (reference shows +
+  taxonomy), `app/lyric.js` (rhyme engine), `app/serve.js` (Node HTTP server), `app/styles.css`.
+  Deploy: `git pull && pm2 restart musical-designer`.
 
 ---
 
-## 13. Manuscript foundations — pagination engine, line model, revisions & dual dialogue (planned)
+## 12. Status — toward the first full version
 
-> **Thesis (2026-06-23).** Four wanted features — **pixel-perfect pagination**, **Final Draft-style
-> revisions**, **dual (simultaneous) dialogue/lyrics**, and **per-card variants** — are not four
-> independent builds. They sit on **two shared foundations**: a deterministic *measurement/layout
-> engine* and a *line-identity model*. Build those two once, deliberately, and the four features
-> become extensions. Build the features ad hoc and each one re-litigates the same hard problems.
+What's built and working:
 
-### 13a. The measurement / layout engine (the substrate)
+| Area | Status |
+|---|---|
+| Board — 3-act spine, drag, scene/song/beat, function pills, % through story | ✅ |
+| Lyric bench — CMUdict rhyme scheme + suggester + syllable / verse checks | ✅ |
+| Manuscript — Edit + Print View, rich line editor, seamless format | ✅ |
+| Pagination engine — measurement-based, blocks, orphan/CONT'D control | ✅ |
+| Scene-per-page (act-header exception) + spacing fidelity | ✅ |
+| Dual dialogue — `^` markup, two-column layout, editor toggle, round-trip | ✅ |
+| Characters registry + sync-from-lyrics | ✅ |
+| Title pages | ✅ |
+| Export — backup / import / Fountain / PDF | ✅ |
+| Snapshots — version history with non-destructive restore | ✅ |
+| Reference library — 10 enriched study shows, read-only board + manuscript | ✅ |
+| Platform — accounts, Library, sharing, PWA, deploy | ✅ |
 
-Print View already paginates, but by an approximate line-count heuristic (6 lines/inch, fixed
-metrics). **Pixel-perfect** means a deterministic engine that knows the *true rendered height of
-any block* and places it: fill a page, find the real overflow point, break, repeat — honoring
-keep-together rules (a character cue never orphaned from its first line; a section header never
-stranded at a page foot).
+What's next (in dependency order):
 
-**Dual dialogue is folded in here as a day-one constraint, not a later retrofit.** Simultaneous
-speech/song renders as two (or more) side-by-side columns; the engine measures **the taller
-column** as the block's height and treats the pair as one placeable unit. Measurement + fit/break
-is *exactly* what pagination already needs, so multi-column costs little **if the engine is built
-for variable-width blocks from the start** — and is painful to bolt on after. Requirements it must
-carry from day one:
+1. **Structured line model (persist).** Today a card's libretto is a single text blob; the
+   round-trip core (`seamlessToLines` / `linesToSeamless` / `serializeRows` / `mergeLineIds`) is in
+   and verified lossless, but lines aren't yet *persisted* with stable ids. Persisting `card.lines`
+   (lazy-migrating old cards, editor seeded from ids) is the gating refactor for revisions and
+   variants. Held until revision marks need it — no point changing the saved shape early.
+2. **Revisions (Final Draft-style).** *Half A:* margin asterisks + named revision sets, reusing
+   snapshots as the baseline and the line model for accurate marks. *Half B:* page-stable production
+   revisions (locked pages, A-pages, "print revised pages only") on the pagination engine.
+3. **Variants.** Per-scene alternate takes on the line model, with "only the active variant counts
+   toward board / runtime / manuscript / export" as the guardrail. No full branch/merge model.
+4. **Diagnostics engine ("lint for musicals").** Once cards carry richer data, flag craft problems:
+   no I Want in Act 1, protagonist silent for N minutes, three ballads in a row, antagonist with no
+   number, Act 2 song-starved, orphaned reprise, act runtime imbalance. **Form-aware** (a one-act-90
+   show suppresses the Act 1 finale / intermission checks). The reference library can then offer
+   *comparison, not fill-in*: "your show has no Act 1 finale — here's how three reference shows
+   handle that beat." A prompt to think, never a slot to fill.
 
-- A block is either **single-column (full width) or multi-column** (N narrower columns); block
-  height = `max(column heights)`.
-- **Keep-together / keep-with-next** are block-level rules, applied uniformly to single and dual
-  blocks.
-- **The hard case:** a block taller than a page must split — for a dual block, both columns split
-  at a coordinated page boundary and resume on the next page under repeated cues. (Even Final Draft
-  handles this awkwardly; we define the rule explicitly rather than discover it later.)
+### Design lessons we're keeping
 
-### 13b. The line-identity model — *the* fork
-
-Today a card's libretto is a **single text blob** (`lyrics` / `note`), tokenized on the fly by
-`parseLyricLines`; lines have no stable identity. Three features need to attribute state *to a
-line* — revision asterisks ("this line changed since rev 2"), dual-pairing ("this block sings
-against that one"), and fine-grained diffing. That forces one decision:
-
-| | **A — Text-diff over the blob** | **B — Structured line model** |
-|---|---|---|
-| Model | Keep the blob; diff baseline vs current to derive changes | Each line/element is `{id, type, text, lastRevised}` |
-| Revision marks | Derived by diff — noisy on reflow / moves | Exact; survive reordering (FD-accurate) |
-| Dual dialogue | Pairing encoded in blob syntax | Natural — a block references its sibling by id |
-| Variants | Whole-field swap only | Per-line / per-section variants possible |
-| Effort | Days; no schema change | 1–2 weeks; refactors the lyric/manuscript data layer |
-| Risk | Low, reversible | Higher — touches editor, parser, export |
-
-**Recommendation: B, but staged.** Move to a structured line model as the foundation for this whole
-tranche, because it's the *same* refactor revisions, dual dialogue, and variants each separately
-want — pay once. Mitigate risk by keeping the **seamless CAPS-cue text format as the import/export
-representation** (round-trip blob ↔ structured), so the *writing experience and the saved format
-don't change* — only the in-memory model gains identity. If timeline forces it, ship revisions
-Half-A on approach A first, but expect to redo the marks logic when B lands.
-
-### 13c. Revisions (Final Draft-style)
-
-Two halves with different dependencies:
-
-- **Half A — change marking + revision sets** — margin asterisks, named/colored revision drafts,
-  "start new revision" re-baselines. Content-level; **reuses snapshots as the baseline** (a locked
-  revision = a snapshot tagged as the rev baseline) and **needs the line model** (13b) for accurate
-  marks. *Can ship before pixel-perfect pagination.*
-- **Half B — page-stable production revisions** — locked pages, A-pages (a change on p.14 becomes
-  "14A" instead of repaginating), "print revised pages only," per-page revision color. The value
-  *is* page-number stability, so it **requires the engine** (13a). *After pagination.*
-
-### 13d. How snapshots & variants relate
-
-- **Snapshots** (✅ shipped, §11.9) — coarse, whole-show checkpoints. They are the **baseline
-  primitive** Half-A reuses, and the sibling-file sub-resource pattern carries over. They are *not*
-  the revision feature themselves.
-- **Variants** — per-scene alternate takes. They fall out cheaply *once the line model exists*: a
-  card holds alternate sections, with "only the active variant counts toward board / runtime /
-  manuscript / export" as the guardrail. Avoid a full branch/merge model — too heavy for a solo
-  writing tool.
-
-### 13e. Sequence
-
-1. **Snapshots** ✅ — safety net + baseline primitive.
-2. **Line-identity model (13b)** — the gating refactor; round-trips the seamless format. *(Step 1
-   round-trip core ✅; Step 2 persisted storage ⏸ deferred — see §11.10.)*
-3. **Pagination / measurement engine (13a)** — built multi-column-aware from day one.
-4. **Dual dialogue (13a/d)** — pairing flag + two-column layout on the engine.
-5. **Revisions Half A (13c)** — asterisks + revision sets on the line model; snapshots as baseline.
-6. **Revisions Half B (13c)** — locked pages / A-pages on the engine.
-7. **Variants (13d)** — per-card alternates on the line model.
-
-The through-line: **two foundations (13a engine + 13b line model) unlock four features.** Resist
-building any of the four before its foundation — the same lesson the dual-contour cut taught (§3):
-don't ship the fancy layer before the substrate earns it.
+- **The substrate earns the feature.** Two foundations — the **pagination/measurement engine** and
+  the **line-identity model** — unlock pixel-perfect layout, dual dialogue, revisions, and variants.
+  Build the foundation first; don't ship the fancy layer before the substrate earns it.
+- **The dual energy/tension contour was cut** (the divergence-band curve, the ghost-overlay). In
+  real use the **cards** were what mattered, not the curve; the `energy`/`tension` fields are
+  removed from the data model. The reasoning that survived: the interesting signal is *relational*
+  (e.g. high tension + low energy = the quiet devastating number) — it may feed a future diagnostics
+  view, but as analysis of real cards, not a curve to draw.
+- **Study, not prescription.** The library teaches by anatomy, never by paint-by-numbers slots.
