@@ -100,6 +100,14 @@ body.dark .scene-read-btn { color: #b8aef0; }
 .bcard .top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .pill { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 5px; }
 .pill.beat-pill { background: var(--btn); color: var(--muted); }
+/* Editable beat-function pill — typed straight on the card. */
+.pill.beat-fn { cursor: text; outline: none; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pill.beat-fn:not(.empty) { background: #e7e4f7; color: #4a4290; }
+body.dark .pill.beat-fn:not(.empty) { background: #322c4d; color: #b8aef0; }
+.pill.beat-fn:hover { box-shadow: inset 0 0 0 1px var(--line); }
+.pill.beat-fn:focus { background: #e7e4f7; color: #3c3489; box-shadow: inset 0 0 0 1px #8b82e8; }
+body.dark .pill.beat-fn:focus { background: #322c4d; color: #cdc8ee; }
+.pill.beat-fn.empty:not(:focus)::before { content: '+ function'; opacity: 0.7; }
 .pill.scene-pill { background: #e4e1fb; color: #3c3489; }
 body.dark .pill.scene-pill { background: #14103a; border: 1px solid #6858d8; color: #9e90f0; }
 

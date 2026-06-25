@@ -718,6 +718,31 @@ function percentages() {
 
 
 // ---- cards ----
+// Beats carry a freeform story-function label (e.g. "Inciting Incident", "Dark
+// Night of the Soul") — the beat analogue of a song's function pill, but typed
+// straight onto the card rather than chosen from a fixed taxonomy.
+function makeBeatFnPill(c) {
+  const val = (c.beatFn || '').trim();
+  if (state.readonly) return el('span', { class: 'pill beat-pill', text: val || 'Beat' });
+  const pill = el('span', { class: 'pill beat-pill beat-fn' + (val ? '' : ' empty'), text: val });
+  pill.setAttribute('contenteditable', 'true');
+  pill.setAttribute('spellcheck', 'false');
+  pill.title = 'Beat function — type the story beat (e.g. Inciting Incident)';
+  pill.addEventListener('mousedown', (e) => e.stopPropagation());
+  pill.addEventListener('click', (e) => e.stopPropagation());
+  pill.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); pill.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); pill.textContent = c.beatFn || ''; pill.blur(); }
+  });
+  pill.addEventListener('blur', () => {
+    const v = pill.textContent.replace(/\s+/g, ' ').trim();
+    pill.textContent = v;
+    pill.classList.toggle('empty', !v);
+    if (v !== (c.beatFn || '')) { c.beatFn = v; scheduleSave(); }
+  });
+  return pill;
+}
+
 function buildCard(c, trueIdx, pct) {
   const top = el('div', { class: 'top' });
   if (c.type === 'song') {
@@ -725,7 +750,7 @@ function buildCard(c, trueIdx, pct) {
     top.appendChild(el('span', { class: 'pill', 'data-fam': meta.fam, text: meta.label }));
     top.appendChild(el('span', { class: 'pct', text: pct + '%' }));
   } else if (c.type === 'beat') {
-    top.appendChild(el('span', { class: 'pill beat-pill', text: 'Beat' }));
+    top.appendChild(makeBeatFnPill(c));
     top.appendChild(el('span', { class: 'pct', text: pct + '%' }));
   }
 
@@ -764,6 +789,7 @@ function buildCard(c, trueIdx, pct) {
 
 function wireCardDrag(card) {
   card.addEventListener('dragstart', (e) => {
+    if (e.target.isContentEditable) { e.preventDefault(); return; } // editing the beat-fn pill, not dragging
     state.dragFrom = +card.dataset.pos;
     card.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
@@ -2575,7 +2601,7 @@ function buildLyricWindow(c) {
 
   const pillEl = c.type === 'song'
     ? (() => { const meta = FN[c.fn] || FN.ballad; return el('span', { class: 'pill', 'data-fam': meta.fam, text: meta.label }); })()
-    : el('span', { class: 'pill beat-pill', text: 'Beat' });
+    : el('span', { class: 'pill beat-pill', text: (c.beatFn || '').trim() || 'Beat' });
 
   const head = el('div', { class: 'lwhead' }, [
     pillEl,
@@ -2755,7 +2781,7 @@ function buildDetail() {
   const head = el('div', { class: 'dhead' }, [
     c.type === 'song'
       ? el('span', { class: 'pill', 'data-fam': (FN[c.fn] || FN.ballad).fam, text: (FN[c.fn] || FN.ballad).label })
-      : el('span', { class: 'pill beat-pill', text: 'Beat' }),
+      : el('span', { class: 'pill beat-pill', text: (c.beatFn || '').trim() || 'Beat' }),
     el('span', { class: 'pct', text: pct + '%' }),
     el('span', { class: 'spacer' }),
     (() => { const b = el('button', { class: 'dclose', text: '✕', title: 'Close' }); b.addEventListener('click', closeDetail); return b; })(),
