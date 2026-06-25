@@ -1507,7 +1507,15 @@ function buildContentTokens(sceneId) {
 // Flat tokens → blocks. A cue keeps its following lines together (a character
 // never orphaned from their first line); headers stand alone with orphan
 // control; blanks are spacers that never trigger a break.
-function buildBlocks(toks) {
+function buildBlocks(toksRaw) {
+  // Collapse consecutive blanks first — a stanza break is one blank; doubles only
+  // arise from hidden section tags leaving an orphan blank. Done up front so the
+  // cue-gathering loop (which absorbs trailing blanks) never traps a double.
+  const toks = [];
+  for (const t of toksRaw) {
+    if (t.type === 'blank' && toks.length && toks[toks.length - 1].type === 'blank') continue;
+    toks.push(t);
+  }
   const blocks = [];
   let i = 0;
   let prevRealType = null; // last non-blank token type seen
