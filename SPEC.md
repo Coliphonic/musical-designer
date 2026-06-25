@@ -448,6 +448,13 @@ and intermission-balance checks and relocates the "11 o'clock"-equivalent expect
     - *Step 2 — persist structured lines* ⏸ DEFERRED (queued, do soon): store `card.lines`, derive
       the blob, lazy-migrate old cards, editor carries ids. Intentionally held until we build the
       revision marks that need persistent line identity — no point changing the saved shape early.
+    - *Pagination engine (13a)* 🟡 IN PROGRESS. **Already measurement-based** (off-screen probe
+      sized like the page; cue keep-together; header orphan control; CONT'D) — single-column
+      "pixel-perfect" is largely done. *Engine step 1 ✅ (2026-06-24, `18e339f`):* extracted the
+      block boundary — `buildBlocks` (token stream → layout units) + `paginateBlocks` (measure &
+      place). Each block reserves `columns` (dual dialogue), `splittable` (over-tall break),
+      `header`. **Next:** over-tall splitting (fixes a pre-existing ~14px boundary overflow) → then
+      dual-dialogue columns. The block boundary is the 13b seam: blocks can later carry line ids.
 11. **Revisions & dual dialogue** *(see §13a, §13c)* — ⬜ TODO. FD-style revision marks/sets
     (Half A on the line model + snapshots; Half B's page-locking after pagination) and simultaneous
     dual-column dialogue/lyrics (counterpoint), built on Phase 10.
