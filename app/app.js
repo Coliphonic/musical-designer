@@ -83,6 +83,16 @@ function assignLanes(numbers) {
 }
 function cardFromStored(o) { return Object.assign({}, o, { id: uid() }); }
 
+// Which field holds a card's *manuscript body* (the text the editor + Print view
+// read). Songs write lyrics; scenes write note; a beat may carry both a board
+// synopsis (note) and written lines (lyrics) — lyrics wins when present. This is
+// also the field the structured `card.lines` identity sidecar mirrors.
+function cardBodyField(c) {
+  if ((c.lyrics || '').trim()) return 'lyrics';
+  if ((c.note || '').trim()) return 'note';
+  return c.type === 'scene' ? 'note' : 'lyrics';
+}
+
 function saveLastOpened(type, val) {
   try { localStorage.setItem('md-last', JSON.stringify({ type, val })); } catch (_) {}
 }
@@ -1123,6 +1133,34 @@ function seamlessToLines(text, defaultSung) {
 }
 function linesToSeamless(lines, isSong) { return serializeRows(lines || [], isSong); }
 
+// ---- Step 2: persisted structured lines -----------------------------------
+// `card.lines` is the identity sidecar for the manuscript body. The text blob
+// (lyrics/note) stays canonical for the dozen readers that consume it; `lines`
+// rides alongside, kept aligned on every write, so each line carries a stable id
+// that revisions/variants can attach to. Migration is lazy: a card gains `lines`
+// the first time its body is edited.
+
+// Editor path — the rich editor hands back id-carrying rows, so an edited line
+// keeps its identity exactly (not a heuristic match). lines becomes canonical;
+// the blob is derived from it.
+function setCardLines(c, lines) {
+  c.lines = lines;
+  c[cardBodyField(c)] = linesToSeamless(lines, c.type === 'song');
+}
+
+// Text path — a raw-text write (Fountain textarea, drawer note, paste). Re-derive
+// lines from the new text, preserving ids of unchanged lines via mergeLineIds.
+// Only the manuscript body field drives lines (a beat's separate synopsis note
+// must not clobber its lyrics' identity). Returns true if the text changed.
+function setCardBody(c, field, text) {
+  if ((c[field] || '') === (text || '')) return false;
+  c[field] = text;
+  if (field === cardBodyField(c)) {
+    c.lines = mergeLineIds(c.lines, seamlessToLines(text, c.type === 'song'));
+  }
+  return true;
+}
+
 // Re-parse text while preserving the id + per-line state of lines whose
 // type+text are unchanged. Used when content arrives as raw text (import/paste)
 // rather than through the id-carrying editor, so identity survives where it can.
@@ -1173,13 +1211,17 @@ const RICH_EL_LABELS = { cue: 'Character', sung: 'Lyrics', dialogue: 'Dialogue',
 const RICH_EL_CLASS  = { cue: 'lw-char', sung: 'lw-sung', dialogue: 'lw-dialogue', paren: 'lw-paren', action: 'lw-action', section: 'lw-section-row' };
 const RICH_EL_CYCLE  = ['cue', 'dialogue', 'sung', 'paren', 'action', 'section'];
 
-function buildRichEditor({ text, isSong, onSave, autofocus }) {
+function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
   const smartNext = (type) => (type === 'cue' || type === 'paren') ? (isSong ? 'sung' : 'dialogue') : type;
   const tabNext   = (type) => { const i = RICH_EL_CYCLE.indexOf(type); return RICH_EL_CYCLE[(i + 1) % RICH_EL_CYCLE.length]; };
-  const mkLine = (type, t, dual) => {
+  // Each row carries data-id so an edited line keeps its identity across saves
+  // (the line-identity model). New rows mint a fresh id.
+  const mkLine = (type, t, dual, id, subtype) => {
     const div = el('div', { class: 'ms-el ' + (RICH_EL_CLASS[type] || 'ms-el-blank'), 'data-type': type });
     div.contentEditable = 'true';
+    div.dataset.id = id || lid();
     if (dual && type === 'cue') div.dataset.dual = '1';
+    if (subtype) div.dataset.subtype = subtype;
     let display = (t || '');
     if (type === 'paren')   display = display.replace(/^\(/, '').replace(/\)$/, '');
     if (type === 'section') display = display.replace(/^\[/, '').replace(/\]$/, '');
@@ -1191,10 +1233,18 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
     div.className = 'ms-el ' + (RICH_EL_CLASS[type] || 'ms-el-blank');
     if (type !== 'cue') delete div.dataset.dual; // dual only applies to cues
   };
-  const serializeLines = (lineEd) => serializeRows(
-    [...lineEd.querySelectorAll('.ms-el')].map((div) => ({ type: div.dataset.type, text: (div.textContent || '').trim(), dual: div.dataset.dual === '1' })),
-    isSong,
-  );
+  // Read the DOM rows back as identified lines — text re-wrapped so each row's
+  // text matches parseLyricLines output (so the blob round-trips exactly).
+  const rowsFrom = (lineEd) => [...lineEd.querySelectorAll('.ms-el')].map((div) => {
+    const type = div.dataset.type;
+    let txt = (div.textContent || '').trim();
+    if (type === 'paren' && txt) txt = '(' + txt.replace(/^\(/, '').replace(/\)$/, '') + ')';
+    const row = { id: div.dataset.id || lid(), type, text: txt, dual: div.dataset.dual === '1' };
+    if (div.dataset.subtype) row.subtype = div.dataset.subtype;
+    return row;
+  });
+  const serializeLines = (lineEd) => serializeRows(rowsFrom(lineEd), isSong);
+  const serializeToLines = (lineEd) => rowsFrom(lineEd);
   const getFocusedLine = (lineEd) => {
     const sel = window.getSelection();
     if (!sel || !sel.anchorNode) return null;
@@ -1237,9 +1287,13 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
   styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Tab · cycle   Enter · new line   ' + modKey + '1–6 · jump' }));
 
   const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
-  const toks = parseLyricLines(text || '', isSong);
-  if (!toks.some((t) => t.type !== 'blank')) lineEd.appendChild(mkLine('cue', ''));
-  else toks.forEach((tok) => lineEd.appendChild(mkLine(tok.type, tok.text, tok.dual)));
+  // Seed from persisted identified lines when available (ids survive the edit);
+  // otherwise parse the text blob (and mint ids — lazy migration on first edit).
+  const seed = (lines && lines.length)
+    ? lines.map((l) => ({ type: l.type, text: l.text, dual: l.dual, id: l.id, subtype: l.subtype }))
+    : parseLyricLines(text || '', isSong).map((tok) => ({ type: tok.type, text: tok.text, dual: tok.dual, id: null, subtype: tok.subtype }));
+  if (!seed.some((t) => t.type !== 'blank')) lineEd.appendChild(mkLine('cue', ''));
+  else seed.forEach((l) => lineEd.appendChild(mkLine(l.type, l.text, l.dual, l.id, l.subtype)));
 
   // ---- FD-style character-name autocomplete (cue lines only) ----
   const acBox = el('div', { class: 'rich-ac', style: 'display:none' });
@@ -1352,7 +1406,7 @@ function buildRichEditor({ text, isSong, onSave, autofocus }) {
   richWrap.addEventListener('focusout', (e) => {
     if (richWrap.contains(e.relatedTarget)) return;
     closeAc();
-    if (onSave) onSave(serializeLines(lineEd));
+    if (onSave) onSave(serializeLines(lineEd), serializeToLines(lineEd));
   });
   richWrap.appendChild(styleBar);
   richWrap.appendChild(lineEd);
@@ -2403,17 +2457,9 @@ function buildManuscriptPage(sceneId) {
   };
 
   // ── Edit mode (per-card sections) ───────────────────────────────
-  // Which field holds a card's manuscript body. A card may carry both a board
-  // synopsis (`note`) and written lines (`lyrics`) — e.g. a beat with a one-line
-  // summary plus full dialogue. Edit the field that already has content (lyrics
-  // wins, matching the Print view's preference); when empty, default by type.
-  // The read source and write target MUST be the same field, or editing a card
-  // that shows one field will silently overwrite the other.
-  const cardField = (c) => {
-    if ((c.lyrics || '').trim()) return 'lyrics';
-    if ((c.note || '').trim()) return 'note';
-    return c.type === 'scene' ? 'note' : 'lyrics';
-  };
+  // The manuscript body field — shared with the rest of the app (and the
+  // `card.lines` identity sidecar) via the top-level cardBodyField.
+  const cardField = cardBodyField;
 
   const renderCardSection = (sec, c) => {
     sec.innerHTML = '';
@@ -2437,10 +2483,11 @@ function buildManuscriptPage(sceneId) {
     sec.innerHTML = '';
     sec.appendChild(buildRichEditor({
       text: c[cardField(c)] || '',
+      lines: c.lines,
       isSong: c.type === 'song',
       autofocus: true,
-      onSave: (val) => {
-        c[cardField(c)] = val;
+      onSave: (val, lines) => {
+        setCardLines(c, lines); // lines canonical; derives the body blob
         doSave(); // persist immediately — blur may be followed by navigating away
         renderCardSection(sec, c);
       },
@@ -2777,7 +2824,7 @@ function buildLyricWindow(c) {
   const richPane = el('div', { class: 'lwrich-wrap', style: 'display:none' });
 
   const refresh = () => {
-    c.lyrics = editor.value;
+    setCardBody(c, 'lyrics', editor.value); // keep the lines identity sidecar aligned
     updateGutter(c, gutter);
     updateSummary(c, summary);
     updateVerseNote(c, vnote);
@@ -2803,11 +2850,12 @@ function buildLyricWindow(c) {
     richPane.innerHTML = '';
     richPane.appendChild(buildRichEditor({
       text: c.lyrics || '',
+      lines: c.lines,
       isSong: c.type === 'song',
       autofocus: true,
-      onSave: (val) => {
+      onSave: (val, lines) => {
         if (val === (c.lyrics || '')) return;  // nothing changed (e.g. just viewing)
-        c.lyrics = val;                        // keep the Fountain source in sync
+        setCardLines(c, lines);                // lines canonical; keeps the Fountain source in sync
         updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
         scheduleSave();
       },
@@ -2917,13 +2965,13 @@ function buildDetail() {
     body.appendChild(buildLyricLauncher(c));
   } else if (c.type === 'scene') {
     body.appendChild(field('Act', selectInput(laneOpts, c.act, (v) => { c.act = v; commit(); })));
-    body.appendChild(field('Note', textareaInput(c.note, (v) => { c.note = v; commit(); }, 'What happens in this scene?')));
+    body.appendChild(field('Note', textareaInput(c.note, (v) => { setCardBody(c, 'note', v); commit(); }, 'What happens in this scene?')));
   } else {
     body.appendChild(el('div', { class: 'fld row2' }, [
       field('Act', selectInput(laneOpts, c.act, (v) => { c.act = v; commit(); })),
       field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })),
     ]));
-    body.appendChild(field('Note / what happens', textareaInput(c.note, (v) => { c.note = v; commit(); }, 'The book scene — what happens here?')));
+    body.appendChild(field('Note / what happens', textareaInput(c.note, (v) => { setCardBody(c, 'note', v); commit(); }, 'The book scene — what happens here?')));
     const changeOpts = [['', '—'], ['positive', '+ Positive'], ['negative', '− Negative']];
     body.appendChild(field('Scene change', selectInput(changeOpts, c.change || '', (v) => { c.change = v || null; commit(); })));
     body.appendChild(buildLyricLauncher(c));
