@@ -346,18 +346,15 @@ What's built and working:
 | Export — backup / import / Fountain / PDF | ✅ |
 | Snapshots — version history with non-destructive restore | ✅ |
 | Reference library — 10 enriched study shows, read-only board + manuscript | ✅ |
+| Structured line model — persisted `card.lines` with stable ids (lazy migration) | ✅ |
 | Platform — accounts, Library, sharing, PWA, deploy | ✅ |
 
 What's next (in dependency order):
 
-1. **Structured line model (persist).** Today a card's libretto is a single text blob; the
-   round-trip core (`seamlessToLines` / `linesToSeamless` / `serializeRows` / `mergeLineIds`) is in
-   and verified lossless, but lines aren't yet *persisted* with stable ids. Persisting `card.lines`
-   (lazy-migrating old cards, editor seeded from ids) is the gating refactor for revisions and
-   variants. Held until revision marks need it — no point changing the saved shape early.
-2. **Revisions (Final Draft-style).** *Half A:* margin asterisks + named revision sets, reusing
-   snapshots as the baseline and the line model for accurate marks. *Half B:* page-stable production
-   revisions (locked pages, A-pages, "print revised pages only") on the pagination engine.
+1. **Revisions (Final Draft-style).** Both foundations are now in place (snapshots + the persisted
+   line model). *Half A:* margin asterisks + named revision sets — when a line's text changes, its
+   stable id stays and `lastRev` bumps; snapshots serve as the baseline. *Half B:* page-stable
+   production revisions (locked pages, A-pages, "print revised pages only") on the pagination engine.
 3. **Variants.** Per-scene alternate takes on the line model, with "only the active variant counts
    toward board / runtime / manuscript / export" as the guardrail. No full branch/merge model.
 4. **Diagnostics engine ("lint for musicals").** Once cards carry richer data, flag craft problems:
