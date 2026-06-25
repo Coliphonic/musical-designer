@@ -1476,27 +1476,40 @@ function paginateBlocks(blocks) {
   const remaining = () => BUDGET - probe.offsetHeight;
   const renderUnit = (unit) => unit.forEach((t) => renderPageToken(t, probe));
 
-  // Place one block's tokens. `header` units get orphan control: if they'd land
-  // in the last few lines, push them to the next page.
-  const addUnit = (unit, header) => {
+  let pending = []; // blank spacers held back so they never overflow or lead a page
+  const breakPage = () => { pages.push(page); page = []; pending = []; probe.innerHTML = ''; };
+
+  // Place one block's tokens. `header` units get orphan control. A block taller
+  // than a whole page (rare) is split token-by-token so nothing ever clips.
+  const placeUnit = (unit, header) => {
+    pending.forEach((t) => renderPageToken(t, probe)); // tentatively include held blanks
     renderUnit(unit);
     const overflow = page.length > 0 && !fits();
     const orphaned = header && page.length > 0 && remaining() < ORPHAN_PX;
-    if (overflow || orphaned) {
-      probe.innerHTML = '';
-      pages.push(page);
-      page = [];
-      renderUnit(unit);
+    if (!overflow && !orphaned) {
+      pending.forEach((t) => page.push(t)); // blanks earned their place between content
+      pending = [];
+      unit.forEach((t) => page.push(t));
+      return;
     }
-    unit.forEach((t) => page.push(t));
+    // Won't fit here → fresh page; held blanks are dropped at the boundary.
+    breakPage();
+    renderUnit(unit);
+    if (fits() || unit.length <= 1) { unit.forEach((t) => page.push(t)); return; }
+    // Taller than a whole page: lay tokens one at a time, breaking as they fill.
+    probe.innerHTML = '';
+    unit.forEach((t) => {
+      renderPageToken(t, probe);
+      if (page.length > 0 && !fits()) { probe.removeChild(probe.lastChild); breakPage(); renderPageToken(t, probe); }
+      page.push(t);
+    });
   };
 
   blocks.forEach((b) => {
-    // Blanks never force a break — they accrue height (so later fit checks see
-    // them) but sit wherever they land.
-    if (b.blank) { renderPageToken(b.tokens[0], probe); page.push(b.tokens[0]); return; }
-    addUnit(b.tokens, !!b.header);
+    if (b.blank) { pending.push(b.tokens[0]); return; } // defer — decide at the next real block
+    placeUnit(b.tokens, !!b.header);
   });
+  // trailing pending blanks are intentionally dropped (no spacer at a page foot)
 
   rig.remove();
   if (page.length) pages.push(page);
