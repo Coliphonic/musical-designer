@@ -453,8 +453,10 @@ and intermission-balance checks and relocates the "11 o'clock"-equivalent expect
       "pixel-perfect" is largely done. *Engine step 1 ✅ (2026-06-24, `18e339f`):* extracted the
       block boundary — `buildBlocks` (token stream → layout units) + `paginateBlocks` (measure &
       place). Each block reserves `columns` (dual dialogue), `splittable` (over-tall break),
-      `header`. **Next:** over-tall splitting (fixes a pre-existing ~14px boundary overflow) → then
-      dual-dialogue columns. The block boundary is the 13b seam: blocks can later carry line ids.
+      `header`. *Engine step 2 ✅ (2026-06-24, `081ae9a`):* deferred blank spacers (never overflow
+      or lead a page — fixed the ~14px boundary overflow, now 0 overflowing pages) + token-by-token
+      split for blocks taller than a page (no clipping). **Next:** dual-dialogue columns (the
+      `columns` hook). The block boundary is the 13b seam: blocks can later carry line ids.
 11. **Revisions & dual dialogue** *(see §13a, §13c)* — ⬜ TODO. FD-style revision marks/sets
     (Half A on the line model + snapshots; Half B's page-locking after pagination) and simultaneous
     dual-column dialogue/lyrics (counterpoint), built on Phase 10.
