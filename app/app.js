@@ -1411,18 +1411,59 @@ function buildContentTokens(sceneId) {
   return toks;
 }
 
-function paginateTokens(toks) {
-  // Measure real rendered height against an off-screen sheet sized exactly like
-  // the print page. This avoids the old line-count estimate, which undercounted
-  // lines that wrap (long lyrics/dialogue) and caused pages to overflow — words
-  // getting clipped or pushed onto a stray extra page when printed.
+// ---- Pagination engine (§13a) -------------------------------------------
+// The engine consumes an ordered list of BLOCKS — atomic units of layout — and
+// places them on print pages by measuring real rendered height against an
+// off-screen sheet sized exactly like the page. buildBlocks is the seam: the
+// one place that knows how the flat token stream groups into units. Keeping the
+// grouping here (not inline in the placer) is what lets the future land cleanly:
+//   • §13b structured lines → a block can carry stable line ids
+//   • dual dialogue → a block can carry `columns` (parallel token lists laid
+//     side by side; the placer measures max(column heights) as the block height)
+//   • over-tall content → a `splittable` block can break across a page boundary
+// None of those touch the placer's measure-and-break loop.
+
+// Flat tokens → blocks. A cue keeps its following lines together (a character
+// never orphaned from their first line); headers stand alone with orphan
+// control; blanks are spacers that never trigger a break.
+function buildBlocks(toks) {
+  const blocks = [];
+  let i = 0;
+  while (i < toks.length) {
+    const tok = toks[i];
+    if (tok.type === 'cue') {
+      const tokens = [tok];
+      let j = i + 1;
+      while (j < toks.length) {
+        const nxt = toks[j];
+        const isMajor = ['act-header', 'song-num', 'scene-header', 'ms-divider', 'ms-title', 'action', 'section'].includes(nxt.type);
+        const isNewCue = nxt.type === 'cue' && tokens.some((t) => !['cue', 'blank'].includes(t.type));
+        if (isMajor || isNewCue) break;
+        tokens.push(nxt);
+        j++;
+      }
+      i = j;
+      blocks.push({ tokens, header: false, splittable: true, columns: null });
+      continue;
+    }
+    if (tok.type === 'blank') { blocks.push({ tokens: [tok], blank: true, columns: null }); i++; continue; }
+    const header = tok.type === 'act-header' || tok.type === 'scene-header' || tok.type === 'song-num';
+    blocks.push({ tokens: [tok], header, splittable: false, columns: null });
+    i++;
+  }
+  return blocks;
+}
+
+function paginateTokens(toks) { return paginateBlocks(buildBlocks(toks)); }
+
+function paginateBlocks(blocks) {
   const rig = el('div', { class: 'ms-sheet' });
   rig.style.cssText = 'position:absolute; left:-99999px; top:0; visibility:hidden; height:11in; min-height:0;';
   const hdr = renderSheetHeader(1, 1);
   rig.appendChild(hdr);
   const probe = el('div', { class: 'ms-sheet-content' });
-  // Let the probe take its natural height (don't stretch to fill the page) so we
-  // can compare it against the real space available below the header.
+  // Natural height (don't stretch to the page) so we can compare against the
+  // real space available below the header.
   probe.style.cssText = 'flex:0 0 auto;';
   rig.appendChild(probe);
   document.body.appendChild(rig);
@@ -1435,8 +1476,8 @@ function paginateTokens(toks) {
   const remaining = () => BUDGET - probe.offsetHeight;
   const renderUnit = (unit) => unit.forEach((t) => renderPageToken(t, probe));
 
-  // Add a unit (one cue-block or a single token). `header` units get orphan
-  // control: if they'd land in the last few lines, push them to the next page.
+  // Place one block's tokens. `header` units get orphan control: if they'd land
+  // in the last few lines, push them to the next page.
   const addUnit = (unit, header) => {
     renderUnit(unit);
     const overflow = page.length > 0 && !fits();
@@ -1450,37 +1491,17 @@ function paginateTokens(toks) {
     unit.forEach((t) => page.push(t));
   };
 
-  let i = 0;
-  while (i < toks.length) {
-    const tok = toks[i];
+  blocks.forEach((b) => {
+    // Blanks never force a break — they accrue height (so later fit checks see
+    // them) but sit wherever they land.
+    if (b.blank) { renderPageToken(b.tokens[0], probe); page.push(b.tokens[0]); return; }
+    addUnit(b.tokens, !!b.header);
+  });
 
-    // Collect character block: cue + content until paragraph break or major element
-    if (tok.type === 'cue') {
-      const block = [tok];
-      let j = i + 1;
-      while (j < toks.length) {
-        const nxt = toks[j];
-        const isMajor = ['act-header', 'song-num', 'scene-header', 'ms-divider', 'ms-title', 'action', 'section'].includes(nxt.type);
-        const isNewCue = nxt.type === 'cue' && block.some((t) => !['cue', 'blank'].includes(t.type));
-        if (isMajor || isNewCue) break;
-        block.push(nxt);
-        j++;
-      }
-      i = j;
-      addUnit(block, false);
-      continue;
-    }
-
-    const isHeader = tok.type === 'act-header' || tok.type === 'scene-header' || tok.type === 'song-num';
-    // Never break before a blank — just let it sit; trailing blanks are trimmed below.
-    if (tok.type === 'blank') { renderPageToken(tok, probe); page.push(tok); i++; continue; }
-    addUnit([tok], isHeader);
-    i++;
-  }
   rig.remove();
   if (page.length) pages.push(page);
 
-  // Mark CONT'D: if same character's cue is both last on page N and first on page N+1
+  // Mark CONT'D: if the same character's cue is both last on page N and first on page N+1
   for (let p = 1; p < pages.length; p++) {
     let lastCue = null;
     for (let i = pages[p - 1].length - 1; i >= 0; i--) {
