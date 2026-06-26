@@ -1259,7 +1259,15 @@ const RICH_EL_CLASS  = { cue: 'lw-char', sung: 'lw-sung', dialogue: 'lw-dialogue
 const RICH_EL_CYCLE  = ['cue', 'dialogue', 'sung', 'paren', 'action', 'section'];
 
 function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
-  const smartNext = (type) => (type === 'cue' || type === 'paren') ? (isSong ? 'sung' : 'dialogue') : type;
+  // Final Draft "ReturnKey" map: hitting Enter advances to the element that
+  // usually follows. Character/Parenthetical → the dialogue element (Lyrics in a
+  // song, Dialogue otherwise); Dialogue/Lyrics → Character; Action stays Action.
+  const smartNext = (type) => {
+    if (type === 'cue' || type === 'paren') return isSong ? 'sung' : 'dialogue';
+    if (type === 'dialogue' || type === 'sung') return 'cue';
+    if (type === 'section') return isSong ? 'cue' : 'action';
+    return type; // action → action
+  };
   const tabNext   = (type) => { const i = RICH_EL_CYCLE.indexOf(type); return RICH_EL_CYCLE[(i + 1) % RICH_EL_CYCLE.length]; };
   // Each row carries data-id so an edited line keeps its identity across saves
   // (the line-identity model). New rows mint a fresh id.
@@ -1331,7 +1339,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
   };
   dualBtn.addEventListener('mousedown', (e) => { e.preventDefault(); toggleDual(getFocusedLine(lineEd)); });
   styleBar.appendChild(dualBtn);
-  styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Tab · cycle   Enter · new line   ' + modKey + '1–6 · jump' }));
+  styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Enter · next element   ⇧Enter · same   Tab · cycle   ' + modKey + '1–6 · jump' }));
 
   const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
   // Seed from persisted identified lines when available (ids survive the edit);
@@ -1428,9 +1436,12 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
       refreshAc(line);
       return;
     }
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter') {
+      // Enter → the element that usually follows (FD ReturnKey); Shift+Enter →
+      // another line of the SAME element (e.g. the next lyric line).
       e.preventDefault();
-      const newType = smartNext(line.dataset.type);
+      const curType = line.dataset.type;
+      const newType = e.shiftKey ? curType : smartNext(curType);
       const newLine = mkLine(newType, '');
       line.after(newLine);
       placeCursorAt(newLine, false);
