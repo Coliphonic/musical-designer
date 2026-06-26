@@ -1071,14 +1071,10 @@ body.dark .ms-style-hint { color: #8b83a8; }
 .ms-el:empty::before { content: '\00a0'; } /* non-breaking space keeps empty lines selectable */
 /* The line editor is one large contenteditable host, so the global title-page
    editable wash ([contenteditable]:focus → a yellow tint, :hover → a dark wash)
-   would colour the whole sheet. Suppress it here; the active line is shown by
-   .ms-el-active instead. */
+   would colour the whole sheet. Suppress it here — like Final Draft / Word, the
+   caret alone marks the active line (no line highlight). */
 .ms-line-editor:hover,
 .ms-line-editor:focus { background: transparent; }
-/* Active-line highlight (JS-toggled, since child rows no longer get :focus).
-   A soft brand-purple tint that reads well in both light and dark mode. */
-.ms-el-active { background: rgba(83, 74, 183, 0.08); }
-body.dark .ms-el-active { background: rgba(139, 130, 232, 0.13); }
 /* Mirror the read-only render inside the rich editor: show ( ) around
    parentheticals and a pill for section headers. The editable text stays free
    of the ( ) [ ] syntax (added back by serializeLines), so editing stays clean. */

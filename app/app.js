@@ -1474,8 +1474,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
 
   const syncPicker = () => {
     const line = getFocusedLine(lineEd);
-    lineEd.querySelectorAll('.ms-el-active').forEach((d) => { if (d !== line) d.classList.remove('ms-el-active'); });
-    if (line) { styleSel.value = line.dataset.type; line.classList.add('ms-el-active'); }
+    if (line) styleSel.value = line.dataset.type;
     dualBtn.disabled = !(line && line.dataset.type === 'cue');
     dualBtn.classList.toggle('active', !!(line && line.dataset.dual === '1'));
     if (line !== ac.lastFocus) { ac.lastFocus = line; ac.dismissed = false; ac.index = 0; }
