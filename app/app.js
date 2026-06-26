@@ -1869,9 +1869,62 @@ function paginateBlocks(blocks, lock) {
   let pending = []; // blank spacers held back so they never overflow or lead a page
   const breakPage = () => { pages.push(page); page = []; pending = []; probe.innerHTML = ''; };
 
-  // Place one block's tokens. `header` units get orphan control. A block taller
-  // than a whole page (rare) is split token-by-token so nothing ever clips.
-  const placeUnit = (unit, header) => {
+  const isReal = (t) => t.type !== 'blank';
+  const MIN_HEAD = 2; // cue + ≥1 line must stay together on the first page
+  const MIN_TAIL = 2; // never push a lone widow line to the continuation
+
+  // A splittable dialogue/lyric block overflowed the current page but would fit on
+  // a fresh one — rather than move it whole (stranding a big gap), break it across
+  // the boundary like Final Draft: fill this page, continue on the next with a
+  // (CONT'D) cue. Returns true if it split; false to fall back to move-whole.
+  const splitFill = (unit) => {
+    // Re-measure against the real current page (probe currently holds the failed
+    // tentative render): committed page + held blanks, then add lines until full.
+    probe.innerHTML = '';
+    page.forEach((t) => renderPageToken(t, probe));
+    pending.forEach((t) => renderPageToken(t, probe));
+    let fitN = 0;
+    for (let n = 0; n < unit.length; n++) {
+      renderPageToken(unit[n], probe);
+      if (!fits()) { probe.removeChild(probe.lastChild); break; }
+      fitN++;
+    }
+    // Split after the last real line that fit (so a page never ends on a blank).
+    let split = fitN;
+    while (split > 0 && !isReal(unit[split - 1])) split--;
+    const realIn = (a, b) => unit.slice(a, b).filter(isReal).length;
+    // Pull lines back into the tail until the continuation has ≥ MIN_TAIL.
+    while (split > 0 && realIn(split, unit.length) < MIN_TAIL) {
+      split--;
+      while (split > 0 && !isReal(unit[split - 1])) split--;
+    }
+    if (realIn(0, split) < MIN_HEAD || realIn(split, unit.length) < MIN_TAIL) return false;
+
+    const head = unit.slice(0, split);
+    // Drop leading blanks on the continuation so it never opens with a spacer.
+    let ts = split; while (ts < unit.length && !isReal(unit[ts])) ts++;
+    const tailTokens = unit.slice(ts);
+
+    pending.forEach((t) => page.push(t)); pending = [];
+    head.forEach((t) => page.push(t));
+    breakPage();
+
+    const cueTok = unit.find((t) => t.type === 'cue');
+    const cont = [];
+    if (cueTok && tailTokens[0] && tailTokens[0].type !== 'cue') {
+      cont.push(Object.assign({}, cueTok, { contd: true, key: undefined })); // synthetic CONT'D, no anchor
+    }
+    tailTokens.forEach((t) => cont.push(t));
+    placeBlock({ tokens: cont, header: false, splittable: true, columns: null });
+    return true;
+  };
+
+  // Place one block. `header` units get orphan control; splittable dialogue/lyric
+  // breaks across the page boundary; a block taller than a whole page (rare) is
+  // laid token-by-token so nothing ever clips.
+  const placeBlock = (b) => {
+    const unit = b.tokens, header = !!b.header;
+    const splittable = !!b.splittable && !b.columns && unit.filter(isReal).length > MIN_HEAD;
     pending.forEach((t) => renderPageToken(t, probe)); // tentatively include held blanks
     renderUnit(unit);
     const overflow = page.length > 0 && !fits();
@@ -1882,6 +1935,7 @@ function paginateBlocks(blocks, lock) {
       unit.forEach((t) => page.push(t));
       return;
     }
+    if (overflow && splittable && page.length > 0 && splitFill(unit)) return;
     // Won't fit here → fresh page; held blanks are dropped at the boundary.
     breakPage();
     renderUnit(unit);
@@ -1901,7 +1955,7 @@ function paginateBlocks(blocks, lock) {
     // time, so earlier pages never reflow when later content changes.
     const atAnchor = anchorSet && page.length > 0 && anchorSet.has(blockLeadKey(b));
     if ((b.forceBreak || atAnchor) && page.length > 0) breakPage(); // scene / locked boundary starts a new page
-    placeUnit(b.tokens, !!b.header);
+    placeBlock(b);
   });
   // trailing pending blanks are intentionally dropped (no spacer at a page foot)
 
