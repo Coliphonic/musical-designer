@@ -652,7 +652,9 @@ body.dark .topnav {
 }
 
 .page { flex: 1; min-height: 0; overflow-y: auto; padding: 0; }
-#page-board { padding: 0; padding-top: 12px; }
+#page-board { padding: 0; }
+/* Breathing room between the ribbon and the first row of cards. */
+.board-header.ribbon + div { margin-top: 12px; }
 
 .sb-save-dot {
   width: 8px;
