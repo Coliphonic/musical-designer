@@ -717,9 +717,9 @@ function insertCard(act, type) {
   state.openAct = null;
   if (type === 'beat' && state.view === 'songs') state.view = 'full';
   render();
-  openDetail(card.id);
-  const t = document.querySelector('#detail input[data-field="title"]');
-  if (t) { t.focus(); t.select(); }
+  // Seamless: a new card lands with its title focused for typing right on the board.
+  // Scenes have no inline title (vertical), so they open the editor instead.
+  if (!focusCardTitle(card.id)) openLyricWindow(card.id);
 }
 function moveCard(from, to, newAct) {
   const moved = state.cards.splice(from, 1)[0];
@@ -764,11 +764,62 @@ function makeBeatFnPill(c) {
   return pill;
 }
 
+// Inline-edit a card-face element (title, voicing, note) in place. Saves on blur,
+// commits on Enter, reverts on Escape. Guards against starting a drag while editing.
+function makeCardEditable(elm, getter, setter, placeholder) {
+  if (state.readonly) return elm;
+  elm.setAttribute('contenteditable', 'true');
+  elm.setAttribute('spellcheck', 'false');
+  if (placeholder) elm.setAttribute('data-ph', placeholder);
+  elm.addEventListener('mousedown', (e) => e.stopPropagation());
+  elm.addEventListener('click', (e) => e.stopPropagation());
+  elm.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); elm.blur(); }
+    else if (e.key === 'Escape') { e.preventDefault(); elm.textContent = getter() || ''; elm.blur(); }
+  });
+  elm.addEventListener('blur', () => {
+    const v = elm.textContent.replace(/\s+/g, ' ').trim();
+    elm.textContent = v;
+    if (v !== (getter() || '')) { setter(v); scheduleSave(); }
+  });
+  return elm;
+}
+
+// Song function pill that doubles as a picker: a transparent native <select>
+// overlays the pill so a click opens the OS dropdown — no custom popover needed.
+function makeFnPicker(c) {
+  const meta = FN[c.fn] || FN.ballad;
+  const pill = el('span', { class: 'pill', 'data-fam': meta.fam, text: meta.label });
+  if (state.readonly) return pill;
+  const sel = el('select', { class: 'pill-select', title: 'Song function' });
+  Object.entries(FN).forEach(([k, v]) => { const o = el('option', { value: k, text: v.label }); if (k === c.fn) o.setAttribute('selected', 'selected'); sel.appendChild(o); });
+  sel.value = c.fn;
+  sel.addEventListener('mousedown', (e) => e.stopPropagation());
+  sel.addEventListener('click', (e) => e.stopPropagation());
+  sel.addEventListener('change', (e) => {
+    e.stopPropagation();
+    c.fn = sel.value; scheduleSave();
+    const m = FN[c.fn] || FN.ballad;
+    pill.textContent = m.label; pill.setAttribute('data-fam', m.fam);
+  });
+  return el('span', { class: 'pill-wrap' }, [pill, sel]);
+}
+
+// Focus a freshly-created card's inline title for immediate typing. Returns false
+// when the card has no editable title (scenes), so the caller can open the editor.
+function focusCardTitle(id) {
+  const t = document.querySelector('.bcard[data-id="' + id + '"] .title[contenteditable="true"]');
+  if (!t) return false;
+  t.focus();
+  const range = document.createRange(); range.selectNodeContents(t);
+  const s = window.getSelection(); s.removeAllRanges(); s.addRange(range);
+  return true;
+}
+
 function buildCard(c, trueIdx, pct) {
   const top = el('div', { class: 'top' });
   if (c.type === 'song') {
-    const meta = FN[c.fn] || FN.ballad;
-    top.appendChild(el('span', { class: 'pill', 'data-fam': meta.fam, text: meta.label }));
+    top.appendChild(makeFnPicker(c));
     top.appendChild(el('span', { class: 'pct', text: pct + '%' }));
   } else if (c.type === 'beat') {
     top.appendChild(makeBeatFnPill(c));
@@ -778,8 +829,8 @@ function buildCard(c, trueIdx, pct) {
   const kids = c.type === 'scene' ? [] : [top];
   const statusDot = c.status && STATUS[c.status] ? `<span class="statusdot" style="background:${STATUS[c.status].c}" title="${STATUS[c.status].label}"></span>` : '';
   if (c.type === 'song') {
-    kids.push(el('div', { class: 'title', text: c.title }));
-    kids.push(el('div', { class: 'sub', text: c.voicing || '—' }));
+    kids.push(makeCardEditable(el('div', { class: 'title', text: c.title }), () => c.title, (v) => { c.title = v; }, 'Untitled'));
+    kids.push(makeCardEditable(el('div', { class: 'sub', text: c.voicing || '' }), () => c.voicing, (v) => { c.voicing = v; }, 'who sings…'));
     const lyricBtn = el('button', { class: 'card-lyric-btn', text: '✎  Lyrics' });
     lyricBtn.addEventListener('click', (e) => { e.stopPropagation(); openLyricWindow(c.id); });
     kids.push(el('div', { class: 'card-lyric-row' }, [lyricBtn]));
@@ -792,8 +843,8 @@ function buildCard(c, trueIdx, pct) {
     readBtn.addEventListener('click', (e) => { e.stopPropagation(); openManuscript(c.id); });
     kids.push(readBtn);
   } else {
-    kids.push(el('div', { class: 'title', text: c.title }));
-    kids.push(el('div', { class: 'sub note', text: c.note || 'add a note…' }));
+    kids.push(makeCardEditable(el('div', { class: 'title', text: c.title }), () => c.title, (v) => { c.title = v; }, 'Untitled'));
+    kids.push(makeCardEditable(el('div', { class: 'sub note', text: c.note || '' }), () => c.note, (v) => { setCardBody(c, 'note', v); }, 'add a note…'));
     const editBtn = el('button', { class: 'card-lyric-btn', text: '✎  Edit' });
     editBtn.addEventListener('click', (e) => { e.stopPropagation(); openLyricWindow(c.id); });
     kids.push(el('div', { class: 'card-lyric-row' }, [editBtn]));
@@ -802,15 +853,15 @@ function buildCard(c, trueIdx, pct) {
     kids.push(el('div', { class: 'foot', html: changeBadge + '<span style="margin-left:auto">~' + c.min + 'm</span>' }));
   }
 
-  const card = el('div', { class: 'bcard' + (c.type === 'beat' ? ' beat' : '') + (c.type === 'scene' ? ' scene' : '') + (c.id === state.selectedId ? ' selected' : ''), draggable: 'true', 'data-pos': trueIdx }, kids);
-  card.addEventListener('click', (e) => { if (!card.classList.contains('justdragged')) openDetail(c.id); });
+  const card = el('div', { class: 'bcard' + (c.type === 'beat' ? ' beat' : '') + (c.type === 'scene' ? ' scene' : '') + (c.id === state.selectedId ? ' selected' : ''), draggable: 'true', 'data-pos': trueIdx, 'data-id': c.id }, kids);
+  card.addEventListener('click', (e) => { if (!card.classList.contains('justdragged')) openLyricWindow(c.id); });
   wireCardDrag(card);
   return card;
 }
 
 function wireCardDrag(card) {
   card.addEventListener('dragstart', (e) => {
-    if (e.target.isContentEditable) { e.preventDefault(); return; } // editing the beat-fn pill, not dragging
+    if (e.target.isContentEditable || e.target.tagName === 'SELECT') { e.preventDefault(); return; } // editing a field, not dragging
     state.dragFrom = +card.dataset.pos;
     card.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
@@ -1685,7 +1736,9 @@ function buildContentTokens(sceneId) {
       toks.push({ type: 'scene-header', text: c.title || 'Scene', key: 'sc:' + c.id });
       if (c.note && c.note.trim()) { toks.push({ type: 'blank' }); toks.push({ type: 'action', text: c.note, lastRev: noteRev(c), key: 'note:' + c.id }); toks.push({ type: 'blank' }); }
     } else if (c.type === 'beat') {
-      if (c.note && c.note.trim()) { toks.push({ type: 'action', text: c.note, lastRev: noteRev(c), key: 'note:' + c.id }); toks.push({ type: 'blank' }); }
+      // The beat logline ("what it's about") is an outline reference, not script —
+      // render it as a distinct note (sage) and tie its visibility to Section tags.
+      if (c.note && c.note.trim() && state.msOptions.showSectionTags !== false) { toks.push({ type: 'note', text: c.note, lastRev: noteRev(c), key: 'note:' + c.id }); toks.push({ type: 'blank' }); }
       if (c.lyrics && c.lyrics.trim()) { cardBodyTokens(c).forEach(pushLyric); toks.push({ type: 'blank' }); }
     } else if (c.type === 'song') {
       songNum++;
@@ -1775,7 +1828,7 @@ function buildBlocks(toksRaw) {
       let j = i + 1;
       while (j < toks.length) {
         const nxt = toks[j];
-        const isMajor = ['act-header', 'song-num', 'scene-header', 'ms-divider', 'ms-title', 'action', 'section'].includes(nxt.type);
+        const isMajor = ['act-header', 'song-num', 'scene-header', 'ms-divider', 'ms-title', 'action', 'note', 'section'].includes(nxt.type);
         const isNewCue = nxt.type === 'cue' && tokens.some((t) => !['cue', 'blank'].includes(t.type));
         if (isMajor || isNewCue) break;
         tokens.push(nxt);
@@ -2016,6 +2069,7 @@ function renderPageToken(tok, container) {
   } else if (tok.type === 'paren')    { container.appendChild(el('div', { class: 'lw-paren', text: tok.text }));
   } else if (tok.type === 'dialogue') { container.appendChild(el('div', { class: 'lw-dialogue', text: tok.text }));
   } else if (tok.type === 'action')   { container.appendChild(el('div', { class: 'lw-action', text: tok.text }));
+  } else if (tok.type === 'note')     { container.appendChild(el('div', { class: 'lw-note-ms', text: tok.text }));
   } else if (tok.type === 'dual') {
     // Side-by-side columns. Each column renders its own token list; the row's
     // height is naturally max(column heights), which the placer measures.
@@ -2844,7 +2898,12 @@ function buildManuscriptPage(sceneId) {
     sec.innerHTML = '';
     const text = (c[cardField(c)] || '').trim();
     const isEmpty = !text;
-    const inner = el('div', { class: 'ms-card-content ms-sheet-content' + (isEmpty ? ' ms-card-section-empty' : '') });
+    // Beat logline shown as a sage outline reference — consistent with Print view.
+    // Read-only here (edited via the card / Details); hidden with the Section-tags
+    // toggle (CSS, under .hide-sections) so it round-trips like section pills.
+    const hasLogline = c.type === 'beat' && (c.note || '').trim();
+    const inner = el('div', { class: 'ms-card-content ms-sheet-content' + (isEmpty && !hasLogline ? ' ms-card-section-empty' : '') });
+    if (hasLogline) inner.appendChild(el('div', { class: 'lw-note-ms', text: c.note }));
     if (isEmpty) {
       const phText = state.readonly
         ? (c.type === 'scene' ? '(scene heading)' : c.type === 'beat' ? '' : '(lyrics not reproduced)')
@@ -3198,6 +3257,68 @@ function renderNearRhymes(word, container, editor, refresh) {
   if (!r.near.length) { container.appendChild(el('span', { class: 'rhint', text: 'no near rhymes for "' + word + '"' })); return; }
   renderRhymeChips(r.near, container, editor, refresh);
 }
+// The card's metadata fields as a collapsible panel inside the editor sidebar —
+// the former right-side detail drawer, folded in. onChange syncs the editor header.
+function buildDetailsPanel(c, onChange) {
+  const wrap = el('div', { class: 'lwdetails' });
+  const caret = el('span', { class: 'lwdetails-caret', text: '▾' });
+  const head = el('button', { class: 'lwdetails-head', type: 'button' }, [caret, el('span', { text: 'Details' })]);
+  const body = el('div', { class: 'lwdetails-body' });
+  let open = true;
+  head.addEventListener('click', () => { open = !open; body.style.display = open ? '' : 'none'; caret.textContent = open ? '▾' : '▸'; });
+  wrap.appendChild(head);
+  wrap.appendChild(body);
+
+  const commit = () => { scheduleSave(); if (onChange) onChange(); };
+  const laneOpts = LANES.map((l) => [l.key, l.label]);
+  const changeOpts = [['', '—'], ['positive', '+ Positive'], ['negative', '− Negative']];
+
+  body.appendChild(field('Title', textInput('title', c.title, (v) => { c.title = v; commit(); })));
+
+  if (c.type === 'song') {
+    const fnOpts = Object.entries(FN).map(([k, v]) => [k, v.label]);
+    const statusOpts = Object.entries(STATUS).map(([k, v]) => [k, v.label]);
+    body.appendChild(el('div', { class: 'fld row2' }, [
+      field('Act', selectInput(laneOpts, c.act, (v) => { c.act = v; commit(); })),
+      field('Function', selectInput(fnOpts, c.fn, (v) => { c.fn = v; commit(); })),
+    ]));
+    body.appendChild(field('Voicing / who sings', textInput('voicing', c.voicing, (v) => { c.voicing = v; commit(); })));
+    body.appendChild(field('Scene change', selectInput(changeOpts, c.change || '', (v) => { c.change = v || null; commit(); })));
+    body.appendChild(el('div', { class: 'fld row2' }, [
+      field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })),
+      field('Status', selectInput(statusOpts, c.status || 'idea', (v) => { c.status = v; commit(); })),
+    ]));
+    body.appendChild(el('div', { class: 'fld row2' }, [
+      field('Key', textInput('key', c.key, (v) => { c.key = v; }), 'blank = needs score'),
+      field('Style', textInput('style', c.style, (v) => { c.style = v; })),
+    ]));
+    body.appendChild(field('', checkInput(c.diegetic, (v) => { c.diegetic = v; }, 'Diegetic — performed in-world (not inner-life)')));
+    const sing = el('div', { class: 'sing' + (!(c.purpose && c.purpose.trim()) ? ' empty' : '') }, [
+      el('span', { class: 'fl', text: 'Why does this sing?' }),
+      textareaInput(c.purpose, (v) => { c.purpose = v; sing.classList.toggle('empty', !v.trim()); }, 'What does this number do that speech can\'t? What is different when it ends?'),
+    ]);
+    body.appendChild(sing);
+  } else if (c.type === 'scene') {
+    body.appendChild(field('Act', selectInput(laneOpts, c.act, (v) => { c.act = v; commit(); })));
+  } else { // beat — the editor body is its script; the note is its one-line logline
+    body.appendChild(el('div', { class: 'fld row2' }, [
+      field('Act', selectInput(laneOpts, c.act, (v) => { c.act = v; commit(); })),
+      field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })),
+    ]));
+    body.appendChild(field('Logline / what happens', textareaInput(c.note, (v) => { setCardBody(c, 'note', v); commit(); }, 'The book scene — what happens here?')));
+    body.appendChild(field('Scene change', selectInput(changeOpts, c.change || '', (v) => { c.change = v || null; commit(); })));
+  }
+
+  const del = el('button', { class: 'lwdelete', text: 'Delete card' });
+  del.addEventListener('click', () => {
+    if (!confirm('Delete this card?')) return;
+    const i = state.cards.indexOf(c); if (i >= 0) state.cards.splice(i, 1);
+    closeLyricWindow();
+  });
+  body.appendChild(del);
+  return wrap;
+}
+
 function buildLyricWindow(c) {
   const win = el('div', { class: 'lyricwin' });
   const summary = el('span', { class: 'lwsummary' });
@@ -3212,22 +3333,36 @@ function buildLyricWindow(c) {
     ? (() => { const meta = FN[c.fn] || FN.ballad; return el('span', { class: 'pill', 'data-fam': meta.fam, text: meta.label }); })()
     : el('span', { class: 'pill beat-pill', text: (c.beatFn || '').trim() || 'Beat' });
 
+  const lwtitleEl = el('span', { class: 'lwtitle', text: c.title || 'Untitled' });
   const head = el('div', { class: 'lwhead' }, [
     pillEl,
-    el('span', { class: 'lwtitle', text: c.title }),
+    lwtitleEl,
     summary,
     el('span', { style: 'flex:1' }),
     toggleWrap,
     closeBtn,
   ]);
 
+  // The editor is the single workspace for a card. Songs/beats edit the lyric/script
+  // body; scenes edit their prose note (no syllable gutter or rhyme tools — "plain").
+  const bodyField = c.type === 'scene' ? 'note' : 'lyrics';
+  const plain = c.type === 'scene';
+  if (plain) toggleWrap.style.display = 'none';
+
+  // Keep the editor header in sync when a basic is changed in the Details panel.
+  const syncHead = () => {
+    lwtitleEl.textContent = c.title || 'Untitled';
+    if (c.type === 'song') { const m = FN[c.fn] || FN.ballad; pillEl.textContent = m.label; pillEl.setAttribute('data-fam', m.fam); }
+    else if (c.type === 'beat') { pillEl.textContent = (c.beatFn || '').trim() || 'Beat'; }
+  };
+
   // ---- editor ----
   const gutter = el('div', { class: 'lwgutter' });
   const editorPlaceholder = c.type === 'beat'
     ? 'Write the scene here…\n\nCHARACTER — a CAPS line is who speaks\nDialogue — plain text below the name\n(Parenthetical) — tone / action mid-line\nAction — plain line outside a character\nCHARACTER (sings) — mark a sung outburst\n[Scene] — section heading'
     : 'Write here…\n\nCHARACTER — a CAPS line is who sings\nLyrics — just type below the name (rhyme-tracked)\nCHARACTER (spoken) — mark a spoken aside\n(Parenthetical) — inline note\n[Chorus] — section chip (resets rhyme)\n[Scene 1: Title] — scene heading\n[#01 Title] — song number header';
-  const editor = el('textarea', { class: 'lweditor', wrap: 'off', spellcheck: 'true', placeholder: editorPlaceholder });
-  editor.value = c.lyrics || '';
+  const editor = el('textarea', { class: 'lweditor', wrap: plain ? 'soft' : 'off', spellcheck: 'true', placeholder: plain ? 'Write the scene here — the book prose for this moment.' : editorPlaceholder });
+  editor.value = c[bodyField] || '';
 
   // ---- sidebar ----
   const side = el('div', { class: 'lwside' });
@@ -3235,7 +3370,7 @@ function buildLyricWindow(c) {
   const res = el('div', { class: 'rhymeresults' });
   const vnote = el('div', { class: 'lwnote' });
 
-  side.appendChild(el('span', { class: 'fl', text: 'Sections' }));
+  if (!plain) side.appendChild(el('span', { class: 'fl', text: 'Sections' }));
   const secBtns = el('div', { class: 'lwsection-btns' });
   ['Verse', 'Pre-Chorus', 'Chorus', 'Bridge', 'Intro', 'Outro'].forEach((name) => {
     const btn = el('span', { class: 'rchip click', text: name, title: 'Insert section header' });
@@ -3253,7 +3388,7 @@ function buildLyricWindow(c) {
     });
     secBtns.appendChild(btn);
   });
-  side.appendChild(secBtns);
+  if (!plain) side.appendChild(secBtns);
   // Rhyme tabs
   let rhymeMode = 'perfect';
   const rhymeTabWrap = el('div', { class: 'rhyme-tab-wrap', style: 'margin-top:6px' });
@@ -3261,7 +3396,7 @@ function buildLyricWindow(c) {
   const tabNear    = el('button', { class: 'rhyme-tab', text: 'Near' });
   rhymeTabWrap.appendChild(tabPerfect);
   rhymeTabWrap.appendChild(tabNear);
-  side.appendChild(rhymeTabWrap);
+  if (!plain) side.appendChild(rhymeTabWrap);
 
   const showRhymes = (word) => {
     if (rhymeMode === 'perfect') renderRhymesInsertable(word, res, editor, refresh);
@@ -3279,21 +3414,29 @@ function buildLyricWindow(c) {
     showRhymes(rin.value);
   });
 
-  side.appendChild(rin);
-  side.appendChild(res);
-  side.appendChild(el('span', { class: 'fl muted', text: 'Notes', style: 'margin-top:6px' }));
-  side.appendChild(vnote);
+  if (!plain) {
+    side.appendChild(rin);
+    side.appendChild(res);
+    side.appendChild(el('span', { class: 'fl muted', text: 'Notes', style: 'margin-top:6px' }));
+    side.appendChild(vnote);
+  }
+
+  // The card's metadata — formerly the right-side detail drawer — now lives here so
+  // one window covers everything: write the content, tune the basics, all in place.
+  side.appendChild(buildDetailsPanel(c, syncHead));
 
   // ---- panes ----
-  const editPane = el('div', { class: 'lwbody' }, [gutter, editor, side]);
+  const editPane = el('div', { class: 'lwbody' + (plain ? ' lwbody-plain' : '') }, plain ? [editor, side] : [gutter, editor, side]);
   const richPane = el('div', { class: 'lwrich-wrap', style: 'display:none' });
 
   const refresh = () => {
-    setCardBody(c, 'lyrics', editor.value); // keep the lines identity sidecar aligned
-    updateGutter(c, gutter);
-    updateSummary(c, summary);
-    updateVerseNote(c, vnote);
-    if (!rin._touched) { rin.value = LYRIC.lastWord(lastNonEmptyLine(editor.value)); showRhymes(rin.value); }
+    setCardBody(c, bodyField, editor.value); // keep the lines identity sidecar aligned
+    if (!plain) {
+      updateGutter(c, gutter);
+      updateSummary(c, summary);
+      updateVerseNote(c, vnote);
+      if (!rin._touched) { rin.value = LYRIC.lastWord(lastNonEmptyLine(editor.value)); showRhymes(rin.value); }
+    }
     scheduleSave();
   };
 
@@ -3302,24 +3445,24 @@ function buildLyricWindow(c) {
   rin.addEventListener('input', () => { rin._touched = true; showRhymes(rin.value); });
 
   const showEdit = () => {
-    editor.value = c.lyrics || '';            // reflect any edits made in the Rich tab
+    editor.value = c[bodyField] || '';        // reflect any edits made in the Rich tab
     editPane.style.display = '';
     richPane.style.display = 'none';
     editBtn.classList.add('active');
     richBtn.classList.remove('active');
-    updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
+    if (!plain) { updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote); }
     setTimeout(() => editor.focus(), 0);
   };
 
   const showRich = () => {
     richPane.innerHTML = '';
     richPane.appendChild(buildRichEditor({
-      text: c.lyrics || '',
+      text: c[bodyField] || '',
       lines: c.lines,
       isSong: c.type === 'song',
       autofocus: true,
       onSave: (val, lines) => {
-        if (val === (c.lyrics || '')) return;  // nothing changed (e.g. just viewing)
+        if (val === (c[bodyField] || '')) return;  // nothing changed (e.g. just viewing)
         setCardLines(c, lines);                // lines canonical; keeps the Fountain source in sync
         updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
         scheduleSave();
@@ -3337,9 +3480,11 @@ function buildLyricWindow(c) {
   win.appendChild(editPane);
   win.appendChild(richPane);
 
-  updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
-  rin.value = LYRIC.lastWord(lastNonEmptyLine(c.lyrics || ''));
-  renderRhymesInsertable(rin.value, res, editor, refresh);
+  if (!plain) {
+    updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
+    rin.value = LYRIC.lastWord(lastNonEmptyLine(c[bodyField] || ''));
+    renderRhymesInsertable(rin.value, res, editor, refresh);
+  }
   setTimeout(() => editor.focus(), 0);
   return win;
 }

@@ -76,7 +76,7 @@ body.dark .lwtoggle.active { background: #4a453e; color: #f3eee3; box-shadow: 0 
 .actcards.dragover { border-color: var(--ink); background: var(--panel); }
 
 .bcard {
-  width: 196px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  width: 218px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
   padding: 10px 11px 11px; cursor: grab; display: flex; flex-direction: column; gap: 6px;
   transition: box-shadow .12s, border-color .12s;
 }
@@ -136,7 +136,9 @@ body.dark .pill[data-fam="gray"]   { background: #1e1c18; border: 1px solid #706
 .bcard .title { font-size: 13px; font-weight: 600; line-height: 1.25; outline: none; }
 .bcard .sub { font-size: 11px; color: var(--muted); line-height: 1.3; outline: none; }
 .bcard .sub.note { font-style: italic; }
-.title[contenteditable="true"], .sub[contenteditable="true"] { background: #fff7e6; box-shadow: 0 0 0 2px #f0d68a; border-radius: 4px; cursor: text; font-style: normal; }
+/* editable title/sub sit flush until hovered/focused, so cards stay clean at rest */
+.title[contenteditable="true"], .sub[contenteditable="true"] { border-radius: 4px; cursor: text; padding: 0 3px; margin: 0 -3px; }
+.bcard:hover .title[contenteditable="true"], .bcard:hover .sub[contenteditable="true"] { box-shadow: inset 0 0 0 1px var(--line); }
 .bcard .foot { display: flex; gap: 8px; align-items: center; margin-top: auto; padding-top: 3px; font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .card-lyric-row { display: flex; }
 .card-lyric-btn { border: 1px solid var(--line); background: transparent; color: var(--muted); cursor: pointer; font-size: 11px; padding: 3px 9px; border-radius: 6px; font-family: inherit; }
@@ -309,6 +311,9 @@ body.dark .ms-body { background: var(--bg); }
 /* "Section tags" toggle hides section pills in the Edit/Rich view too. */
 .ms-edit-doc.hide-sections .lw-section-row,
 .ms-edit-doc.hide-sections .ms-el.lw-section-row { display: none; }
+/* Beat loglines ride the same Section-tags toggle in the edit document. */
+.ms-edit-doc.hide-sections .lw-note-ms { display: none; }
+.ms-card-content > .lw-note-ms:first-child { margin-top: 0; }
 .ms-opt-toggle { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); cursor: pointer; margin-left: 12px; white-space: nowrap; user-select: none; }
 .ms-opt-toggle input { cursor: pointer; accent-color: var(--energy); }
 
@@ -434,8 +439,13 @@ body.dark .ms-body { background: var(--bg); }
 .ms-sheet-content .lw-dialogue     { margin-left: 48px; margin-right: 84px; text-align: left; }
 /* FD Parenthetical: 3.00"–7.00" → left 168px, right 24px; SpaceBefore="0" */
 .ms-sheet-content .lw-paren        { margin-left: 168px; margin-right: 24px; padding-left: 0; color: #555; text-align: left; }
-/* FD Action: SpaceBefore="12" */
-.ms-sheet-content .lw-action       { margin-top: 12pt; padding-left: 0; text-align: left; }
+/* FD Action: LeftIndent="4.00" (4.00-1.25=2.75"=264px), RightIndent to edge, SpaceBefore="12" */
+.ms-sheet-content .lw-action       { margin-top: 12pt; margin-left: 264px; margin-right: 0; padding-left: 0; text-align: left; }
+/* Beat logline / outline note — a reference annotation, not script. Sage, italic,
+   and gated behind the Section-tags toggle (hidden when off, via buildContentTokens). */
+.ms-sheet-content .lw-note-ms      { margin-top: 12pt; color: #5f7d57; font-style: italic; text-align: left; }
+body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
+.ms-viewport .lw-note-ms, #pdf-print-root .lw-note-ms { color: #5f7d57; }
 /* Avoid double gaps: when a literal blank-line token already precedes an element
    that carries SpaceBefore, drop the margin so the gap is one line, not two. */
 /* Revisions panel in the manuscript settings drawer. */
@@ -467,6 +477,7 @@ body.dark .ms-body { background: var(--bg); }
 }
 .ms-sheet-content .lw-blank + .lw-char,
 .ms-sheet-content .lw-blank + .lw-action,
+.ms-sheet-content .lw-blank + .lw-note-ms,
 .ms-sheet-content .lw-blank + .lw-scene-header,
 .ms-sheet-content .lw-blank + .lw-song-header { margin-top: 0; }
 /* Dual dialogue: two (or more) cues side by side. Columns share the content
@@ -581,6 +592,27 @@ textarea.lweditor::placeholder { color: #c5beb0; }
 .lwnote.warn { color: var(--tension); background: var(--btn); border-color: var(--line); }
 .lwg-section { background: var(--hover); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .lwsection-btns { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* plain editor (scenes): no syllable gutter, prose wraps */
+.lwbody-plain { grid-template-columns: 1fr 264px; }
+.lwbody-plain .lweditor { white-space: pre-wrap; }
+
+/* Details panel folded into the editor sidebar (formerly the right-side drawer) */
+.lwdetails { margin-top: 4px; border-top: 1px solid var(--line); padding-top: 10px; }
+.lwdetails-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: 0; padding: 4px 0; cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--energy); font-weight: 600; }
+.lwdetails-caret { font-size: 9px; width: 10px; }
+.lwdetails-body { display: flex; flex-direction: column; gap: 13px; padding: 10px 0 4px; }
+.lwdelete { align-self: flex-start; background: none; border: 0; color: #a32d2d; font-size: 13px; padding: 6px 0; cursor: pointer; }
+
+/* inline-editable card fields: placeholder when empty */
+.bcard [contenteditable][data-ph]:empty::before { content: attr(data-ph); color: var(--faint); font-weight: 400; font-style: normal; }
+.bcard [contenteditable]:focus { background: #fff7e6; box-shadow: 0 0 0 2px #f0d68a; border-radius: 4px; }
+body.dark .bcard [contenteditable]:focus { background: #000; color: #fff; box-shadow: 0 0 0 2px #000; }
+
+/* song function pill doubles as a picker (transparent native select overlay) */
+.pill-wrap { position: relative; display: inline-flex; }
+.pill-wrap .pill { cursor: pointer; }
+.pill-select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; -webkit-appearance: none; appearance: none; }
 
 body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
 
