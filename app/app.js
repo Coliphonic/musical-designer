@@ -2261,7 +2261,14 @@ function exportFountain() {
   URL.revokeObjectURL(url);
 }
 
-function exportPDF(includeTitlePages) {
+// A page counts as "revised" if any of its tokens (including inside dual columns)
+// changed under the given revision — used by "print revised pages only."
+function pageIsRevised(pageToks, rev) {
+  const hit = (t) => t.lastRev === rev || (t.columns && t.columns.some((col) => col.some(hit)));
+  return pageToks.some(hit);
+}
+
+function exportPDF(includeTitlePages, revisedOnly) {
   // Print in-page (not a popup window) so the browser's own preview/print
   // pipeline handles it — popups freeze the macOS print preview. The print
   // styles for #pdf-print-root live in styles.css under @media print.
@@ -2277,10 +2284,17 @@ function exportPDF(includeTitlePages) {
   }
 
   const toks = buildContentTokens(null);
-  const pages = paginateTokens(toks);
+  let pages = paginateTokens(toks);
+  const total = pages.length;
+  // "Revised pages only": keep just the pages bearing the current revision's
+  // marks (each keeps its production label, so a recipient can drop them into
+  // the locked script). Title pages are omitted from a revised-pages packet.
+  if (revisedOnly && state.currentRev) pages = pages.filter((p) => pageIsRevised(p, state.currentRev));
+  if (!pages.length) { root.remove(); alert('No revised pages — nothing has changed under the current revision yet.'); return; }
   pages.forEach((pageToks, pi) => {
     const sheet = el('div', { class: 'ms-sheet' });
-    sheet.appendChild(renderSheetHeader(pages[pi].label || (pi + 1), pages.length, pi === 0));
+    const isFirst = !revisedOnly && pi === 0;
+    sheet.appendChild(renderSheetHeader(pageToks.label || (pi + 1), total, isFirst));
     const content = el('div', { class: 'ms-sheet-content' });
     pageToks.forEach((tok) => renderPageToken(tok, content));
     sheet.appendChild(content);
@@ -2904,6 +2918,9 @@ function buildManuscriptPage(sceneId) {
         row.appendChild(el('span', { class: 'ms-rev-name', text: cur.name + ' Revision' }));
         revSection.appendChild(row);
         revSection.appendChild(mkDrawerToggle('Show revision marks', 'showRevisions', true));
+        const printRevBtn = el('button', { class: 'ms-rev-btn ms-rev-lockbtn', text: 'Print revised pages only' });
+        printRevBtn.addEventListener('click', () => exportPDF(false, true));
+        revSection.appendChild(printRevBtn);
       } else {
         revSection.appendChild(el('div', { class: 'ms-rev-none', text: 'Not tracking yet — start a revision to mark changes from here on.' }));
       }
