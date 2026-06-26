@@ -1716,11 +1716,10 @@ function buildContentTokens(sceneId) {
 
   const msOpts = state.msOptions;
   if (msOpts.showTitle !== false) {
+    // No spacer after the title — its own 2em bottom margin plus the following
+    // header's top margin carry the gap. (Explicit blanks pushed act headers,
+    // which keep their 2em top margin, too far down.)
     toks.push({ type: 'ms-title', text: (state.title || 'Untitled Show').toUpperCase(), key: 'title' });
-    // One spacer only — the title's own 2em bottom margin plus the following
-    // header's top margin carry the rest. (Two blanks left act headers, which
-    // keep their 2em top margin, one line too far down.)
-    toks.push({ type: 'blank' });
   }
 
   order.forEach((i) => {
