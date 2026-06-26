@@ -1625,6 +1625,26 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
     const first = lineEd.querySelector('.ms-el');
     if (first) { placeCursorAt(first, false); styleSel.value = first.dataset.type || 'cue'; }
   };
+  // Open with the caret exactly where the user clicked (one click → ready to
+  // type at that spot), falling back to the first line if the point misses.
+  richWrap._focusFromPoint = (x, y) => {
+    lineEd.focus();
+    let range = null;
+    if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(x, y);
+    else if (document.caretPositionFromPoint) {
+      const p = document.caretPositionFromPoint(x, y);
+      if (p) { range = document.createRange(); range.setStart(p.offsetNode, p.offset); }
+    }
+    if (range && lineEd.contains(range.startContainer)) {
+      range.collapse(true);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    } else {
+      richWrap._focusFirst();
+    }
+    syncPicker();
+  };
   if (autofocus) richWrap._focusFirst();
   return richWrap;
 }
@@ -2704,7 +2724,7 @@ function buildManuscriptPage(sceneId) {
     sec.appendChild(inner);
   };
 
-  const enterCardEditRich = (sec, c) => {
+  const enterCardEditRich = (sec, c, ev) => {
     if (state.readonly) return; // references are read-only study objects
     if (sec.querySelector('.ms-card-rich-editor')) return;
     // One editor open at a time: commit & collapse any other scene still in edit
@@ -2713,17 +2733,19 @@ function buildManuscriptPage(sceneId) {
     const docEl = sec.closest('.ms-edit-doc');
     if (docEl) docEl.querySelectorAll('.ms-card-rich-editor').forEach((rw) => { if (rw._commit) rw._commit(); });
     sec.innerHTML = '';
-    sec.appendChild(buildRichEditor({
+    const rich = buildRichEditor({
       text: c[cardField(c)] || '',
       lines: c.lines,
       isSong: c.type === 'song',
-      autofocus: true,
+      autofocus: !ev, // a click positions the caret at its point instead
       onSave: (val, lines) => {
         setCardLines(c, lines); // lines canonical; derives the body blob
         doSave(); // persist immediately — blur may be followed by navigating away
         renderCardSection(sec, c);
       },
-    }));
+    });
+    sec.appendChild(rich);
+    if (ev && rich._focusFromPoint) rich._focusFromPoint(ev.clientX, ev.clientY);
   };
 
   // Card indices shown in Edit mode — the full reading order, or a single
@@ -2761,7 +2783,15 @@ function buildManuscriptPage(sceneId) {
       doc.appendChild(div);
       const sec = el('div', { class: 'ms-card-section', 'data-card-id': c.id });
       renderCardSection(sec, c);
-      sec.addEventListener('click', () => enterCardEditRich(sec, c));
+      // Use mousedown (not click) and preventDefault so focus stays ours: one
+      // press opens the editor AND drops the caret at the click point, ready to
+      // type. Once editing, native mousedown handles cursor moves / selection.
+      sec.addEventListener('mousedown', (e) => {
+        if (state.readonly) return;
+        if (sec.querySelector('.ms-card-rich-editor')) return;
+        e.preventDefault();
+        enterCardEditRich(sec, c, e);
+      });
       doc.appendChild(sec);
     });
     newBody.appendChild(doc);
