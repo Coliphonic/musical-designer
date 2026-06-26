@@ -749,7 +749,13 @@ function makeBeatFnPill(c) {
   pill.setAttribute('contenteditable', 'true');
   pill.setAttribute('spellcheck', 'false');
   pill.title = 'Beat function — type the story beat (e.g. Inciting Incident)';
-  pill.addEventListener('mousedown', (e) => e.stopPropagation());
+  // When empty, the placeholder is a ::before pseudo-element with no real text
+  // node, so clicking it can't place a caret and the click falls through to the
+  // card. Focus the pill ourselves so a click anywhere on "+ Beat" starts typing.
+  pill.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    if (!pill.textContent.trim()) { e.preventDefault(); pill.focus(); }
+  });
   pill.addEventListener('click', (e) => e.stopPropagation());
   pill.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); pill.blur(); }
@@ -771,7 +777,13 @@ function makeCardEditable(elm, getter, setter, placeholder) {
   elm.setAttribute('contenteditable', 'true');
   elm.setAttribute('spellcheck', 'false');
   if (placeholder) elm.setAttribute('data-ph', placeholder);
-  elm.addEventListener('mousedown', (e) => e.stopPropagation());
+  // Empty placeholder is a ::before pseudo with no caret target — focus on
+  // mousedown so clicking the placeholder text starts editing instead of
+  // falling through to the card's open handler.
+  elm.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    if (!elm.textContent.trim()) { e.preventDefault(); elm.focus(); }
+  });
   elm.addEventListener('click', (e) => e.stopPropagation());
   elm.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); elm.blur(); }
