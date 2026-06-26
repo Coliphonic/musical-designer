@@ -1272,8 +1272,11 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
   // Each row carries data-id so an edited line keeps its identity across saves
   // (the line-identity model). New rows mint a fresh id.
   const mkLine = (type, t, dual, id, subtype) => {
-    const div = el('div', { class: 'ms-el ' + (RICH_EL_CLASS[type] || 'ms-el-blank'), 'data-type': type });
-    div.contentEditable = 'true';
+    // No per-row contentEditable: the container is the single editable host, so
+    // selection and Backspace can cross line boundaries like a real editor.
+    // Blank rows take the lw-blank class so the print-view spacing-collapse rules
+    // apply in the editor too (no doubled gap / page shift on click-in).
+    const div = el('div', { class: 'ms-el ' + (RICH_EL_CLASS[type] || 'lw-blank ms-el-blank'), 'data-type': type });
     div.dataset.id = id || lid();
     if (dual && type === 'cue') div.dataset.dual = '1';
     if (subtype) div.dataset.subtype = subtype;
@@ -1285,7 +1288,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
   };
   const setLineType = (div, type) => {
     div.dataset.type = type;
-    div.className = 'ms-el ' + (RICH_EL_CLASS[type] || 'ms-el-blank');
+    div.className = 'ms-el ' + (RICH_EL_CLASS[type] || 'lw-blank ms-el-blank');
     if (type !== 'cue') delete div.dataset.dual; // dual only applies to cues
   };
   // Read the DOM rows back as identified lines — text re-wrapped so each row's
@@ -1304,6 +1307,12 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
     const sel = window.getSelection();
     if (!sel || !sel.anchorNode) return null;
     let n = sel.anchorNode;
+    // The selection can land directly on the editable container (between block
+    // rows); map that to the child the caret is nearest.
+    if (n === lineEd) {
+      const idx = Math.min(sel.anchorOffset, lineEd.children.length - 1);
+      return lineEd.children[idx] || null;
+    }
     while (n && n !== lineEd) {
       if (n.nodeType === 1 && n.classList && n.classList.contains('ms-el')) return n;
       n = n.parentNode;
@@ -1311,13 +1320,82 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
     return null;
   };
   const placeCursorAt = (div, atEnd) => {
-    div.focus();
+    lineEd.focus();
     const sel = window.getSelection();
     const r = document.createRange();
     if (atEnd) { r.selectNodeContents(div); r.collapse(false); }
     else { r.setStart(div, 0); r.collapse(true); }
     sel.removeAllRanges();
     sel.addRange(r);
+  };
+  // Place the caret `off` characters into a line, walking its text nodes.
+  const placeCaretAtOffset = (div, off) => {
+    lineEd.focus();
+    let target = null, rem = off;
+    const walk = (n) => {
+      for (const c of n.childNodes) {
+        if (c.nodeType === 3) { if (rem <= c.length) { target = c; return true; } rem -= c.length; }
+        else if (walk(c)) return true;
+      }
+      return false;
+    };
+    walk(div);
+    const sel = window.getSelection();
+    const r = document.createRange();
+    if (target) r.setStart(target, rem); else r.setStart(div, 0);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+  };
+  // Characters before the caret within `line` (0 = caret at the line's start).
+  const caretOffsetIn = (line) => {
+    const sel = window.getSelection();
+    if (!sel.rangeCount) return 0;
+    const r = sel.getRangeAt(0);
+    const pre = document.createRange();
+    pre.selectNodeContents(line);
+    try { pre.setEnd(r.startContainer, r.startOffset); } catch (_) { return 0; }
+    return pre.toString().length;
+  };
+  const caretAtStart = (line) => { const s = window.getSelection(); return s.isCollapsed && caretOffsetIn(line) === 0; };
+  const caretAtEnd   = (line) => { const s = window.getSelection(); return s.isCollapsed && caretOffsetIn(line) === (line.textContent || '').length; };
+  // Bookmark the caret by line-id + offset so it survives a normalize pass.
+  const caretBookmark = () => { const line = getFocusedLine(lineEd); return line ? { id: line.dataset.id, off: caretOffsetIn(line) } : null; };
+  const restoreBookmark = (bm) => {
+    if (!bm) return;
+    const line = [...lineEd.querySelectorAll('.ms-el')].find((d) => d.dataset.id === bm.id);
+    if (line) placeCaretAtOffset(line, Math.min(bm.off, (line.textContent || '').length));
+  };
+  // After native edits (cross-line selection delete, paste of rich content) the
+  // browser can leave stray text nodes, nested blocks, or rows missing our
+  // metadata. Flatten everything back to a clean list of typed .ms-el rows.
+  const normalize = (preserve) => {
+    const bm = preserve ? caretBookmark() : null;
+    let prev = null;
+    [...lineEd.childNodes].forEach((node) => {
+      if (node.nodeType === 1 && node.classList.contains('ms-el')) {
+        if (node.firstElementChild && (node.textContent || '').trim()) node.textContent = node.textContent; // collapse nested markup
+        if (!node.dataset.type) setLineType(node, prev ? prev.dataset.type : (isSong ? 'sung' : 'action'));
+        if (!node.dataset.id) node.dataset.id = lid();
+        if (node.dataset.type === 'blank' && (node.textContent || '').trim()) setLineType(node, isSong ? 'sung' : 'action');
+        prev = node;
+      } else {
+        const txt = node.textContent || '';
+        if (prev && txt.trim()) { prev.textContent += txt; node.remove(); }
+        else if (txt.trim()) { const nl = mkLine(isSong ? 'sung' : 'action', txt.trim()); lineEd.insertBefore(nl, node); node.remove(); prev = nl; }
+        else node.remove();
+      }
+    });
+    if (!lineEd.querySelector('.ms-el')) lineEd.appendChild(mkLine('cue', ''));
+    if (preserve) restoreBookmark(bm);
+  };
+  const needsNormalize = () => {
+    for (const n of lineEd.childNodes) {
+      if (n.nodeType !== 1 || !n.classList.contains('ms-el')) return true;
+      if (n.firstElementChild) return true;
+      if (n.dataset.type === 'blank' && (n.textContent || '').trim()) return true;
+    }
+    return false;
   };
 
   const styleBar = el('div', { class: 'ms-style-bar' });
@@ -1342,6 +1420,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
   styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Enter · next element   ⇧Enter · same   Tab · cycle   ' + modKey + '1–6 · jump' }));
 
   const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
+  lineEd.contentEditable = 'true'; // single editable host for the whole document
   // Seed from persisted identified lines when available (ids survive the edit);
   // otherwise parse the text blob (and mint ids — lazy migration on first edit).
   const seed = (lines && lines.length)
@@ -1395,7 +1474,8 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
 
   const syncPicker = () => {
     const line = getFocusedLine(lineEd);
-    if (line) styleSel.value = line.dataset.type;
+    lineEd.querySelectorAll('.ms-el-active').forEach((d) => { if (d !== line) d.classList.remove('ms-el-active'); });
+    if (line) { styleSel.value = line.dataset.type; line.classList.add('ms-el-active'); }
     dualBtn.disabled = !(line && line.dataset.type === 'cue');
     dualBtn.classList.toggle('active', !!(line && line.dataset.dual === '1'));
     if (line !== ac.lastFocus) { ac.lastFocus = line; ac.dismissed = false; ac.index = 0; }
@@ -1403,7 +1483,31 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
   };
   lineEd.addEventListener('keyup', syncPicker);
   lineEd.addEventListener('click', syncPicker);
-  lineEd.addEventListener('input', () => refreshAc(getFocusedLine(lineEd)));
+  lineEd.addEventListener('input', () => { if (needsNormalize()) normalize(true); refreshAc(getFocusedLine(lineEd)); });
+  // Paste as plain text, splitting on newlines into typed rows (strip rich markup).
+  lineEd.addEventListener('paste', (e) => {
+    e.preventDefault();
+    const data = (e.clipboardData || window.clipboardData);
+    const text = data ? data.getData('text/plain') : '';
+    if (!text) return;
+    const sel = window.getSelection();
+    if (sel && !sel.isCollapsed) sel.deleteFromDocument();
+    const line = getFocusedLine(lineEd);
+    if (!line) return;
+    const segs = text.replace(/\r\n/g, '\n').split('\n');
+    if (segs.length === 1) { document.execCommand('insertText', false, segs[0]); syncPicker(); return; }
+    const off = caretOffsetIn(line);
+    const whole = line.textContent || '';
+    const after = whole.slice(off);
+    line.textContent = whole.slice(0, off) + segs[0];
+    let anchor = line;
+    for (let i = 1; i < segs.length; i++) {
+      const nl = mkLine(line.dataset.type, segs[i] + (i === segs.length - 1 ? after : ''));
+      anchor.after(nl); anchor = nl;
+    }
+    placeCaretAtOffset(anchor, segs[segs.length - 1].length);
+    syncPicker();
+  });
   styleSel.addEventListener('mousedown', () => { styleSel._activeLine = getFocusedLine(lineEd); });
   styleSel.addEventListener('change', () => {
     const line = styleSel._activeLine || getFocusedLine(lineEd);
@@ -1438,25 +1542,63 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
     }
     if (e.key === 'Enter') {
       // Enter → the element that usually follows (FD ReturnKey); Shift+Enter →
-      // another line of the SAME element (e.g. the next lyric line).
+      // another line of the SAME element (e.g. the next lyric line). A caret in
+      // mid-line splits it; the text after the caret carries into the new row.
       e.preventDefault();
-      const curType = line.dataset.type;
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed) sel.deleteFromDocument();
+      const cur = getFocusedLine(lineEd) || line;
+      const curType = cur.dataset.type;
+      const off = caretOffsetIn(cur);
+      const whole = cur.textContent || '';
+      cur.textContent = whole.slice(0, off);
       const newType = e.shiftKey ? curType : smartNext(curType);
-      const newLine = mkLine(newType, '');
-      line.after(newLine);
+      const newLine = mkLine(newType, whole.slice(off));
+      cur.after(newLine);
       placeCursorAt(newLine, false);
       styleSel.value = newType;
+      syncPicker();
     } else if (e.key === 'Tab') {
       e.preventDefault();
       const newType = tabNext(line.dataset.type);
       setLineType(line, newType);
       styleSel.value = newType;
       refreshAc(line);
-    } else if (e.key === 'Backspace' && !line.textContent.trim()) {
+    } else if (e.key === 'Backspace') {
+      // Let the browser delete a selection or a mid-line character. Only intercept
+      // a collapsed caret at the very start of a line, where we merge it into the
+      // previous row (word-processor behavior) instead of blurring out of edit mode.
+      const sel = window.getSelection();
+      if (!sel.isCollapsed || !caretAtStart(line)) return;
+      const prev = line.previousElementSibling;
+      if (!prev) { e.preventDefault(); return; }
       e.preventDefault();
-      const target = line.previousElementSibling || line.nextElementSibling;
-      line.remove();
-      if (target) placeCursorAt(target, true);
+      if (prev.classList.contains('ms-el-blank')) {
+        prev.remove();               // backspacing into a gap removes the gap
+        placeCursorAt(line, false);
+      } else {
+        const at = (prev.textContent || '').length;
+        prev.textContent = (prev.textContent || '') + (line.textContent || '');
+        line.remove();
+        placeCaretAtOffset(prev, at);
+        styleSel.value = prev.dataset.type;
+      }
+      syncPicker();
+    } else if (e.key === 'Delete') {
+      // Forward-delete at line end merges the next row up (symmetric with above).
+      const sel = window.getSelection();
+      if (!sel.isCollapsed || !caretAtEnd(line)) return;
+      const next = line.nextElementSibling;
+      if (!next) { e.preventDefault(); return; }
+      e.preventDefault();
+      if (next.classList.contains('ms-el-blank')) { next.remove(); }
+      else {
+        const at = (line.textContent || '').length;
+        line.textContent = (line.textContent || '') + (next.textContent || '');
+        next.remove();
+        placeCaretAtOffset(line, at);
+      }
+      syncPicker();
     }
   });
 

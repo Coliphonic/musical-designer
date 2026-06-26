@@ -1069,7 +1069,9 @@ body.dark .ms-style-hint { color: #8b83a8; }
 }
 .ms-el-blank { min-height: 12pt; }
 .ms-el:empty::before { content: '\00a0'; } /* non-breaking space keeps empty lines selectable */
-.ms-el:focus { background: rgba(100, 90, 200, 0.04); }
+/* The container is the single editable host now, so highlight the active line
+   via a JS-toggled class rather than :focus (which child rows no longer get). */
+.ms-el-active { background: rgba(100, 90, 200, 0.05); }
 /* Mirror the read-only render inside the rich editor: show ( ) around
    parentheticals and a pill for section headers. The editable text stays free
    of the ( ) [ ] syntax (added back by serializeLines), so editing stays clean. */
