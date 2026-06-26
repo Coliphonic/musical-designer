@@ -403,7 +403,9 @@ body.dark .ms-body { background: var(--bg); }
   font-weight: 700;
   letter-spacing: 0.08em;
   text-decoration: underline;
-  margin: 3em 0 1em;
+  /* 32px == the act header's 2em top margin (em differs here: the title is 14pt),
+     so a titled/untitled page opens content at the same height. */
+  margin: 32px 0 1em;
 }
 
 /* In-sheet element styles (override lw- defaults for print context) */
