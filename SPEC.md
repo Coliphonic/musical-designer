@@ -351,10 +351,13 @@ What's built and working:
 
 What's next (in dependency order):
 
-1. **Revisions (Final Draft-style).** Both foundations are now in place (snapshots + the persisted
-   line model). *Half A:* margin asterisks + named revision sets — when a line's text changes, its
-   stable id stays and `lastRev` bumps; snapshots serve as the baseline. *Half B:* page-stable
-   production revisions (locked pages, A-pages, "print revised pages only") on the pagination engine.
+1. **Revisions (Final Draft-style). ✅ Done.** Both foundations were in place (snapshots + the
+   persisted line model). *Half A:* margin asterisks + named revision sets — when a line's text
+   changes, its stable id stays and `lastRev` bumps; snapshots serve as the baseline. *Half B:*
+   page-stable production revisions — **Lock Pages** freezes boundaries (each layout token carries a
+   stable `key`; `paginateBlocks(blocks, lock)` force-breaks at locked anchors), grown content spills
+   to **A-pages** (`assignLabels`), and **print revised pages only** (`exportPDF(_, revisedOnly)` →
+   `pageIsRevised`) emits just the changed pages with their locked labels.
 3. **Variants.** Per-scene alternate takes on the line model, with "only the active variant counts
    toward board / runtime / manuscript / export" as the guardrail. No full branch/merge model.
 4. **Diagnostics engine ("lint for musicals").** Once cards carry richer data, flag craft problems:
