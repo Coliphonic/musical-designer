@@ -652,7 +652,7 @@ body.dark .topnav {
 }
 
 .page { flex: 1; min-height: 0; overflow-y: auto; padding: 0; }
-#page-board { padding: 0; }
+#page-board { padding: 0; padding-top: 12px; }
 
 .sb-save-dot {
   width: 8px;
