@@ -41,6 +41,7 @@ const state = {
   cards: [],
   revisions: [],     // [{id, name, color, date}] — Final Draft-style revision sets
   currentRev: null,  // id of the active revision; null = not tracking (no marks)
+  pageLock: null,    // { lockedAt, date, pages:[{label, anchor}] } — frozen page boundaries (A-pages)
   characters: {},
   titlePage: { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } },
   scriptHeader: { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false },
@@ -109,7 +110,7 @@ function openReference(key) {
   else { const lanes = assignLanes(show.numbers); state.cards = show.numbers.map((t, i) => { const c = cardFromTuple(t); c.act = lanes[i]; return c; }); }
   // Enriched references may carry a character registry and a title page (no lyrics).
   // Plain references have neither — fall back to empty so stale project data never leaks in.
-  state.revisions = []; state.currentRev = null; // references aren't revised
+  state.revisions = []; state.currentRev = null; state.pageLock = null; // references aren't revised
   state.characters = show.characters ? JSON.parse(JSON.stringify(show.characters)) : {};
   const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
   state.titlePage = Object.assign({}, tpDefaults, show.titlePage || {});
@@ -132,6 +133,7 @@ function applyShowData(d) {
   state.cards = (d.cards || []).map(cardFromStored);
   state.revisions = d.revisions || [];
   state.currentRev = d.currentRev || null;
+  state.pageLock = d.pageLock || null;
   state.characters = d.characters || {};
   const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
   state.titlePage = Object.assign({}, tpDefaults, d.titlePage || {});
@@ -166,6 +168,7 @@ function serialize() {
     cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
     revisions: state.revisions,
     currentRev: state.currentRev,
+    pageLock: state.pageLock,
     characters: state.characters,
     titlePage: state.titlePage,
     scriptHeader: state.scriptHeader,
@@ -1144,7 +1147,7 @@ function linesToSeamless(lines, isSong) { return serializeRows(lines || [], isSo
 // carries lastRev for revision marks) when present, else parsed from the blob.
 function cardBodyTokens(c) {
   if (Array.isArray(c.lines) && c.lines.length) {
-    return c.lines.map((l) => ({ type: l.type, text: l.text, subtype: l.subtype, dual: l.dual, lastRev: l.lastRev }));
+    return c.lines.map((l) => ({ type: l.type, text: l.text, subtype: l.subtype, dual: l.dual, lastRev: l.lastRev, key: l.id ? 'l:' + l.id : undefined }));
   }
   return parseLyricLines(c[cardBodyField(c)] || '', c.type === 'song');
 }
@@ -1155,6 +1158,18 @@ function cardBodyTokens(c) {
 // rides alongside, kept aligned on every write, so each line carries a stable id
 // that revisions/variants can attach to. Migration is lazy: a card gains `lines`
 // the first time its body is edited.
+
+// Freeze the current page boundaries: snapshot the leading anchor of each page
+// (from a natural, unlocked pagination) so that from here on earlier pages never
+// reflow — grown content spills onto A-pages instead. FD "Lock Pages."
+function lockPages() {
+  const pages = paginateBlocks(buildBlocks(buildContentTokens(null)), null);
+  const locked = pages
+    .map((p, i) => ({ label: String(i + 1), anchor: pageLeadKey(p) }))
+    .filter((p) => p.anchor);
+  state.pageLock = { lockedAt: state.currentRev || null, date: Date.now(), pages: locked };
+}
+function unlockPages() { state.pageLock = null; }
 
 // Final Draft-style revision sets, in standard issue order (paper colors).
 const REV_COLORS = [
@@ -1667,14 +1682,14 @@ function buildContentTokens(sceneId) {
 
   const emitCard = (c) => {
     if (c.type === 'scene') {
-      toks.push({ type: 'scene-header', text: c.title || 'Scene' });
-      if (c.note && c.note.trim()) { toks.push({ type: 'blank' }); toks.push({ type: 'action', text: c.note, lastRev: noteRev(c) }); toks.push({ type: 'blank' }); }
+      toks.push({ type: 'scene-header', text: c.title || 'Scene', key: 'sc:' + c.id });
+      if (c.note && c.note.trim()) { toks.push({ type: 'blank' }); toks.push({ type: 'action', text: c.note, lastRev: noteRev(c), key: 'note:' + c.id }); toks.push({ type: 'blank' }); }
     } else if (c.type === 'beat') {
-      if (c.note && c.note.trim()) { toks.push({ type: 'action', text: c.note, lastRev: noteRev(c) }); toks.push({ type: 'blank' }); }
+      if (c.note && c.note.trim()) { toks.push({ type: 'action', text: c.note, lastRev: noteRev(c), key: 'note:' + c.id }); toks.push({ type: 'blank' }); }
       if (c.lyrics && c.lyrics.trim()) { cardBodyTokens(c).forEach(pushLyric); toks.push({ type: 'blank' }); }
     } else if (c.type === 'song') {
       songNum++;
-      toks.push({ type: 'song-num', num: songNum, title: c.title || 'Untitled' });
+      toks.push({ type: 'song-num', num: songNum, title: c.title || 'Untitled', key: 'sg:' + c.id });
       toks.push({ type: 'blank' });
       if (c.lyrics && c.lyrics.trim()) cardBodyTokens(c).forEach(pushLyric);
       else toks.push({ type: 'action', text: state.readonly ? '(lyrics not reproduced)' : '(no lyrics yet)' });
@@ -1701,7 +1716,7 @@ function buildContentTokens(sceneId) {
 
   const msOpts = state.msOptions;
   if (msOpts.showTitle !== false) {
-    toks.push({ type: 'ms-title', text: (state.title || 'Untitled Show').toUpperCase() });
+    toks.push({ type: 'ms-title', text: (state.title || 'Untitled Show').toUpperCase(), key: 'title' });
     toks.push({ type: 'blank' });
     toks.push({ type: 'blank' });
   }
@@ -1710,14 +1725,14 @@ function buildContentTokens(sceneId) {
     const c = state.cards[i];
     if ((c.act === '1' || c.act === '2A') && !actDone.one) {
       actDone.one = true;
-      if (state.mode !== 'oneact' && msOpts.showActHeaders !== false) { toks.push({ type: 'act-header', text: 'ACT ONE' }); toks.push({ type: 'blank' }); }
+      if (state.mode !== 'oneact' && msOpts.showActHeaders !== false) { toks.push({ type: 'act-header', text: 'ACT ONE', key: 'act1' }); toks.push({ type: 'blank' }); }
     }
     if ((c.act === '2B' || c.act === '3') && !actDone.two) {
       actDone.two = true;
       if (state.mode === 'full') {
-        toks.push({ type: 'ms-divider', text: 'INTERMISSION' });
+        toks.push({ type: 'ms-divider', text: 'INTERMISSION', key: 'intermission' });
         toks.push({ type: 'blank' });
-        if (msOpts.showActHeaders !== false) { toks.push({ type: 'act-header', text: 'ACT TWO' }); toks.push({ type: 'blank' }); }
+        if (msOpts.showActHeaders !== false) { toks.push({ type: 'act-header', text: 'ACT TWO', key: 'act2' }); toks.push({ type: 'blank' }); }
       }
     }
     emitCard(c);
@@ -1795,9 +1810,43 @@ function buildBlocks(toksRaw) {
   return blocks;
 }
 
-function paginateTokens(toks) { return paginateBlocks(buildBlocks(toks)); }
+function paginateTokens(toks, lock) {
+  return paginateBlocks(buildBlocks(toks), lock === undefined ? state.pageLock : lock);
+}
 
-function paginateBlocks(blocks) {
+// First stable key carried by a block / a placed page (skips blank spacers).
+function blockLeadKey(b) {
+  for (const t of b.tokens) { if (t.key) return t.key; }
+  return null;
+}
+function pageLeadKey(page) {
+  for (const t of page) { if (t.key) return t.key; }
+  return null;
+}
+
+// Assign each page its production label. Unlocked → plain 1..N. Locked → each page
+// whose leading anchor is a locked boundary keeps that boundary's number; pages
+// that appear between two boundaries (because locked content grew) become A-pages
+// (12A, 12B…). New trailing pages past the last boundary continue as A-pages of it.
+function assignLabels(pages, lock) {
+  if (!lock || !lock.pages || !lock.pages.length) {
+    pages.forEach((p, i) => { p.label = String(i + 1); });
+    return pages;
+  }
+  const anchorLabel = new Map(lock.pages.map((p) => [p.anchor, p.label]));
+  let base = '1';
+  let letter = 0;
+  pages.forEach((p, i) => {
+    const k = pageLeadKey(p);
+    if (i === 0 && (!k || !anchorLabel.has(k))) { p.label = '1'; base = '1'; letter = 0; return; }
+    if (k && anchorLabel.has(k)) { base = anchorLabel.get(k); letter = 0; p.label = base; }
+    else { letter++; p.label = base + String.fromCharCode(64 + letter); }
+  });
+  return pages;
+}
+
+function paginateBlocks(blocks, lock) {
+  const anchorSet = (lock && lock.pages) ? new Set(lock.pages.map((p) => p.anchor)) : null;
   const rig = el('div', { class: 'ms-sheet' });
   rig.style.cssText = 'position:absolute; left:-99999px; top:0; visibility:hidden; height:11in; min-height:0;';
   const hdr = renderSheetHeader(1, 1);
@@ -1848,7 +1897,10 @@ function paginateBlocks(blocks) {
 
   blocks.forEach((b) => {
     if (b.blank) { pending.push(b.tokens[0]); return; } // defer — decide at the next real block
-    if (b.forceBreak && page.length > 0) breakPage(); // scene starts a new page
+    // Locked boundary: a frozen page always begins exactly where it did at lock
+    // time, so earlier pages never reflow when later content changes.
+    const atAnchor = anchorSet && page.length > 0 && anchorSet.has(blockLeadKey(b));
+    if ((b.forceBreak || atAnchor) && page.length > 0) breakPage(); // scene / locked boundary starts a new page
     placeUnit(b.tokens, !!b.header);
   });
   // trailing pending blanks are intentionally dropped (no spacer at a page foot)
@@ -1872,7 +1924,7 @@ function paginateBlocks(blocks) {
     }
   }
 
-  return pages;
+  return assignLabels(pages, lock);
 }
 
 function renderPageToken(tok, container) {
@@ -2228,7 +2280,7 @@ function exportPDF(includeTitlePages) {
   const pages = paginateTokens(toks);
   pages.forEach((pageToks, pi) => {
     const sheet = el('div', { class: 'ms-sheet' });
-    sheet.appendChild(renderSheetHeader(pi + 1, pages.length));
+    sheet.appendChild(renderSheetHeader(pages[pi].label || (pi + 1), pages.length, pi === 0));
     const content = el('div', { class: 'ms-sheet-content' });
     pageToks.forEach((tok) => renderPageToken(tok, content));
     sheet.appendChild(content);
@@ -2508,17 +2560,18 @@ function buildTitlePages() {
   return viewport;
 }
 
-function renderSheetHeader(pageNum, totalPages) {
+function renderSheetHeader(pageLabel, totalPages, isFirst) {
   const sh = state.scriptHeader;
   const hdr = el('div', { class: 'ms-sheet-header' });
-  if (!sh.enabled || (pageNum === 1 && !sh.firstPage)) {
+  if (isFirst === undefined) isFirst = String(pageLabel) === '1';
+  if (!sh.enabled || (isFirst && !sh.firstPage)) {
     hdr.style.visibility = 'hidden';
     return hdr;
   }
   const text = (sh.format || '')
     .replace('{title}', (state.title || 'Untitled Show').toUpperCase())
     .replace('{date}', sh.revisionDate || '')
-    .replace('{page}', pageNum);
+    .replace('{page}', pageLabel);
   const span = el('span', { class: 'ms-sheet-hdr-text', text });
   span.style.textAlign = sh.alignment || 'right';
   if (sh.alignment === 'left') { hdr.appendChild(span); hdr.appendChild(el('span')); }
@@ -2686,12 +2739,12 @@ function buildManuscriptPage(sceneId) {
     if (oldBody) oldBody.remove();
     const newBody = el('div', { class: 'ms-body' });
     const toks = buildContentTokens(sceneId);
-    const pages = paginateTokens(toks);
+    const pages = paginateTokens(toks, sceneId ? null : undefined);
     const viewport = el('div', { class: 'ms-viewport' });
     viewport.style.zoom = zoom;
     pages.forEach((pageToks, pi) => {
       const sheet = el('div', { class: 'ms-sheet' });
-      sheet.appendChild(renderSheetHeader(pi + 1, pages.length));
+      sheet.appendChild(renderSheetHeader(pages[pi].label || (pi + 1), pages.length, pi === 0));
       const content = el('div', { class: 'ms-sheet-content' });
       pageToks.forEach((tok) => renderPageToken(tok, content));
       sheet.appendChild(content);
@@ -2884,6 +2937,21 @@ function buildManuscriptPage(sceneId) {
         });
         revSection.appendChild(list);
       }
+      // Page locking — freeze boundaries so revisions spill onto A-pages.
+      const locked = !!state.pageLock;
+      if (locked) {
+        const n = (state.pageLock.pages || []).length;
+        revSection.appendChild(el('div', { class: 'ms-rev-locknote', text: '🔒 Pages locked (' + n + ') — new material flows to A-pages.' }));
+      }
+      const lockBtn = el('button', { class: 'ms-rev-btn ms-rev-lockbtn', text: locked ? 'Unlock pages' : 'Lock pages' });
+      lockBtn.addEventListener('click', () => {
+        if (locked) unlockPages();
+        else lockPages();
+        doSave();
+        renderRevSection();
+        rerenderMs();
+      });
+      revSection.appendChild(lockBtn);
     };
     renderRevSection();
   }

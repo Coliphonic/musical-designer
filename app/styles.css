@@ -448,6 +448,8 @@ body.dark .ms-body { background: var(--bg); }
   cursor: pointer; font-family: inherit;
 }
 .ms-rev-btn:hover { filter: brightness(1.08); }
+.ms-rev-lockbtn { background: transparent; color: var(--energy); }
+.ms-rev-locknote { font-size: 12px; color: var(--muted); line-height: 1.4; }
 .ms-rev-list { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
 .ms-rev-item { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
 .ms-rev-item.active { color: var(--ink); font-weight: 600; }
