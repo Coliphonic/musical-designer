@@ -1603,10 +1603,20 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
   });
 
   const richWrap = el('div', { class: 'ms-card-rich-editor' });
-  richWrap.addEventListener('focusout', (e) => {
-    if (richWrap.contains(e.relatedTarget)) return;
+  // Commit edits exactly once per editor instance. Exposed as _commit so the
+  // manuscript can close an open editor when the user clicks into another scene
+  // (one editor open at a time → a single style ribbon, on the active scene).
+  let committed = false;
+  const commit = () => {
+    if (committed) return;
+    committed = true;
     closeAc();
     if (onSave) onSave(serializeLines(lineEd), serializeToLines(lineEd));
+  };
+  richWrap._commit = commit;
+  richWrap.addEventListener('focusout', (e) => {
+    if (richWrap.contains(e.relatedTarget)) return;
+    commit();
   });
   richWrap.appendChild(styleBar);
   richWrap.appendChild(lineEd);
@@ -2697,6 +2707,11 @@ function buildManuscriptPage(sceneId) {
   const enterCardEditRich = (sec, c) => {
     if (state.readonly) return; // references are read-only study objects
     if (sec.querySelector('.ms-card-rich-editor')) return;
+    // One editor open at a time: commit & collapse any other scene still in edit
+    // mode (its onSave reverts it to the static render), so only the scene the
+    // cursor is in shows the style ribbon.
+    const docEl = sec.closest('.ms-edit-doc');
+    if (docEl) docEl.querySelectorAll('.ms-card-rich-editor').forEach((rw) => { if (rw._commit) rw._commit(); });
     sec.innerHTML = '';
     sec.appendChild(buildRichEditor({
       text: c[cardField(c)] || '',
