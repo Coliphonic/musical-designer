@@ -1889,16 +1889,25 @@ function paginateBlocks(blocks, lock) {
       if (!fits()) { probe.removeChild(probe.lastChild); break; }
       fitN++;
     }
-    // Split after the last real line that fit (so a page never ends on a blank).
-    let split = fitN;
-    while (split > 0 && !isReal(unit[split - 1])) split--;
     const realIn = (a, b) => unit.slice(a, b).filter(isReal).length;
-    // Pull lines back into the tail until the continuation has ≥ MIN_TAIL.
-    while (split > 0 && realIn(split, unit.length) < MIN_TAIL) {
-      split--;
-      while (split > 0 && !isReal(unit[split - 1])) split--;
+    // Prefer a stanza boundary: split at the latest blank spacer that fits, so a
+    // whole stanza is never broken across pages. (The blank is the separator and
+    // is dropped at the page foot.)
+    let split = -1;
+    for (let p = Math.min(fitN, unit.length - 1); p >= 1; p--) {
+      if (unit[p].type === 'blank' && realIn(0, p) >= MIN_HEAD && realIn(p, unit.length) >= MIN_TAIL) { split = p; break; }
     }
-    if (realIn(0, split) < MIN_HEAD || realIn(split, unit.length) < MIN_TAIL) return false;
+    // No usable stanza break fits (a single stanza is taller than the space) —
+    // fall back to a line-level split after the last real line that fit.
+    if (split < 0) {
+      split = fitN;
+      while (split > 0 && !isReal(unit[split - 1])) split--;
+      while (split > 0 && realIn(split, unit.length) < MIN_TAIL) {
+        split--;
+        while (split > 0 && !isReal(unit[split - 1])) split--;
+      }
+      if (realIn(0, split) < MIN_HEAD || realIn(split, unit.length) < MIN_TAIL) return false;
+    }
 
     const head = unit.slice(0, split);
     // Drop leading blanks on the continuation so it never opens with a spacer.
