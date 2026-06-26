@@ -1717,7 +1717,9 @@ function buildContentTokens(sceneId) {
   const msOpts = state.msOptions;
   if (msOpts.showTitle !== false) {
     toks.push({ type: 'ms-title', text: (state.title || 'Untitled Show').toUpperCase(), key: 'title' });
-    toks.push({ type: 'blank' });
+    // One spacer only — the title's own 2em bottom margin plus the following
+    // header's top margin carry the rest. (Two blanks left act headers, which
+    // keep their 2em top margin, one line too far down.)
     toks.push({ type: 'blank' });
   }
 
@@ -1802,7 +1804,9 @@ function buildBlocks(toksRaw) {
     const header = tok.type === 'act-header' || tok.type === 'scene-header' || tok.type === 'song-num';
     // Scene headings start a fresh page (screenplay/libretto convention) — except
     // the first scene under an act header, which rides on the act header's page.
-    const forceBreak = tok.type === 'scene-header' && prevRealType !== 'act-header';
+    // The first scene rides on whatever opens the script — an act header or, in a
+    // one-act (or a titled script with no act header), the show title page.
+    const forceBreak = tok.type === 'scene-header' && prevRealType !== 'act-header' && prevRealType !== 'ms-title';
     blocks.push({ tokens: [tok], header, splittable: false, columns: null, forceBreak });
     prevRealType = tok.type;
     i++;
