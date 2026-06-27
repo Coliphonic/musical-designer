@@ -24,7 +24,7 @@ const STATUS = {
 };
 // Scene-change at the end of a card, set from the card face (no dropdown).
 const CHANGE_OPTS = [
-  { key: '', label: 'No change', sym: '·' },
+  { key: '', label: 'No change', sym: '~' },
   { key: 'positive', label: 'Positive', sym: '+' },
   { key: 'negative', label: 'Negative', sym: '−' },
 ];
@@ -884,6 +884,7 @@ function buildCard(c, trueIdx, pct) {
   const top = el('div', { class: 'top' });
   if (c.type === 'song') {
     top.appendChild(makeFnPicker(c));
+    top.appendChild(statusControl(c));
     top.appendChild(el('span', { class: 'pct', text: pct + '%' }));
   } else if (c.type === 'beat') {
     top.appendChild(makeBeatFnPill(c));
@@ -897,7 +898,7 @@ function buildCard(c, trueIdx, pct) {
     const lyricBtn = el('button', { class: 'card-lyric-btn', text: '✎  Lyrics' });
     lyricBtn.addEventListener('click', (e) => { e.stopPropagation(); openLyricWindow(c.id); });
     kids.push(el('div', { class: 'card-lyric-row' }, [lyricBtn]));
-    kids.push(el('div', { class: 'foot' }, [statusControl(c), changeControl(c), el('span', { class: 'foot-rt', text: '~' + c.min + 'm' })]));
+    kids.push(el('div', { class: 'foot' }, [changeControl(c), makeCardEditable(el('span', { class: 'conflict', text: c.conflict || '' }), () => c.conflict, (v) => { c.conflict = v; }, '+ Conflict'), el('span', { class: 'foot-rt', text: '~' + c.min + 'm' })]));
   } else if (c.type === 'scene') {
     kids.push(el('div', { class: 'title scene-title', text: c.title }));
     const readBtn = el('button', { class: 'scene-read-btn', title: 'Read this scene' }, [el('span', { text: '▶' })]);
@@ -909,7 +910,7 @@ function buildCard(c, trueIdx, pct) {
     const editBtn = el('button', { class: 'card-lyric-btn', text: '✎  Edit' });
     editBtn.addEventListener('click', (e) => { e.stopPropagation(); openLyricWindow(c.id); });
     kids.push(el('div', { class: 'card-lyric-row' }, [editBtn]));
-    kids.push(el('div', { class: 'foot' }, [changeControl(c), el('span', { class: 'foot-rt', text: '~' + c.min + 'm' })]));
+    kids.push(el('div', { class: 'foot' }, [changeControl(c), makeCardEditable(el('span', { class: 'conflict', text: c.conflict || '' }), () => c.conflict, (v) => { c.conflict = v; }, '+ Conflict'), el('span', { class: 'foot-rt', text: '~' + c.min + 'm' })]));
   }
 
   const card = el('div', { class: 'bcard' + (c.type === 'beat' ? ' beat' : '') + (c.type === 'scene' ? ' scene' : ''), draggable: 'true', 'data-pos': trueIdx, 'data-id': c.id }, kids);
