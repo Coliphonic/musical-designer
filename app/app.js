@@ -54,7 +54,6 @@ const state = {
   msOptions: (() => { try { return JSON.parse(localStorage.getItem('md-ms-opts') || '{}'); } catch (_) { return {}; } })(),
   dragFrom: null,
   openAct: null,
-  selectedId: null,
   lyricWinId: null,
 };
 
@@ -127,7 +126,6 @@ function openReference(key) {
   state.readonly = true;
   state.folder = '';
   state.mode = show.form === 'one-act-90' ? 'oneact' : 'full';
-  closeDetail();
   state.loading = false;
   render();
   setSaveInd('ref');
@@ -160,7 +158,6 @@ function openProject(id, afterOpen) {
     state.projectId = id;
     state.showKey = null;
     state.readonly = false;
-    closeDetail();
     state.loading = false;
     render();
     setSaveInd('saved');
@@ -560,7 +557,6 @@ function restoreSnapshot(snapId) {
       if (!snap || !snap.data) return;
       state.loading = true;
       applyShowData(snap.data);
-      closeDetail();
       state.loading = false;
       render();
       doSave(); // persist the restored version as the live show
@@ -916,7 +912,7 @@ function buildCard(c, trueIdx, pct) {
     kids.push(el('div', { class: 'foot' }, [changeControl(c), el('span', { class: 'foot-rt', text: '~' + c.min + 'm' })]));
   }
 
-  const card = el('div', { class: 'bcard' + (c.type === 'beat' ? ' beat' : '') + (c.type === 'scene' ? ' scene' : '') + (c.id === state.selectedId ? ' selected' : ''), draggable: 'true', 'data-pos': trueIdx, 'data-id': c.id }, kids);
+  const card = el('div', { class: 'bcard' + (c.type === 'beat' ? ' beat' : '') + (c.type === 'scene' ? ' scene' : ''), draggable: 'true', 'data-pos': trueIdx, 'data-id': c.id }, kids);
   card.addEventListener('click', (e) => { if (!card.classList.contains('justdragged')) openLyricWindow(c.id); });
   wireCardDrag(card);
   return card;
@@ -1054,27 +1050,7 @@ function checkInput(val, on, label) {
   return el('label', { class: 'check' }, [box, el('span', { text: label })]);
 }
 
-function openDetail(id) {
-  state.selectedId = id;
-  buildDetail();
-  document.getElementById('backdrop').style.display = '';
-  document.getElementById('detail').style.display = '';
-  render();
-}
-function closeDetail() {
-  state.selectedId = null;
-  const d = document.getElementById('detail'), b = document.getElementById('backdrop');
-  if (d) d.style.display = 'none';
-  if (b) b.style.display = 'none';
-}
-function commit() { render(); updateDetailMeta(); }
-function updateDetailMeta() {
-  const c = cardById(state.selectedId); if (!c) return;
-  const pct = percentages();
-  const idx = state.cards.indexOf(c);
-  const out = document.querySelector('#detail .dhead .pct');
-  if (out) out.textContent = pct[idx] + '%';
-}
+function commit() { render(); }
 
 // ---- lyric bench ----
 function lastNonEmptyLine(text) {
@@ -1102,23 +1078,6 @@ function verseCheck(text, defaultSung) {
     }
   }
   return '';
-}
-function renderLyricAnalysis(c, container) {
-  container.innerHTML = '';
-  const text = c.lyrics || '';
-  if (!text.trim()) { container.appendChild(el('div', { class: 'lyhint', text: 'Syllable counts and rhyme scheme appear here as you write.' })); return; }
-  const lines = text.split('\n');
-  const letters = LYRIC.scheme(lines);
-  lines.forEach((ln, i) => {
-    if (!ln.trim()) { container.appendChild(el('div', { class: 'lyrow blank' })); return; }
-    container.appendChild(el('div', { class: 'lyrow' }, [
-      el('span', { class: 'lysyl', text: LYRIC.lineSyll(ln) }),
-      el('span', { class: 'lyltr', text: letters[i] }),
-      el('span', { class: 'lytext', text: ln }),
-    ]));
-  });
-  const note = verseCheck(text);
-  if (note) container.appendChild(el('div', { class: 'lynote', text: note }));
 }
 function renderRhymes(word, container) {
   container.innerHTML = '';
@@ -3713,97 +3672,8 @@ function closeLyricWindow() {
   host.style.display = 'none';
   host.innerHTML = '';
   render();
-  if (state.selectedId) buildDetail();
 }
 function refreshLyricWindow() { if (state.lyricWinId) openLyricWindow(state.lyricWinId); }
-function buildLyricLauncher(c) {
-  const isBeat = c.type === 'beat';
-  const wrap = el('div', { class: 'lyrics' });
-  wrap.appendChild(el('span', { class: 'fl', text: isBeat ? 'Script' : 'Lyrics' }));
-  const btn = el('button', { class: 'pbtn lyricopen', text: isBeat ? '✎  Open scene editor' : '✎  Open lyric editor' });
-  btn.addEventListener('click', () => openLyricWindow(c.id));
-  wrap.appendChild(btn);
-  const lines = (c.lyrics || '').split('\n').filter((l) => l.trim());
-  if (lines.length) {
-    const syl = lines.reduce((s, l) => s + LYRIC.lineSyll(l), 0);
-    const preview = isBeat
-      ? `${lines.length} lines · "${lines[0].slice(0, 48)}${lines[0].length > 48 ? '…' : ''}"`
-      : `${lines.length} lines · ${syl} syllables · "${lines[0].slice(0, 38)}${lines[0].length > 38 ? '…' : ''}"`;
-    wrap.appendChild(el('div', { class: 'lyrprev', text: preview }));
-  } else {
-    wrap.appendChild(el('div', { class: 'lyrprev', text: isBeat ? 'No dialogue yet.' : 'No lyrics yet.' }));
-  }
-  return wrap;
-}
-
-function buildDetail() {
-  const host = document.getElementById('detail');
-  host.innerHTML = '';
-  const c = cardById(state.selectedId);
-  if (!c) { closeDetail(); return; }
-  const pct = percentages()[state.cards.indexOf(c)];
-
-  const head = el('div', { class: 'dhead' }, [
-    c.type === 'song'
-      ? el('span', { class: 'pill', 'data-fam': (FN[c.fn] || FN.ballad).fam, text: (FN[c.fn] || FN.ballad).label })
-      : el('span', { class: 'pill beat-pill', text: (c.beatFn || '').trim() || 'Beat' }),
-    el('span', { class: 'pct', text: pct + '%' }),
-    el('span', { class: 'spacer' }),
-    (() => { const b = el('button', { class: 'dclose', text: '✕', title: 'Close' }); b.addEventListener('click', closeDetail); return b; })(),
-  ]);
-
-  const body = el('div', { class: 'dbody' });
-  body.appendChild(field('Title', textInput('title', c.title, (v) => { c.title = v; commit(); })));
-
-  const laneOpts = LANES.map((l) => [l.key, l.label]);
-  if (c.type === 'song') {
-    const fnOpts = Object.entries(FN).map(([k, v]) => [k, v.label]);
-    const statusOpts = Object.entries(STATUS).map(([k, v]) => [k, v.label]);
-    body.appendChild(el('div', { class: 'fld row2' }, [
-      field('Act', selectInput(laneOpts, c.act, (v) => { c.act = v; commit(); })),
-      field('Function', selectInput(fnOpts, c.fn, (v) => { c.fn = v; commit(); })),
-    ]));
-    body.appendChild(field('Voicing / who sings', textInput('voicing', c.voicing, (v) => { c.voicing = v; commit(); })));
-    const changeOpts = [['', '—'], ['positive', '+ Positive'], ['negative', '− Negative']];
-    body.appendChild(field('Scene change', selectInput(changeOpts, c.change || '', (v) => { c.change = v || null; commit(); })));
-    body.appendChild(el('div', { class: 'fld row2' }, [
-      field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })),
-      field('Status', selectInput(statusOpts, c.status || 'idea', (v) => { c.status = v; commit(); })),
-    ]));
-    body.appendChild(el('div', { class: 'fld row2' }, [
-      field('Key', textInput('key', c.key, (v) => { c.key = v; }), 'blank = needs score'),
-      field('Style', textInput('style', c.style, (v) => { c.style = v; })),
-    ]));
-    body.appendChild(field('', checkInput(c.diegetic, (v) => { c.diegetic = v; }, 'Diegetic — performed in-world (not inner-life)')));
-
-    const singEmpty = !(c.purpose && c.purpose.trim());
-    const sing = el('div', { class: 'sing' + (singEmpty ? ' empty' : '') }, [
-      el('span', { class: 'fl', text: 'Why does this sing?' }),
-      textareaInput(c.purpose, (v) => { c.purpose = v; const wrap = document.querySelector('#detail .sing'); if (wrap) wrap.classList.toggle('empty', !v.trim()); }, 'What does this number do that speech can\'t? What is different when it ends?'),
-    ]);
-    body.appendChild(sing);
-    body.appendChild(buildLyricLauncher(c));
-  } else if (c.type === 'scene') {
-    body.appendChild(field('Act', selectInput(laneOpts, c.act, (v) => { c.act = v; commit(); })));
-    body.appendChild(field('Note', textareaInput(c.note, (v) => { setCardBody(c, 'note', v); commit(); }, 'What happens in this scene?')));
-  } else {
-    body.appendChild(el('div', { class: 'fld row2' }, [
-      field('Act', selectInput(laneOpts, c.act, (v) => { c.act = v; commit(); })),
-      field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })),
-    ]));
-    body.appendChild(field('Note / what happens', textareaInput(c.note, (v) => { setCardBody(c, 'note', v); commit(); }, 'The book scene — what happens here?')));
-    const changeOpts = [['', '—'], ['positive', '+ Positive'], ['negative', '− Negative']];
-    body.appendChild(field('Scene change', selectInput(changeOpts, c.change || '', (v) => { c.change = v || null; commit(); })));
-    body.appendChild(buildLyricLauncher(c));
-  }
-
-  const del = el('button', { class: 'dclose', text: 'Delete card', style: 'align-self:flex-start;color:#a32d2d;font-size:13px;padding:6px 0' });
-  del.addEventListener('click', () => { const i = state.cards.indexOf(c); if (i >= 0) state.cards.splice(i, 1); closeDetail(); render(); });
-  body.appendChild(del);
-
-  host.appendChild(head);
-  host.appendChild(body);
-}
 
 // ---- stats ----
 function buildStats() {
@@ -3846,7 +3716,6 @@ function render() {
 // ---- controls ----
 function initControls() {
   document.querySelectorAll('#view-seg button').forEach((b) => b.addEventListener('click', () => { state.view = b.dataset.view; render(); }));
-  document.getElementById('backdrop').addEventListener('click', closeDetail);
   document.getElementById('lyricwin').addEventListener('click', (e) => { if (e.target.id === 'lyricwin') closeLyricWindow(); });
   document.querySelectorAll('.tn-tab[data-page]').forEach((b) => {
     b.addEventListener('click', () => { if (!b.classList.contains('sb-disabled')) navigateTo(b.dataset.page); });
@@ -3927,7 +3796,7 @@ function initControls() {
       if (ssm && ssm.style.display !== 'none') { closeShowSettingsModal(); return; }
       const modal = document.getElementById('new-show-modal');
       if (modal && modal.style.display !== 'none') { closeNewShowModal(); return; }
-      if (state.lyricWinId) closeLyricWindow(); else closeDetail();
+      if (state.lyricWinId) closeLyricWindow();
     }
   });
   document.addEventListener('click', (e) => {
@@ -3975,5 +3844,4 @@ loadProjects().then(() => {
 fetch('cmudict.txt').then((r) => r.text()).then((t) => {
   LYRIC.load(t);
   if (state.lyricWinId) refreshLyricWindow();
-  else if (state.selectedId) buildDetail();
 }).catch(() => {});

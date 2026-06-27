@@ -194,31 +194,15 @@ body.dark .pill[data-fam="gray"]   { background: #1e1c18; border: 1px solid #706
 .laneint.interm::before, .laneint.interm::after { background: var(--line); }
 .laneint.interm span { background: var(--btn); color: var(--muted); }
 
-.bcard.selected { border-color: var(--energy); box-shadow: 0 0 0 2px var(--energy); }
 .bcard .statusdot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 
 .hint { font-size: 12px; color: var(--muted); margin-top: 16px; line-height: 1.6; }
 .hint b { color: var(--ink); font-weight: 600; }
 
 /* detail drawer */
-.backdrop { position: fixed; inset: 0; background: #2c2c2a22; z-index: 20; }
-.detail {
-  position: fixed; top: 0; right: 0; height: 100%; width: 384px; max-width: 92vw; z-index: 21;
-  background: var(--panel); border-left: 1px solid var(--line); box-shadow: -10px 0 34px #00000014;
-  display: flex; flex-direction: column; overflow-y: auto;
-}
-.detail .dhead { display: flex; align-items: center; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 1; }
-.detail .dhead .pill { font-size: 10px; }
-.detail .dhead .pct { font-size: 12px; }
-.detail .dhead .dtype { font-size: 13px; font-weight: 600; }
-.detail .dhead .spacer { flex: 1; }
-.detail .dclose, .lyricwin .dclose { border: 0; background: transparent; font-size: 20px; line-height: 1; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
-.detail .dclose:hover, .lyricwin .dclose:hover { background: var(--hover); color: var(--ink); }
-.detail .dbody { padding: 16px 18px 28px; display: flex; flex-direction: column; gap: 14px; }
+.lyricwin .dclose { border: 0; background: transparent; font-size: 20px; line-height: 1; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.lyricwin .dclose:hover { background: var(--hover); color: var(--ink); }
 /* Dark mode: lift the editor windows off the near-identical board behind them. */
-body.dark .backdrop { background: rgba(0,0,0,0.5); }
-body.dark .detail { border-left-color: #4a443a; box-shadow: -16px 0 50px rgba(0,0,0,0.55); }
-body.dark .detail .dhead { border-bottom-color: #4a443a; }
 body.dark .lyricwin-overlay { background: rgba(0,0,0,0.62); }
 body.dark .lyricwin { border-color: #4a443a; box-shadow: 0 28px 80px rgba(0,0,0,0.6); }
 
@@ -248,20 +232,7 @@ body.dark .sing.empty { background: var(--panel); border-color: #8b82e8; }
 .check input { width: 16px; height: 16px; accent-color: var(--energy); }
 .dnote { font-size: 11px; color: var(--faint); margin-top: -2px; }
 
-/* lyric bench */
-.lyrics { display: flex; flex-direction: column; gap: 9px; border-top: 1px solid var(--line); padding-top: 14px; margin-top: 2px; }
-.lyrics > .fl { color: var(--ink); font-size: 12px; }
-textarea.lyrictext { min-height: 120px; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.5; }
-.lyranalysis { display: flex; flex-direction: column; gap: 1px; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
-.lyrow { display: flex; align-items: baseline; gap: 9px; font-size: 12px; }
-.lyrow.blank { height: 7px; }
-.lysyl { flex: 0 0 22px; text-align: right; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
-.lyltr { flex: 0 0 14px; font-weight: 700; color: var(--energy); text-align: center; }
-.lytext { color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.lyhint { font-size: 11px; color: var(--faint); padding: 2px; }
-.lynote { font-size: 11px; color: var(--tension); background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; margin-top: 5px; line-height: 1.4; }
-.rhymehelp { display: flex; flex-direction: column; gap: 6px; background: var(--btn); border: 1px solid var(--line); border-radius: 8px; padding: 10px; }
-.rhymehelp .fl { color: var(--energy); }
+/* rhyme tools */
 .rhymeresults { display: flex; flex-wrap: wrap; gap: 5px; }
 .rchip { font-size: 12px; background: var(--panel); color: var(--energy); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
 .rchip.click { cursor: pointer; }
@@ -599,10 +570,6 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .tp-checks-label { flex-shrink: 0; width: 120px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); font-weight: 600; }
 .tp-check-item { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: var(--ink); cursor: pointer; user-select: none; }
 .tp-check-item input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--energy); }
-
-/* lyric launcher (in drawer) */
-.lyricopen { align-self: flex-start; display: flex; align-items: center; gap: 6px; }
-.lyrprev { font-size: 11.5px; color: var(--muted); line-height: 1.4; }
 
 /* full-screen lyric editor window */
 .lyricwin-overlay { position: fixed; inset: 0; background: #2c2c2a55; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 24px; }
