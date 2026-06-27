@@ -10,6 +10,10 @@
   --energy: #534ab7;
   --tension: #d85a30;
   --radius: 12px;
+  /* Editor-zone accents: Sections = sage (matches loglines), Rhymes = rose, Details = azure. */
+  --sage: #5f7d57; --sage-bg: #eef3e7; --sage-line: #cdddbf;
+  --rose: #b5446e; --rose-bg: #fbeaf0; --rose-line: #f0ccda;
+  --azure: #2f6db0; --azure-bg: #e6f1fb; --azure-line: #c4dcf2;
 }
 
 body.dark {
@@ -23,6 +27,9 @@ body.dark {
   --btn: #2a2825;
   --energy: #8b82e8;
   --tension: #e07a55;
+  --sage: #9cc28d; --sage-bg: #16210f; --sage-line: #3a5a2d;
+  --rose: #e07898; --rose-bg: #2a0f1c; --rose-line: #5a2540;
+  --azure: #82b8ec; --azure-bg: #0d1f35; --azure-line: #2a4a6e;
 }
 
 * { box-sizing: border-box; }
@@ -150,6 +157,23 @@ body.dark .pill[data-fam="gray"]   { background: #1e1c18; border: 1px solid #706
 .change-badge { font-size: 13px; font-weight: 700; line-height: 1; margin-right: 4px; }
 .change-badge.pos { color: #1d7a4a; }
 .change-badge.neg { color: #a32d2d; }
+.change-badge.none { color: var(--faint); }
+/* Clickable card-face controls (status dot + scene-change chip) replace the
+   former Details dropdowns. */
+.change-badge.click { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 18px; height: 18px; margin-right: 0; border: 1px solid var(--line); border-radius: 5px; }
+.change-badge.click:hover { background: var(--hover); }
+.foot-rt { margin-left: auto; }
+.bcard .statusdot.click { cursor: pointer; width: 9px; height: 9px; }
+.bcard .statusdot.click:hover { box-shadow: 0 0 0 2px var(--hover), 0 0 0 3px var(--line); }
+.minipop { position: fixed; z-index: 4000; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); padding: 4px; display: flex; flex-direction: column; gap: 1px; min-width: 134px; }
+.minipop-item { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; border-radius: 6px; padding: 6px 9px; font-family: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer; text-align: left; }
+.minipop-item:hover { background: var(--hover); }
+.minipop-item.active { background: var(--btn); font-weight: 600; }
+.minipop-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.minipop-sym { width: 14px; text-align: center; font-weight: 700; flex-shrink: 0; }
+.minipop-sym.pos { color: #1d7a4a; }
+.minipop-sym.neg { color: #a32d2d; }
+.minipop-sym.none { color: var(--faint); }
 
 .addtile {
   width: 64px; min-height: 64px; border: 1px dashed #d6cfc1; border-radius: 10px; background: transparent;
@@ -291,13 +315,13 @@ textarea.lyrictext { min-height: 120px; font-family: ui-monospace, Menlo, Consol
 .lw-section-row { margin: 0.2em 0; }
 .lw-section-tag {
   display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
-  color: var(--muted); background: var(--btn); padding: 2px 14px; border-radius: 20px;
+  color: var(--sage); background: var(--sage-bg); padding: 2px 14px; border-radius: 20px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
-/* Section tags live on the always-white print sheets, so keep them light even in
-   dark mode (the dark var(--btn)/var(--muted) pill is unreadable on white). */
+/* Section tags live on the always-white print sheets, so keep the sage pill light
+   even in dark mode (the dark sage-bg is unreadable on a white sheet). */
 .ms-viewport .lw-section-tag,
-#pdf-print-root .lw-section-tag { background: #efeefe; color: #534ab7; }
+#pdf-print-root .lw-section-tag { background: #eef3e7; color: #5f7d57; }
 
 /* Manuscript page */
 .ms-zoom-wrap { display: flex; align-items: center; gap: 4px; }
@@ -318,6 +342,10 @@ body.dark .ms-body { background: var(--bg); }
 /* Beat loglines ride the same Section-tags toggle in the edit document. */
 .ms-edit-doc.hide-sections .lw-note-ms { display: none; }
 .ms-card-content > .lw-note-ms:first-child { margin-top: 0; }
+/* Logline pinned above the rich editor while editing — keep the sheet column
+   padding for wrapping, but hug the editor (no big bottom gap). */
+.ms-edit-doc .ms-edit-logline { padding: 12px 120px 0; }
+.ms-edit-logline .lw-note-ms { margin-top: 0; }
 .ms-opt-toggle { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); cursor: pointer; margin-left: 12px; white-space: nowrap; user-select: none; }
 .ms-opt-toggle input { cursor: pointer; accent-color: var(--energy); }
 
@@ -589,7 +617,7 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .lwg-row .g-letter { color: var(--energy); font-weight: 700; width: 11px; text-align: center; }
 textarea.lweditor { border: 0; resize: none; outline: none; padding: 20px 26px; font-family: 'Iowan Old Style', Palatino, Georgia, serif; font-size: 16px; line-height: 30px; color: var(--ink); white-space: pre; overflow: auto; background: var(--panel); }
 textarea.lweditor::placeholder { color: #c5beb0; }
-.lwside { border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 9px; background: var(--bg); }
+.lwside { border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--bg); }
 .lwside .fl { color: var(--energy); }
 .lwside .fl.muted { color: var(--faint); }
 .lwnote { font-size: 11.5px; color: var(--muted); line-height: 1.45; background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 9px; }
@@ -597,15 +625,27 @@ textarea.lweditor::placeholder { color: #c5beb0; }
 .lwg-section { background: var(--hover); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .lwsection-btns { display: flex; flex-wrap: wrap; gap: 5px; }
 
+/* Editor sidebar zones — colour the text/accents only, on the plain sidebar
+   background (no filled boxes): Sections sage (matches loglines), Rhymes rose. */
+.lwzone { display: flex; flex-direction: column; gap: 9px; }
+.lwzone-sections .fl { color: var(--sage); }
+.lwzone-sections .rchip { color: var(--sage); }
+.lwzone-rhymes .fl { color: var(--rose); }
+.lwzone-rhymes .rchip { color: var(--rose); }
+.lwzone-rhymes .rhyme-tab.active { color: var(--rose); }
+.lwzone-rhymes .fi:focus { border-color: var(--rose); }
+
 /* plain editor (scenes): no syllable gutter, prose wraps */
 .lwbody-plain { grid-template-columns: 1fr 264px; }
 .lwbody-plain .lweditor { white-space: pre-wrap; }
 
-/* Details panel folded into the editor sidebar (formerly the right-side drawer) */
+/* Details panel folded into the editor sidebar — azure text on plain background */
 .lwdetails { margin-top: 4px; border-top: 1px solid var(--line); padding-top: 10px; }
-.lwdetails-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: 0; padding: 4px 0; cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--energy); font-weight: 600; }
+.lwdetails-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: 0; padding: 4px 0; cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--azure); font-weight: 600; }
 .lwdetails-caret { font-size: 9px; width: 10px; }
 .lwdetails-body { display: flex; flex-direction: column; gap: 13px; padding: 10px 0 4px; }
+.lwdetails-body .fl { color: var(--azure); }
+.lwdetails .fi:focus { border-color: var(--azure); }
 .lwdelete { align-self: flex-start; background: none; border: 0; color: #a32d2d; font-size: 13px; padding: 6px 0; cursor: pointer; }
 
 /* inline-editable card fields: placeholder when empty */
@@ -1088,6 +1128,16 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 .ms-dual-btn.active { background: var(--energy); border-color: var(--energy); color: #fff; }
 body.dark .ms-dual-btn { background: #2a2540; border-color: #3d3760; color: #b8aef0; }
 body.dark .ms-dual-btn.active { background: var(--energy); border-color: var(--energy); color: #fff; }
+/* Bold / Italic / Underline buttons */
+.ms-fmt-divider { width: 1px; align-self: stretch; background: #d4d0ee; margin: 3px 1px; }
+.ms-fmt-btn { width: 26px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; padding: 0; border: 1px solid #c9c5f0; border-radius: 5px; background: #fff; color: #3c3489; cursor: pointer; outline: none; font-family: Georgia, 'Times New Roman', serif; }
+.ms-fmt-btn > * { pointer-events: none; }
+.ms-fmt-btn:hover { background: #f0eefb; }
+.ms-fmt-btn.active { background: var(--energy); border-color: var(--energy); color: #fff; }
+.ms-fmt-btn:disabled { opacity: 0.4; cursor: default; }
+body.dark .ms-fmt-btn { background: #2a2540; border-color: #3d3760; color: #b8aef0; }
+body.dark .ms-fmt-btn.active { background: var(--energy); border-color: var(--energy); color: #fff; }
+body.dark .ms-fmt-divider { background: #3d3760; }
 /* Mark a dual cue in the editor so the writer sees the pairing. */
 .ms-el[data-dual="1"]::after {
   content: ' ⇄ dual';
@@ -1102,7 +1152,21 @@ body.dark .ms-style-bar { background: #1e1b2e; border-bottom-color: #2e2a45; }
 body.dark .ms-style-sel { background: #2a2540; border-color: #3d3760; color: #b8aef0; }
 body.dark .ms-style-sel:focus { border-color: #8b7fe8; }
 body.dark .ms-style-hint { color: #8b83a8; }
+
+/* One persistent formatting bar at the top of the manuscript Edit surface. Always
+   occupies its slot so opening/closing a card editor never shifts the page; its
+   contents swap to the active card's ribbon (or an idle hint). */
+.ms-format-bar { position: sticky; top: 0; z-index: 6; display: flex; align-items: stretch; min-height: 35px; }
+.ms-format-bar > .ms-style-bar { position: static; flex: 1; }
+/* Idle bar: same controls, disabled + dimmed. */
+.ms-style-bar-idle .ms-style-sel, .ms-style-bar-idle .ms-style-hint { opacity: 0.55; }
 .ms-line-editor { outline: none; padding-bottom: 48px; }
+/* Zero-reflow: the static edit-doc body now uses the same .ms-el lines as the
+   editor, so match the container padding too (editor lineEd has 48px bottom). */
+.ms-edit-doc .ms-card-content.ms-sheet-content { padding-bottom: 48px; }
+/* When a logline sits above the editor it already supplies the 12px top pad, so
+   the editor's own top pad would double it — drop it in that case. */
+.ms-edit-doc .ms-card-section.ms-has-logline .ms-line-editor { padding-top: 0; }
 .ms-el {
   outline: none;
   min-height: 1em;
@@ -1124,7 +1188,7 @@ body.dark .ms-style-hint { color: #8b83a8; }
 .ms-el.lw-paren::after  { content: ')'; }
 .ms-el.lw-section-row {
   display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
-  color: var(--muted); background: var(--btn); padding: 2px 14px; border-radius: 20px;
+  color: var(--sage); background: var(--sage-bg); padding: 2px 14px; border-radius: 20px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 6px 0;
 }
 

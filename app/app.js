@@ -22,6 +22,12 @@ const STATUS = {
   demo: { label: 'Demo', c: '#1D9E75' },
   locked: { label: 'Locked', c: '#639922' },
 };
+// Scene-change at the end of a card, set from the card face (no dropdown).
+const CHANGE_OPTS = [
+  { key: '', label: 'No change', sym: '·' },
+  { key: 'positive', label: 'Positive', sym: '+' },
+  { key: 'negative', label: 'Negative', sym: '−' },
+];
 
 const state = {
   showKey: 'fiddler',
@@ -828,6 +834,56 @@ function focusCardTitle(id) {
   return true;
 }
 
+// A small labeled chooser anchored under a card-face control. One click sets the
+// value — replaces the old Details dropdowns for Status and Scene change.
+function closeMiniPopover() { const p = document.getElementById('mini-pop'); if (p) p.remove(); }
+function openMiniPopover(anchor, items, currentKey, onPick) {
+  closeMiniPopover();
+  const pop = el('div', { class: 'minipop', id: 'mini-pop' });
+  items.forEach((it) => {
+    const row = el('button', { class: 'minipop-item' + (it.key === currentKey ? ' active' : ''), type: 'button' });
+    if (it.color) row.appendChild(el('span', { class: 'minipop-dot', style: 'background:' + it.color }));
+    else if (it.sym != null) row.appendChild(el('span', { class: 'minipop-sym ' + (it.cls || ''), text: it.sym }));
+    row.appendChild(el('span', { text: it.label }));
+    row.addEventListener('click', (e) => { e.stopPropagation(); closeMiniPopover(); onPick(it.key); });
+    pop.appendChild(row);
+  });
+  document.body.appendChild(pop);
+  const r = anchor.getBoundingClientRect();
+  const pr = pop.getBoundingClientRect();
+  let left = r.left, top = r.bottom + 4;
+  if (left + pr.width > window.innerWidth - 8) left = window.innerWidth - pr.width - 8;
+  if (top + pr.height > window.innerHeight - 8) top = r.top - pr.height - 4;
+  pop.style.left = Math.max(8, left) + 'px';
+  pop.style.top = Math.max(8, top) + 'px';
+}
+
+// Clickable status dot for a song card — cycles through the labeled STATUS set.
+function statusControl(c) {
+  const meta = STATUS[c.status] || STATUS.idea;
+  const dot = el('span', { class: 'statusdot click', style: 'background:' + meta.c, title: 'Status: ' + meta.label + ' — click to change' });
+  dot.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openMiniPopover(dot, Object.entries(STATUS).map(([k, v]) => ({ key: k, label: v.label, color: v.c })),
+      c.status || 'idea', (key) => { c.status = key; scheduleSave(); render(); });
+  });
+  return dot;
+}
+
+// Clickable scene-change chip — always present (faint when none) so it can be set.
+function changeControl(c) {
+  const cur = c.change || '';
+  const meta = CHANGE_OPTS.find((o) => o.key === cur) || CHANGE_OPTS[0];
+  const cls = cur === 'positive' ? 'pos' : cur === 'negative' ? 'neg' : 'none';
+  const chip = el('span', { class: 'change-badge click ' + cls, text: meta.sym, title: 'Scene change: ' + meta.label + ' — click to change' });
+  chip.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openMiniPopover(chip, CHANGE_OPTS.map((o) => ({ key: o.key, label: o.label, sym: o.sym, cls: o.key === 'positive' ? 'pos' : o.key === 'negative' ? 'neg' : 'none' })),
+      cur, (key) => { c.change = key || null; scheduleSave(); render(); });
+  });
+  return chip;
+}
+
 function buildCard(c, trueIdx, pct) {
   const top = el('div', { class: 'top' });
   if (c.type === 'song') {
@@ -839,16 +895,13 @@ function buildCard(c, trueIdx, pct) {
   }
 
   const kids = c.type === 'scene' ? [] : [top];
-  const statusDot = c.status && STATUS[c.status] ? `<span class="statusdot" style="background:${STATUS[c.status].c}" title="${STATUS[c.status].label}"></span>` : '';
   if (c.type === 'song') {
     kids.push(makeCardEditable(el('div', { class: 'title', text: c.title }), () => c.title, (v) => { c.title = v; }, 'Untitled'));
     kids.push(makeCardEditable(el('div', { class: 'sub', text: c.voicing || '' }), () => c.voicing, (v) => { c.voicing = v; }, 'who sings…'));
     const lyricBtn = el('button', { class: 'card-lyric-btn', text: '✎  Lyrics' });
     lyricBtn.addEventListener('click', (e) => { e.stopPropagation(); openLyricWindow(c.id); });
     kids.push(el('div', { class: 'card-lyric-row' }, [lyricBtn]));
-    const changeBadge = c.change === 'positive' ? '<span class="change-badge pos">+</span>'
-      : c.change === 'negative' ? '<span class="change-badge neg">−</span>' : '';
-    kids.push(el('div', { class: 'foot', html: statusDot + changeBadge + '<span style="margin-left:auto">~' + c.min + 'm</span>' }));
+    kids.push(el('div', { class: 'foot' }, [statusControl(c), changeControl(c), el('span', { class: 'foot-rt', text: '~' + c.min + 'm' })]));
   } else if (c.type === 'scene') {
     kids.push(el('div', { class: 'title scene-title', text: c.title }));
     const readBtn = el('button', { class: 'scene-read-btn', title: 'Read this scene' }, [el('span', { text: '▶' })]);
@@ -860,9 +913,7 @@ function buildCard(c, trueIdx, pct) {
     const editBtn = el('button', { class: 'card-lyric-btn', text: '✎  Edit' });
     editBtn.addEventListener('click', (e) => { e.stopPropagation(); openLyricWindow(c.id); });
     kids.push(el('div', { class: 'card-lyric-row' }, [editBtn]));
-    const changeBadge = c.change === 'positive' ? '<span class="change-badge pos">+</span>'
-      : c.change === 'negative' ? '<span class="change-badge neg">−</span>' : '';
-    kids.push(el('div', { class: 'foot', html: changeBadge + '<span style="margin-left:auto">~' + c.min + 'm</span>' }));
+    kids.push(el('div', { class: 'foot' }, [changeControl(c), el('span', { class: 'foot-rt', text: '~' + c.min + 'm' })]));
   }
 
   const card = el('div', { class: 'bcard' + (c.type === 'beat' ? ' beat' : '') + (c.type === 'scene' ? ' scene' : '') + (c.id === state.selectedId ? ' selected' : ''), draggable: 'true', 'data-pos': trueIdx, 'data-id': c.id }, kids);
@@ -1336,7 +1387,62 @@ const RICH_EL_LABELS = { cue: 'Character', sung: 'Lyrics', dialogue: 'Dialogue',
 const RICH_EL_CLASS  = { cue: 'lw-char', sung: 'lw-sung', dialogue: 'lw-dialogue', paren: 'lw-paren', action: 'lw-action', section: 'lw-section-row' };
 const RICH_EL_CYCLE  = ['cue', 'dialogue', 'sung', 'paren', 'action', 'section'];
 
-function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
+// ---- inline emphasis (Fountain ↔ HTML) -----------------------------------
+// Bold/italic/underline ride in the line text as Fountain markup (**bold**,
+// *italic*, _underline_) so they round-trip through the plain-text body blob and
+// print. These helpers convert that markup to display HTML and back.
+function escHtml(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function emphToHtml(text) {
+  let s = escHtml(text);
+  s = s.replace(/\*\*\*([^*]+?)\*\*\*/g, '<b><i>$1</i></b>')
+       .replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>')
+       .replace(/\*([^*]+?)\*/g, '<i>$1</i>')
+       .replace(/_([^_]+?)_/g, '<u>$1</u>');
+  return s;
+}
+// Walk a DOM node, turning b/i/u (and strong/em) back into Fountain markup and
+// dropping any other tags (keeps only their text) — the canonical clean form.
+function emphFromNode(node) {
+  let out = '';
+  node.childNodes.forEach((n) => {
+    if (n.nodeType === 3) { out += n.nodeValue; return; }
+    if (n.nodeType !== 1) return;
+    const tag = n.nodeName.toLowerCase();
+    const inner = emphFromNode(n);
+    if (!inner) return;
+    if (tag === 'b' || tag === 'strong') out += '**' + inner + '**';
+    else if (tag === 'i' || tag === 'em') out += '*' + inner + '*';
+    else if (tag === 'u') out += '_' + inner + '_';
+    else if (tag === 'br') out += '';
+    else out += inner;
+  });
+  return out;
+}
+// Inline tags the editor keeps inside a line; anything else (pasted spans/divs,
+// CSS-styled runs) is "disallowed" and gets flattened back to clean markup.
+const EMPH_TAGS = new Set(['B', 'I', 'U', 'EM', 'STRONG']);
+function hasDisallowedMarkup(node) {
+  for (const ch of node.children) {
+    if (!EMPH_TAGS.has(ch.tagName) || hasDisallowedMarkup(ch)) return true;
+  }
+  return false;
+}
+// A read-only body line matching the editor's mkLine markup exactly, so the
+// static edit-doc render and the live editor have identical line boxes (no
+// reflow on click-in). Emphasis is rendered the same way in both.
+function bodyLineEl(type, text) {
+  const div = el('div', { class: 'ms-el ' + (RICH_EL_CLASS[type] || 'lw-blank ms-el-blank'), 'data-type': type });
+  let display = (text || '');
+  if (type === 'paren')   display = display.replace(/^\(/, '').replace(/\)$/, '');
+  if (type === 'section') display = display.replace(/^\[/, '').replace(/\]$/, '');
+  div.innerHTML = emphToHtml(display);
+  return div;
+}
+
+// `detachBar`: don't mount the style ribbon inside the editor — the caller mounts
+// it elsewhere (the manuscript hoists it into one persistent bar). `onClose`: run
+// once when the editor commits (so the caller can release that shared bar).
+function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, onClose }) {
   // Final Draft "ReturnKey" map: hitting Enter advances to the element that
   // usually follows. Character/Parenthetical → the dialogue element (Lyrics in a
   // song, Dialogue otherwise); Dialogue/Lyrics → Character; Action stays Action.
@@ -1361,7 +1467,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
     let display = (t || '');
     if (type === 'paren')   display = display.replace(/^\(/, '').replace(/\)$/, '');
     if (type === 'section') display = display.replace(/^\[/, '').replace(/\]$/, '');
-    div.textContent = display;
+    div.innerHTML = emphToHtml(display); // render **bold** / *italic* / _underline_
     return div;
   };
   const setLineType = (div, type) => {
@@ -1373,7 +1479,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
   // text matches parseLyricLines output (so the blob round-trips exactly).
   const rowsFrom = (lineEd) => [...lineEd.querySelectorAll('.ms-el')].map((div) => {
     const type = div.dataset.type;
-    let txt = (div.textContent || '').trim();
+    let txt = emphFromNode(div).trim(); // serialize b/i/u back to Fountain markup
     if (type === 'paren' && txt) txt = '(' + txt.replace(/^\(/, '').replace(/\)$/, '') + ')';
     const row = { id: div.dataset.id || lid(), type, text: txt, dual: div.dataset.dual === '1' };
     if (div.dataset.subtype) row.subtype = div.dataset.subtype;
@@ -1452,14 +1558,15 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
     let prev = null;
     [...lineEd.childNodes].forEach((node) => {
       if (node.nodeType === 1 && node.classList.contains('ms-el')) {
-        if (node.firstElementChild && (node.textContent || '').trim()) node.textContent = node.textContent; // collapse nested markup
+        // Keep b/i/u; flatten any other nested markup back to clean emphasis HTML.
+        if (hasDisallowedMarkup(node) && (node.textContent || '').trim()) node.innerHTML = emphToHtml(emphFromNode(node));
         if (!node.dataset.type) setLineType(node, prev ? prev.dataset.type : (isSong ? 'sung' : 'action'));
         if (!node.dataset.id) node.dataset.id = lid();
         if (node.dataset.type === 'blank' && (node.textContent || '').trim()) setLineType(node, isSong ? 'sung' : 'action');
         prev = node;
       } else {
         const txt = node.textContent || '';
-        if (prev && txt.trim()) { prev.textContent += txt; node.remove(); }
+        if (prev && txt.trim()) { prev.appendChild(document.createTextNode(txt)); node.remove(); } // append (don't reset prev's textContent — that would drop its emphasis)
         else if (txt.trim()) { const nl = mkLine(isSong ? 'sung' : 'action', txt.trim()); lineEd.insertBefore(nl, node); node.remove(); prev = nl; }
         else node.remove();
       }
@@ -1470,7 +1577,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
   const needsNormalize = () => {
     for (const n of lineEd.childNodes) {
       if (n.nodeType !== 1 || !n.classList.contains('ms-el')) return true;
-      if (n.firstElementChild) return true;
+      if (hasDisallowedMarkup(n)) return true; // b/i/u are fine; only foreign markup needs cleaning
       if (n.dataset.type === 'blank' && (n.textContent || '').trim()) return true;
     }
     return false;
@@ -1495,6 +1602,28 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
   };
   dualBtn.addEventListener('mousedown', (e) => { e.preventDefault(); toggleDual(getFocusedLine(lineEd)); });
   styleBar.appendChild(dualBtn);
+
+  // Bold / Italic / Underline — operate on the current selection in the focused
+  // editor. preventDefault keeps focus (and the selection) in the editor; the
+  // edit persists as Fountain markup via emphFromNode on save.
+  const applyEmphasis = (cmd) => {
+    document.execCommand('styleWithCSS', false, false); // produce <b>/<i>/<u>, not styled spans
+    document.execCommand(cmd, false, null);
+    if (needsNormalize()) normalize(true);
+    syncPicker();
+  };
+  const fmtBtn = (html, cmd, title) => {
+    const b = el('button', { class: 'ms-fmt-btn', type: 'button', title, html });
+    b.addEventListener('mousedown', (e) => { e.preventDefault(); applyEmphasis(cmd); });
+    return b;
+  };
+  const boldBtn = fmtBtn('<b>B</b>', 'bold', 'Bold (' + modKey + 'B)');
+  const italicBtn = fmtBtn('<i>I</i>', 'italic', 'Italic (' + modKey + 'I)');
+  const underlineBtn = fmtBtn('<u>U</u>', 'underline', 'Underline (' + modKey + 'U)');
+  styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
+  styleBar.appendChild(boldBtn);
+  styleBar.appendChild(italicBtn);
+  styleBar.appendChild(underlineBtn);
   styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Enter · next element   ⇧Enter · same   Tab · cycle   ' + modKey + '1–6 · jump' }));
 
   const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
@@ -1555,6 +1684,14 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
     if (line) styleSel.value = line.dataset.type;
     dualBtn.disabled = !(line && line.dataset.type === 'cue');
     dualBtn.classList.toggle('active', !!(line && line.dataset.dual === '1'));
+    // Reflect emphasis at the caret on the B/I/U buttons.
+    if (document.queryCommandState) {
+      try {
+        boldBtn.classList.toggle('active', document.queryCommandState('bold'));
+        italicBtn.classList.toggle('active', document.queryCommandState('italic'));
+        underlineBtn.classList.toggle('active', document.queryCommandState('underline'));
+      } catch (_) {}
+    }
     if (line !== ac.lastFocus) { ac.lastFocus = line; ac.dismissed = false; ac.index = 0; }
     refreshAc(line);
   };
@@ -1607,6 +1744,12 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
     // Ctrl/⌘+D toggles dual dialogue on the current character cue.
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === 'd' || e.key === 'D')) {
       if (toggleDual(line)) { e.preventDefault(); return; }
+    }
+    // Ctrl/⌘ + B / I / U toggle emphasis on the selection (forced to clean tags).
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && /^[biu]$/i.test(e.key)) {
+      e.preventDefault();
+      applyEmphasis({ b: 'bold', i: 'italic', u: 'underline' }[e.key.toLowerCase()]);
+      return;
     }
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key >= '1' && e.key <= '6') {
       e.preventDefault();
@@ -1689,23 +1832,31 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus }) {
     committed = true;
     closeAc();
     if (onSave) onSave(serializeLines(lineEd), serializeToLines(lineEd));
+    if (onClose) onClose();
   };
   richWrap._commit = commit;
   richWrap.addEventListener('focusout', (e) => {
-    if (richWrap.contains(e.relatedTarget)) return;
+    // The style bar may live outside richWrap (detachBar) — focusing it (the
+    // element-type select, dual toggle) must not count as leaving the editor.
+    if (richWrap.contains(e.relatedTarget) || styleBar.contains(e.relatedTarget)) return;
     commit();
   });
-  richWrap.appendChild(styleBar);
+  if (!detachBar) richWrap.appendChild(styleBar);
   richWrap.appendChild(lineEd);
   richWrap.appendChild(acBox);
+  richWrap._styleBar = styleBar; // for callers that mount the bar themselves
+  richWrap._syncBar = syncPicker; // refresh the bar to the focused line on demand
+  richWrap._lineEd = lineEd; // host element, so callers can re-anchor scroll to it
   richWrap._focusFirst = () => {
     const first = lineEd.querySelector('.ms-el');
     if (first) { placeCursorAt(first, false); styleSel.value = first.dataset.type || 'cue'; }
   };
   // Open with the caret exactly where the user clicked (one click → ready to
   // type at that spot), falling back to the first line if the point misses.
+  // preventScroll: the manuscript re-anchors the scroll itself before this runs,
+  // so a focus-driven scroll here would undo it and throw off the hit-test.
   richWrap._focusFromPoint = (x, y) => {
-    lineEd.focus();
+    lineEd.focus({ preventScroll: true });
     let range = null;
     if (document.caretRangeFromPoint) range = document.caretRangeFromPoint(x, y);
     else if (document.caretPositionFromPoint) {
@@ -2076,12 +2227,12 @@ function renderPageToken(tok, container) {
     else if (tok.subtype === 'scene') container.appendChild(el('div', { class: 'lw-scene-header', text: tok.text.toUpperCase() }));
     else if (tok.subtype === 'song-num') { const m = tok.text.match(/^#(\d+)[\s\-](.*)/i); container.appendChild(el('div', { class: 'lw-song-header', text: m ? `(#${m[1]}) ${m[2].toUpperCase()}` : tok.text })); }
     else container.appendChild(el('div', { class: 'lw-section-row' }, [el('span', { class: 'lw-section-tag', text: tok.text })]));
-  } else if (tok.type === 'cue')      { container.appendChild(el('div', { class: 'lw-char', text: tok.text.toUpperCase() + (tok.contd ? " (CONT'D)" : '') }));
-  } else if (tok.type === 'sung')     { container.appendChild(el('div', { class: 'lw-sung', text: tok.text }));
-  } else if (tok.type === 'paren')    { container.appendChild(el('div', { class: 'lw-paren', text: tok.text }));
-  } else if (tok.type === 'dialogue') { container.appendChild(el('div', { class: 'lw-dialogue', text: tok.text }));
-  } else if (tok.type === 'action')   { container.appendChild(el('div', { class: 'lw-action', text: tok.text }));
-  } else if (tok.type === 'note')     { container.appendChild(el('div', { class: 'lw-note-ms', text: tok.text }));
+  } else if (tok.type === 'cue')      { container.appendChild(el('div', { class: 'lw-char', html: emphToHtml(tok.text.toUpperCase()) + (tok.contd ? " (CONT'D)" : '') }));
+  } else if (tok.type === 'sung')     { container.appendChild(el('div', { class: 'lw-sung', html: emphToHtml(tok.text) }));
+  } else if (tok.type === 'paren')    { container.appendChild(el('div', { class: 'lw-paren', html: emphToHtml(tok.text) }));
+  } else if (tok.type === 'dialogue') { container.appendChild(el('div', { class: 'lw-dialogue', html: emphToHtml(tok.text) }));
+  } else if (tok.type === 'action')   { container.appendChild(el('div', { class: 'lw-action', html: emphToHtml(tok.text) }));
+  } else if (tok.type === 'note')     { container.appendChild(el('div', { class: 'lw-note-ms', html: emphToHtml(tok.text) }));
   } else if (tok.type === 'dual') {
     // Side-by-side columns. Each column renders its own token list; the row's
     // height is naturally max(column heights), which the placer measures.
@@ -2922,7 +3073,9 @@ function buildManuscriptPage(sceneId) {
         : (c.type === 'scene' ? '(scene heading — click to write)' : c.type === 'beat' ? '(new beat — click to write)' : '(no lyrics yet — click to write)');
       inner.appendChild(el('div', { class: 'ms-card-placeholder', text: phText }));
     } else {
-      cardBodyTokens(c).forEach((tok) => renderPageToken(tok, inner));
+      // Render with the same .ms-el markup the editor uses, so clicking in swaps
+      // to an identical box layout — no reflow.
+      cardBodyTokens(c).forEach((tok) => inner.appendChild(bodyLineEl(tok.type, tok.text)));
     }
     sec.appendChild(inner);
   };
@@ -2930,25 +3083,51 @@ function buildManuscriptPage(sceneId) {
   const enterCardEditRich = (sec, c, ev) => {
     if (state.readonly) return; // references are read-only study objects
     if (sec.querySelector('.ms-card-rich-editor')) return;
+    // Anchor: remember where this card's body content sits in the viewport before
+    // we mutate the DOM, so the style ribbon appearing (and any other open editor
+    // collapsing) doesn't shift the text out from under the cursor.
+    const msBody = sec.closest('.ms-body');
+    const bodyStart = sec.querySelector('.ms-card-content > :not(.lw-note-ms)');
+    const anchorY = ev && bodyStart ? bodyStart.getBoundingClientRect().top : null;
     // One editor open at a time: commit & collapse any other scene still in edit
     // mode (its onSave reverts it to the static render), so only the scene the
     // cursor is in shows the style ribbon.
     const docEl = sec.closest('.ms-edit-doc');
     if (docEl) docEl.querySelectorAll('.ms-card-rich-editor').forEach((rw) => { if (rw._commit) rw._commit(); });
     sec.innerHTML = '';
+    // Keep the sage logline pinned above the editor while editing (it's edited via
+    // the card/Details, not here) so it doesn't vanish when you click in. Wrapped in
+    // .ms-sheet-content so it inherits the script column width and wraps like static.
+    const hasLogline = c.type === 'beat' && (c.note || '').trim();
+    sec.classList.toggle('ms-has-logline', !!hasLogline);
+    if (hasLogline) {
+      sec.appendChild(el('div', { class: 'ms-sheet-content ms-edit-logline' }, [el('div', { class: 'lw-note-ms', text: c.note })]));
+    }
     const rich = buildRichEditor({
       text: c[cardField(c)] || '',
       lines: c.lines,
       isSong: c.type === 'song',
       autofocus: !ev, // a click positions the caret at its point instead
+      detachBar: true, // the ribbon lives in the one persistent bar, not in the card
       onSave: (val, lines) => {
         setCardLines(c, lines); // lines canonical; derives the body blob
         doSave(); // persist immediately — blur may be followed by navigating away
         renderCardSection(sec, c);
       },
+      onClose: () => { if (setActiveFormatBar) setActiveFormatBar(null); }, // release the shared bar
     });
     sec.appendChild(rich);
+    // Hoist this editor's ribbon into the single sticky bar (it controls whichever
+    // card the cursor is in), then sync it to the focused line.
+    if (setActiveFormatBar) setActiveFormatBar(rich._styleBar);
+    // Re-anchor: scroll the body so the editor's first line returns to where the
+    // static content sat, then drop the caret at the original click point.
+    if (anchorY != null && msBody && rich._lineEd) {
+      const firstEl = rich._lineEd.querySelector('.ms-el') || rich._lineEd;
+      msBody.scrollTop += firstEl.getBoundingClientRect().top - anchorY;
+    }
     if (ev && rich._focusFromPoint) rich._focusFromPoint(ev.clientX, ev.clientY);
+    if (rich._syncBar) rich._syncBar();
   };
 
   // Card indices shown in Edit mode — the full reading order, or a single
@@ -2965,12 +3144,36 @@ function buildManuscriptPage(sceneId) {
 
   // Assigned once the navigator is built (below); called after each rebuild.
   let refreshNav = null;
+  // Assigned in rebuildEdit: mounts the active editor's style ribbon into the one
+  // persistent bar (or restores the idle hint when nothing is being edited).
+  let setActiveFormatBar = null;
 
   const rebuildEdit = () => {
     const oldBody = msWrap.querySelector('.ms-body');
     const scrollTop = oldBody ? oldBody.scrollTop : 0;
     if (oldBody) oldBody.remove();
     const newBody = el('div', { class: 'ms-body' });
+    // One persistent formatting bar, sticky at the top of the editing surface. It
+    // always occupies its slot (so opening/closing a card editor never shifts the
+    // page) and reflects/controls whichever card the cursor is currently in.
+    const formatBar = el('div', { class: 'ms-format-bar' });
+    // Idle state: the same control layout, disabled — so the bar reads consistently
+    // and never changes height between idle and active.
+    const idleBar = (() => {
+      const bar = el('div', { class: 'ms-style-bar ms-style-bar-idle' });
+      bar.appendChild(el('select', { class: 'ms-style-sel', disabled: 'disabled' }, [el('option', { text: 'Element' })]));
+      bar.appendChild(el('button', { class: 'ms-dual-btn', type: 'button', disabled: 'disabled', text: 'Dual ⇄' }));
+      bar.appendChild(el('span', { class: 'ms-fmt-divider' }));
+      ['<b>B</b>', '<i>I</i>', '<u>U</u>'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
+      bar.appendChild(el('span', { class: 'ms-style-hint', text: 'Click any line to edit' }));
+      return bar;
+    })();
+    setActiveFormatBar = (styleBarEl) => {
+      formatBar.innerHTML = '';
+      formatBar.classList.toggle('active', !!styleBarEl);
+      formatBar.appendChild(styleBarEl || idleBar);
+    };
+    if (!state.readonly) { setActiveFormatBar(null); newBody.appendChild(formatBar); }
     // Mirror the Print view's "Section tags" toggle here: hide section pills in
     // both the static render and the rich editor when the option is off. CSS
     // hides them (lines stay in the DOM, so they round-trip and reappear on).
@@ -3282,24 +3485,18 @@ function buildDetailsPanel(c, onChange) {
   wrap.appendChild(body);
 
   const commit = () => { scheduleSave(); if (onChange) onChange(); };
-  const laneOpts = LANES.map((l) => [l.key, l.label]);
-  const changeOpts = [['', '—'], ['positive', '+ Positive'], ['negative', '− Negative']];
 
   body.appendChild(field('Title', textInput('title', c.title, (v) => { c.title = v; commit(); })));
 
+  // Act is set by dragging the card between lanes; Status and Scene change are now
+  // card-face controls (click the dot / change chip). Details keeps the slow basics.
   if (c.type === 'song') {
     const fnOpts = Object.entries(FN).map(([k, v]) => [k, v.label]);
-    const statusOpts = Object.entries(STATUS).map(([k, v]) => [k, v.label]);
     body.appendChild(el('div', { class: 'fld row2' }, [
-      field('Act', selectInput(laneOpts, c.act, (v) => { c.act = v; commit(); })),
       field('Function', selectInput(fnOpts, c.fn, (v) => { c.fn = v; commit(); })),
+      field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })),
     ]));
     body.appendChild(field('Voicing / who sings', textInput('voicing', c.voicing, (v) => { c.voicing = v; commit(); })));
-    body.appendChild(field('Scene change', selectInput(changeOpts, c.change || '', (v) => { c.change = v || null; commit(); })));
-    body.appendChild(el('div', { class: 'fld row2' }, [
-      field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })),
-      field('Status', selectInput(statusOpts, c.status || 'idea', (v) => { c.status = v; commit(); })),
-    ]));
     body.appendChild(el('div', { class: 'fld row2' }, [
       field('Key', textInput('key', c.key, (v) => { c.key = v; }), 'blank = needs score'),
       field('Style', textInput('style', c.style, (v) => { c.style = v; })),
@@ -3311,14 +3508,10 @@ function buildDetailsPanel(c, onChange) {
     ]);
     body.appendChild(sing);
   } else if (c.type === 'scene') {
-    body.appendChild(field('Act', selectInput(laneOpts, c.act, (v) => { c.act = v; commit(); })));
+    // Scene metadata lives in its title + board position; nothing else to tune here.
   } else { // beat — the editor body is its script; the note is its one-line logline
-    body.appendChild(el('div', { class: 'fld row2' }, [
-      field('Act', selectInput(laneOpts, c.act, (v) => { c.act = v; commit(); })),
-      field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })),
-    ]));
+    body.appendChild(field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })));
     body.appendChild(field('Logline / what happens', textareaInput(c.note, (v) => { setCardBody(c, 'note', v); commit(); }, 'The book scene — what happens here?')));
-    body.appendChild(field('Scene change', selectInput(changeOpts, c.change || '', (v) => { c.change = v || null; commit(); })));
   }
 
   const del = el('button', { class: 'lwdelete', text: 'Delete card' });
@@ -3382,7 +3575,6 @@ function buildLyricWindow(c) {
   const res = el('div', { class: 'rhymeresults' });
   const vnote = el('div', { class: 'lwnote' });
 
-  if (!plain) side.appendChild(el('span', { class: 'fl', text: 'Sections' }));
   const secBtns = el('div', { class: 'lwsection-btns' });
   ['Verse', 'Pre-Chorus', 'Chorus', 'Bridge', 'Intro', 'Outro'].forEach((name) => {
     const btn = el('span', { class: 'rchip click', text: name, title: 'Insert section header' });
@@ -3400,15 +3592,13 @@ function buildLyricWindow(c) {
     });
     secBtns.appendChild(btn);
   });
-  if (!plain) side.appendChild(secBtns);
   // Rhyme tabs
   let rhymeMode = 'perfect';
-  const rhymeTabWrap = el('div', { class: 'rhyme-tab-wrap', style: 'margin-top:6px' });
+  const rhymeTabWrap = el('div', { class: 'rhyme-tab-wrap' });
   const tabPerfect = el('button', { class: 'rhyme-tab active', text: 'Perfect' });
   const tabNear    = el('button', { class: 'rhyme-tab', text: 'Near' });
   rhymeTabWrap.appendChild(tabPerfect);
   rhymeTabWrap.appendChild(tabNear);
-  if (!plain) side.appendChild(rhymeTabWrap);
 
   const showRhymes = (word) => {
     if (rhymeMode === 'perfect') renderRhymesInsertable(word, res, editor, refresh);
@@ -3426,10 +3616,18 @@ function buildLyricWindow(c) {
     showRhymes(rin.value);
   });
 
+  // Group the lyric-writing tools into accented zones so each function reads
+  // distinctly: Sections (sage, matches loglines) and Rhymes (rose).
   if (!plain) {
-    side.appendChild(rin);
-    side.appendChild(res);
-    side.appendChild(el('span', { class: 'fl muted', text: 'Notes', style: 'margin-top:6px' }));
+    side.appendChild(el('div', { class: 'lwzone lwzone-sections' }, [
+      el('span', { class: 'fl', text: 'Sections' }),
+      secBtns,
+    ]));
+    side.appendChild(el('div', { class: 'lwzone lwzone-rhymes' }, [
+      el('span', { class: 'fl', text: 'Rhymes' }),
+      rhymeTabWrap, rin, res,
+    ]));
+    side.appendChild(el('span', { class: 'fl muted', text: 'Notes', style: 'margin-top:2px' }));
     side.appendChild(vnote);
   }
 
@@ -3739,6 +3937,8 @@ function initControls() {
     if (pop && !pop.contains(e.target) && !document.getElementById('sb-show-btn').contains(e.target)) {
       closeShowPopover();
     }
+    const mp = document.getElementById('mini-pop');
+    if (mp && !mp.contains(e.target)) closeMiniPopover();
     if (state.openAct !== null) { state.openAct = null; render(); }
   });
 }
