@@ -1356,7 +1356,9 @@ function emphToHtml(text) {
   s = s.replace(/\*\*\*([^*]+?)\*\*\*/g, '<b><i>$1</i></b>')
        .replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>')
        .replace(/\*([^*]+?)\*/g, '<i>$1</i>')
-       .replace(/_([^_]+?)_/g, '<u>$1</u>');
+       .replace(/_([^_]+?)_/g, '<u>$1</u>')
+       .replace(/~~([^~]+?)~~/g, '<s>$1</s>')     // strikethrough
+       .replace(/==([^=]+?)==/g, '<mark>$1</mark>'); // editorial highlight
   return s;
 }
 // Walk a DOM node, turning b/i/u (and strong/em) back into Fountain markup and
@@ -1372,6 +1374,8 @@ function emphFromNode(node) {
     if (tag === 'b' || tag === 'strong') out += '**' + inner + '**';
     else if (tag === 'i' || tag === 'em') out += '*' + inner + '*';
     else if (tag === 'u') out += '_' + inner + '_';
+    else if (tag === 's' || tag === 'strike' || tag === 'del') out += '~~' + inner + '~~';
+    else if (tag === 'mark') out += '==' + inner + '==';
     else if (tag === 'br') out += '';
     else out += inner;
   });
@@ -1379,7 +1383,7 @@ function emphFromNode(node) {
 }
 // Inline tags the editor keeps inside a line; anything else (pasted spans/divs,
 // CSS-styled runs) is "disallowed" and gets flattened back to clean markup.
-const EMPH_TAGS = new Set(['B', 'I', 'U', 'EM', 'STRONG']);
+const EMPH_TAGS = new Set(['B', 'I', 'U', 'EM', 'STRONG', 'S', 'STRIKE', 'DEL', 'MARK']);
 function hasDisallowedMarkup(node) {
   for (const ch of node.children) {
     if (!EMPH_TAGS.has(ch.tagName) || hasDisallowedMarkup(ch)) return true;
@@ -1542,6 +1546,75 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     return false;
   };
 
+  // ---- undo / redo (custom snapshot history) ----
+  // The editor mutates the DOM directly (line splits, type changes, merges), which
+  // the browser's native undo stack can't track coherently — so we keep our own.
+  // Each entry is the editor's full innerHTML plus a caret bookmark. Typing is
+  // coalesced (debounced) into one step; structural ops snapshot immediately.
+  const history = [];
+  let histIndex = -1;
+  let histTimer = null;
+  let syncUndoButtons = () => {}; // replaced once the buttons exist
+  const snapshot = () => ({ html: lineEd.innerHTML, caret: caretBookmark() });
+  const pushHistory = () => {
+    if (histTimer) { clearTimeout(histTimer); histTimer = null; }
+    const snap = snapshot();
+    if (histIndex >= 0 && history[histIndex].html === snap.html) { history[histIndex].caret = snap.caret; return; }
+    history.length = histIndex + 1;            // drop any redo branch
+    history.push(snap);
+    if (history.length > 200) history.shift(); // cap memory; keep index valid below
+    histIndex = history.length - 1;
+    syncUndoButtons();
+  };
+  const queueHistory = () => { if (histTimer) clearTimeout(histTimer); histTimer = setTimeout(pushHistory, 350); };
+  const restoreSnap = (snap) => { lineEd.innerHTML = snap.html; restoreBookmark(snap.caret); syncPicker(); };
+  const undo = () => {
+    pushHistory();                  // fold any pending keystrokes into a discrete step first
+    if (histIndex <= 0) return;
+    histIndex--;
+    restoreSnap(history[histIndex]);
+    syncUndoButtons();
+  };
+  const redo = () => {
+    if (histIndex >= history.length - 1) return;
+    histIndex++;
+    restoreSnap(history[histIndex]);
+    syncUndoButtons();
+  };
+
+  // ---- editorial highlight (inline <mark>, persisted as ==text==) ----
+  // Custom (not execCommand 'hiliteColor', which emits styled spans the normalize
+  // pass would strip). Toggles a <mark> around the selection; click inside an
+  // existing highlight removes it.
+  const findMarkAncestor = (node) => {
+    while (node && node !== lineEd) { if (node.nodeType === 1 && node.nodeName === 'MARK') return node; node = node.parentNode; }
+    return null;
+  };
+  const toggleHighlight = () => {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount) return;
+    const existing = findMarkAncestor(sel.anchorNode);
+    if (existing) {
+      const parent = existing.parentNode;
+      while (existing.firstChild) parent.insertBefore(existing.firstChild, existing);
+      parent.removeChild(existing);
+      if (parent.normalize) parent.normalize();   // merge the split text nodes
+    } else {
+      const range = sel.getRangeAt(0);
+      if (range.collapsed) return;                 // a highlight needs a selection
+      const frag = range.extractContents();
+      const mark = document.createElement('mark');
+      mark.appendChild(frag);
+      range.insertNode(mark);
+      const r2 = document.createRange();           // keep the run selected
+      r2.selectNodeContents(mark);
+      sel.removeAllRanges(); sel.addRange(r2);
+    }
+    if (needsNormalize()) normalize(true);
+    pushHistory();
+    syncPicker();
+  };
+
   const styleBar = el('div', { class: 'ms-style-bar' });
   const styleSel = el('select', { class: 'ms-style-sel' });
   const modKey = navigator.platform.toUpperCase().includes('MAC') ? '⌘' : 'Ctrl+';
@@ -1549,6 +1622,20 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     const n = RICH_EL_CYCLE.indexOf(val) + 1;
     styleSel.appendChild(el('option', { value: val, text: n ? label + '  (' + modKey + n + ')' : label }));
   });
+  // A button that runs an arbitrary action (undo/redo/highlight) while keeping the
+  // editor's focus + selection (mousedown preventDefault, like the emphasis buttons).
+  const actBtn = (html, title, fn) => {
+    const b = el('button', { class: 'ms-fmt-btn', type: 'button', title, html });
+    b.addEventListener('mousedown', (ev) => { ev.preventDefault(); fn(); });
+    return b;
+  };
+  // Undo / redo at the far left (word-processor convention), driving our own history.
+  const undoBtn = actBtn('↶', 'Undo (' + modKey + 'Z)', undo);
+  const redoBtn = actBtn('↷', 'Redo (' + modKey + '⇧Z)', redo);
+  syncUndoButtons = () => { undoBtn.disabled = histIndex <= 0; redoBtn.disabled = histIndex >= history.length - 1; };
+  styleBar.appendChild(undoBtn);
+  styleBar.appendChild(redoBtn);
+  styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
   styleBar.appendChild(styleSel);
   // Dual-dialogue toggle: marks the focused character cue as simultaneous with
   // the cue before it (renders side by side in Print View).
@@ -1557,6 +1644,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     if (!line || line.dataset.type !== 'cue') return false;
     if (line.dataset.dual === '1') delete line.dataset.dual; else line.dataset.dual = '1';
     dualBtn.classList.toggle('active', line.dataset.dual === '1');
+    pushHistory();
     return true;
   };
   dualBtn.addEventListener('mousedown', (e) => { e.preventDefault(); toggleDual(getFocusedLine(lineEd)); });
@@ -1569,6 +1657,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     document.execCommand('styleWithCSS', false, false); // produce <b>/<i>/<u>, not styled spans
     document.execCommand(cmd, false, null);
     if (needsNormalize()) normalize(true);
+    pushHistory();
     syncPicker();
   };
   const fmtBtn = (html, cmd, title) => {
@@ -1579,10 +1668,16 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const boldBtn = fmtBtn('<b>B</b>', 'bold', 'Bold (' + modKey + 'B)');
   const italicBtn = fmtBtn('<i>I</i>', 'italic', 'Italic (' + modKey + 'I)');
   const underlineBtn = fmtBtn('<u>U</u>', 'underline', 'Underline (' + modKey + 'U)');
+  const strikeBtn = fmtBtn('<s>S</s>', 'strikeThrough', 'Strikethrough (' + modKey + '⇧X)');
+  // Highlight as an editorial note — the button previews its own color.
+  const highlightBtn = actBtn('<mark>H</mark>', 'Highlight as note (' + modKey + '⇧H)', toggleHighlight);
+  highlightBtn.classList.add('ms-fmt-hl');
   styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
   styleBar.appendChild(boldBtn);
   styleBar.appendChild(italicBtn);
   styleBar.appendChild(underlineBtn);
+  styleBar.appendChild(strikeBtn);
+  styleBar.appendChild(highlightBtn);
   styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Enter · next element   ⇧Enter · same   Tab · cycle   ' + modKey + '1–6 · jump' }));
 
   const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
@@ -1649,14 +1744,17 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
         boldBtn.classList.toggle('active', document.queryCommandState('bold'));
         italicBtn.classList.toggle('active', document.queryCommandState('italic'));
         underlineBtn.classList.toggle('active', document.queryCommandState('underline'));
+        strikeBtn.classList.toggle('active', document.queryCommandState('strikeThrough'));
       } catch (_) {}
     }
+    const csel = window.getSelection();
+    highlightBtn.classList.toggle('active', !!(csel && csel.anchorNode && findMarkAncestor(csel.anchorNode)));
     if (line !== ac.lastFocus) { ac.lastFocus = line; ac.dismissed = false; ac.index = 0; }
     refreshAc(line);
   };
   lineEd.addEventListener('keyup', syncPicker);
   lineEd.addEventListener('click', syncPicker);
-  lineEd.addEventListener('input', () => { if (needsNormalize()) normalize(true); refreshAc(getFocusedLine(lineEd)); });
+  lineEd.addEventListener('input', () => { if (needsNormalize()) normalize(true); refreshAc(getFocusedLine(lineEd)); queueHistory(); });
   // Paste as plain text, splitting on newlines into typed rows (strip rich markup).
   lineEd.addEventListener('paste', (e) => {
     e.preventDefault();
@@ -1680,11 +1778,12 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     }
     placeCaretAtOffset(anchor, segs[segs.length - 1].length);
     syncPicker();
+    pushHistory();
   });
   styleSel.addEventListener('mousedown', () => { styleSel._activeLine = getFocusedLine(lineEd); });
   styleSel.addEventListener('change', () => {
     const line = styleSel._activeLine || getFocusedLine(lineEd);
-    if (line) { setLineType(line, styleSel.value); placeCursorAt(line, true); }
+    if (line) { setLineType(line, styleSel.value); placeCursorAt(line, true); pushHistory(); }
   });
   lineEd.addEventListener('keydown', (e) => {
     const line = getFocusedLine(lineEd);
@@ -1696,6 +1795,23 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); acceptAc(true); return; }
       if (e.key === 'Tab')       { e.preventDefault(); acceptAc(false); return; }
       if (e.key === 'Escape')    { e.preventDefault(); ac.dismissed = true; closeAc(); return; }
+    }
+    // Undo / redo — intercepted before the browser's native (and here unreliable)
+    // stack. ⌘Z / ⌘⇧Z, plus ⌘Y for redo on Windows muscle memory.
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'z' || e.key === 'Z')) {
+      e.preventDefault();
+      if (e.shiftKey) redo(); else undo();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === 'y' || e.key === 'Y')) {
+      e.preventDefault(); redo(); return;
+    }
+    // Strikethrough (⌘⇧X) and editorial highlight (⌘⇧H).
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && (e.key === 'x' || e.key === 'X')) {
+      e.preventDefault(); applyEmphasis('strikeThrough'); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && (e.key === 'h' || e.key === 'H')) {
+      e.preventDefault(); toggleHighlight(); return;
     }
     // Final Draft-style direct jumps: Ctrl/⌘ + 1–6 set the current line's
     // element type outright, no Tab-cycling. Order matches RICH_EL_CYCLE so the
@@ -1717,6 +1833,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       styleSel.value = newType;
       placeCursorAt(line, true);
       refreshAc(line);
+      pushHistory();
       return;
     }
     if (e.key === 'Enter') {
@@ -1737,12 +1854,14 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       placeCursorAt(newLine, false);
       styleSel.value = newType;
       syncPicker();
+      pushHistory();
     } else if (e.key === 'Tab') {
       e.preventDefault();
       const newType = tabNext(line.dataset.type);
       setLineType(line, newType);
       styleSel.value = newType;
       refreshAc(line);
+      pushHistory();
     } else if (e.key === 'Backspace') {
       // Let the browser delete a selection or a mid-line character. Only intercept
       // a collapsed caret at the very start of a line, where we merge it into the
@@ -1763,6 +1882,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
         styleSel.value = prev.dataset.type;
       }
       syncPicker();
+      pushHistory();
     } else if (e.key === 'Delete') {
       // Forward-delete at line end merges the next row up (symmetric with above).
       const sel = window.getSelection();
@@ -1778,6 +1898,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
         placeCaretAtOffset(line, at);
       }
       syncPicker();
+      pushHistory();
     }
   });
 
@@ -1833,6 +1954,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     syncPicker();
   };
   if (autofocus) richWrap._focusFirst();
+  pushHistory(); // seed history[0] with the editor's opening state
   return richWrap;
 }
 
@@ -3120,10 +3242,13 @@ function buildManuscriptPage(sceneId) {
     // and never changes height between idle and active.
     const idleBar = (() => {
       const bar = el('div', { class: 'ms-style-bar ms-style-bar-idle' });
+      ['↶', '↷'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
+      bar.appendChild(el('span', { class: 'ms-fmt-divider' }));
       bar.appendChild(el('select', { class: 'ms-style-sel', disabled: 'disabled' }, [el('option', { text: 'Element' })]));
       bar.appendChild(el('button', { class: 'ms-dual-btn', type: 'button', disabled: 'disabled', text: 'Dual ⇄' }));
       bar.appendChild(el('span', { class: 'ms-fmt-divider' }));
-      ['<b>B</b>', '<i>I</i>', '<u>U</u>'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
+      ['<b>B</b>', '<i>I</i>', '<u>U</u>', '<s>S</s>'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
+      bar.appendChild(el('button', { class: 'ms-fmt-btn ms-fmt-hl', type: 'button', disabled: 'disabled', html: '<mark>H</mark>' }));
       bar.appendChild(el('span', { class: 'ms-style-hint', text: 'Click any line to edit' }));
       return bar;
     })();

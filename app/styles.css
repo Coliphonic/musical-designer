@@ -14,6 +14,7 @@
   --sage: #5f7d57; --sage-bg: #eef3e7; --sage-line: #cdddbf;
   --rose: #b5446e; --rose-bg: #fbeaf0; --rose-line: #f0ccda;
   --azure: #2f6db0; --azure-bg: #e6f1fb; --azure-line: #c4dcf2;
+  --hl: #ffe69a; --hl-ink: #3a2f00; /* editorial highlight */
 }
 
 body.dark {
@@ -30,6 +31,7 @@ body.dark {
   --sage: #9cc28d; --sage-bg: #16210f; --sage-line: #3a5a2d;
   --rose: #e07898; --rose-bg: #2a0f1c; --rose-line: #5a2540;
   --azure: #82b8ec; --azure-bg: #0d1f35; --azure-line: #2a4a6e;
+  --hl: #e8c24a; --hl-ink: #2a2200; /* editorial highlight (kept dark-on-amber) */
 }
 
 * { box-sizing: border-box; }
@@ -1105,6 +1107,12 @@ body.dark .ms-dual-btn.active { background: var(--energy); border-color: var(--e
 body.dark .ms-fmt-btn { background: #2a2540; border-color: #3d3760; color: #b8aef0; }
 body.dark .ms-fmt-btn.active { background: var(--energy); border-color: var(--energy); color: #fff; }
 body.dark .ms-fmt-divider { background: #3d3760; }
+/* Highlight button previews its own color; active state keeps the amber. */
+.ms-fmt-hl mark { background: var(--hl); color: var(--hl-ink); -webkit-text-fill-color: var(--hl-ink); padding: 0 3px; border-radius: 2px; font: inherit; }
+.ms-fmt-hl.active { background: var(--hl); border-color: var(--hl); }
+.ms-fmt-hl.active mark { background: transparent; padding: 0; }
+/* Editorial highlight in the text — soft amber, dark ink so it stays legible in both themes. */
+mark { background: var(--hl); color: var(--hl-ink); -webkit-text-fill-color: var(--hl-ink); border-radius: 2px; padding: 0 1px; }
 /* Mark a dual cue in the editor so the writer sees the pairing. */
 .ms-el[data-dual="1"]::after {
   content: ' ⇄ dual';
