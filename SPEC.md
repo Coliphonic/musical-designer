@@ -367,6 +367,62 @@ What's next (in dependency order):
    *comparison, not fill-in*: "your show has no Act 1 finale — here's how three reference shows
    handle that beat." A prompt to think, never a slot to fill.
 
+## 13. Editorial notes — the review punch-list
+
+A third annotation layer in Manuscript mode, distinct from the two that exist today:
+
+| Layer | What it is | Whose voice |
+|---|---|---|
+| Sage loglines | Your outline reference ("what this beat is about") | You, planning |
+| Revision marks (asterisks / `lastRev`) | What *changed* between drafts | The document, mechanically |
+| **Editorial notes** | "Cut this song?", "Needs lyric work" | You reviewing, or someone giving you notes |
+
+Notes are **action items / questions**, not content and not outline — they get their own color, their
+own visibility toggle, and a roll-up in the Navigator. The payoff is *at-a-glance*: scan the outline and
+see where the work is, or work a flat punch-list of what needs fixing (including notes someone else gave you).
+
+**Data model** — a note rides alongside `card.lines` as `card.notes`, so it serializes with the card and
+travels when the card moves act. Anchored by **stable id, never text offset** — this is exactly what the
+line-identity model was built to enable:
+
+```
+note = { id, cardId, anchor: { lineId } | null,   // null = whole-card note
+         text, author,                            // "Me" | "Sarah (director)" — drives color
+         status: 'open' | 'resolved',
+         tag?: 'cut'|'lyric'|'music'|'structure'|'question'|'praise',
+         createdAt, rev? }                         // revision set it was made against
+```
+
+**Anchoring + orphans.** Anchor to `line.id`. Because `mergeLineIds` keeps a line's id when type+text is
+unchanged and mints a fresh one when rewritten, a note stays attached when you edit *around* it and goes
+**orphaned** when its line is deleted or rewritten past recognition. Orphans don't vanish — they surface in
+the Navigator under an "Orphaned / unanchored" group with a snapshot of the last-known line text, so "fix
+this rhyme" survives you rewriting the rhyme.
+
+**Three surfaces.**
+1. *Create* — Edit mode: select a line (or click a card) → a margin "＋ note" affordance or shortcut
+   (e.g. ⌘⇧M); card-level notes from a button in the card's section header. Reuse the editor's right gutter.
+2. *In the manuscript* — a colored **margin pin** by the anchored line (distinct from sage green and from
+   revision asterisks; amber = open, faded = resolved), expanding on hover/click. Gated by a **"Notes"
+   toggle**, mirroring the Section-tags round-trip pattern (build-time gate for Print, `.hide-notes` CSS
+   for Edit). Notes **don't print** by default; optional "Print with notes" → margin notes or an endnote list.
+3. *The Navigator* — two additions to `refreshNav` (the `navRows` map of card-id → row is the hook):
+   **badges** (count pill + colored dot per `.ms-nav-row` with open notes), and a **notes-inbox mode**
+   that flips the outline panel to a flat list grouped by card, filterable by status / author / tag, each
+   clickable to jump to its anchor.
+
+**Workflow.** Open → Resolved (resolved hide from the manuscript, stay in the inbox's history). `author`
+is a label you set per note (color-coded) — covers "someone gave me notes" by transcription, without needing
+real multi-user; collaborative authoring is a later phase on the identical model.
+
+**Phasing (UI-first).** (1) Card-level notes + Navigator badges + inbox panel — biggest payoff, no anchoring
+complexity. (2) Line-level anchoring + margin pins + orphan handling. (3) Author colors, resolve workflow,
+tags, notes-report export. (4) Real-time multi-collaborator authoring.
+
+**Open decisions.** Anchor depth for v1 (card-only ships fastest); whether notes auto-flag as "stale?" when
+the anchored line's `lastRev` changes between drafts (nice nudge vs. noise); fixed tag palette vs. freeform
+(fixed keeps the Navigator dots meaningful); collaboration reach (labels now, true multi-user later).
+
 ### Design lessons we're keeping
 
 - **The substrate earns the feature.** Two foundations — the **pagination/measurement engine** and
