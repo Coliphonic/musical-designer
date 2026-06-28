@@ -22,6 +22,9 @@ const STATUS = {
   demo: { label: 'Demo', c: '#1D9E75' },
   locked: { label: 'Locked', c: '#639922' },
 };
+// Beats aren't music — same 5 stages/colors, prose-friendly wording.
+const STATUS_BEAT = { idea: 'Idea', lyric: 'Sketch', music: 'Draft', demo: 'Revised', locked: 'Locked' };
+function statusLabel(c, key) { return c.type === 'beat' && STATUS_BEAT[key] ? STATUS_BEAT[key] : STATUS[key].label; }
 // Scene-change at the end of a card, set from the card face (no dropdown).
 const CHANGE_OPTS = [
   { key: '', label: 'No change', sym: '~' },
@@ -776,17 +779,19 @@ function makeBeatFnPill(c) {
 // commits on Enter, reverts on Escape. Guards against starting a drag while editing.
 function makeCardEditable(elm, getter, setter, placeholder) {
   if (state.readonly) return elm;
-  elm.setAttribute('contenteditable', 'true');
+  elm.classList.add('cardedit');
   elm.setAttribute('spellcheck', 'false');
   if (placeholder) elm.setAttribute('data-ph', placeholder);
-  // Empty placeholder is a ::before pseudo with no caret target — focus on
-  // mousedown so clicking the placeholder text starts editing instead of
-  // falling through to the card's open handler.
-  elm.addEventListener('mousedown', (e) => {
+  // Editable on demand: the field stays non-editable so the whole card surface
+  // can be dragged. A plain click (not a drag, which never reaches click) turns
+  // on editing; stopPropagation keeps the card's open-editor handler from firing.
+  elm.addEventListener('click', (e) => {
     e.stopPropagation();
-    if (!elm.textContent.trim()) { e.preventDefault(); elm.focus(); }
+    if (elm.getAttribute('contenteditable') !== 'true') {
+      elm.setAttribute('contenteditable', 'true');
+      elm.focus();
+    }
   });
-  elm.addEventListener('click', (e) => e.stopPropagation());
   elm.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') { e.preventDefault(); elm.blur(); }
     else if (e.key === 'Escape') { e.preventDefault(); elm.textContent = getter() || ''; elm.blur(); }
@@ -794,6 +799,7 @@ function makeCardEditable(elm, getter, setter, placeholder) {
   elm.addEventListener('blur', () => {
     const v = elm.textContent.replace(/\s+/g, ' ').trim();
     elm.textContent = v;
+    elm.removeAttribute('contenteditable');
     if (v !== (getter() || '')) { setter(v); scheduleSave(); }
   });
   return elm;
@@ -856,11 +862,12 @@ function openMiniPopover(anchor, items, currentKey, onPick) {
 
 // Clickable status dot for a song card — cycles through the labeled STATUS set.
 function statusControl(c) {
-  const meta = STATUS[c.status] || STATUS.idea;
-  const dot = el('span', { class: 'statusdot click', style: 'background:' + meta.c, title: 'Status: ' + meta.label + ' — click to change' });
+  const key = STATUS[c.status] ? c.status : 'idea';
+  const meta = STATUS[key];
+  const dot = el('span', { class: 'statusdot click', style: 'background:' + meta.c, title: 'Status: ' + statusLabel(c, key) + ' — click to change' });
   dot.addEventListener('click', (e) => {
     e.stopPropagation();
-    openMiniPopover(dot, Object.entries(STATUS).map(([k, v]) => ({ key: k, label: v.label, color: v.c })),
+    openMiniPopover(dot, Object.entries(STATUS).map(([k, v]) => ({ key: k, label: statusLabel(c, k), color: v.c })),
       c.status || 'idea', (key) => { c.status = key; scheduleSave(); render(); });
   });
   return dot;
@@ -884,7 +891,6 @@ function buildCard(c, trueIdx, pct) {
   const top = el('div', { class: 'top' });
   if (c.type === 'song') {
     top.appendChild(makeFnPicker(c));
-    top.appendChild(statusControl(c));
     top.appendChild(el('span', { class: 'pct', text: pct + '%' }));
   } else if (c.type === 'beat') {
     top.appendChild(makeBeatFnPill(c));
@@ -894,11 +900,8 @@ function buildCard(c, trueIdx, pct) {
   const kids = c.type === 'scene' ? [] : [top];
   if (c.type === 'song') {
     kids.push(makeCardEditable(el('div', { class: 'title', text: c.title }), () => c.title, (v) => { c.title = v; }, 'Untitled'));
-    kids.push(makeCardEditable(el('div', { class: 'sub', text: c.voicing || '' }), () => c.voicing, (v) => { c.voicing = v; }, 'who sings…'));
-    const lyricBtn = el('button', { class: 'card-lyric-btn', text: '✎  Lyrics' });
-    lyricBtn.addEventListener('click', (e) => { e.stopPropagation(); openLyricWindow(c.id); });
-    kids.push(el('div', { class: 'card-lyric-row' }, [lyricBtn]));
-    kids.push(el('div', { class: 'foot' }, [changeControl(c), makeCardEditable(el('span', { class: 'conflict', text: c.conflict || '' }), () => c.conflict, (v) => { c.conflict = v; }, '+ Conflict'), el('span', { class: 'foot-rt', text: '~' + c.min + 'm' })]));
+    kids.push(makeCardEditable(el('div', { class: 'sub', text: c.purpose || '' }), () => c.purpose, (v) => { c.purpose = v; }, 'why does this sing…'));
+    kids.push(el('div', { class: 'foot' }, [changeControl(c), makeCardEditable(el('span', { class: 'conflict', text: c.conflict || '' }), () => c.conflict, (v) => { c.conflict = v; }, '+ Conflict'), statusControl(c)]));
   } else if (c.type === 'scene') {
     kids.push(el('div', { class: 'title scene-title', text: c.title }));
     const readBtn = el('button', { class: 'scene-read-btn', title: 'Read this scene' }, [el('span', { text: '▶' })]);
@@ -907,10 +910,7 @@ function buildCard(c, trueIdx, pct) {
   } else {
     kids.push(makeCardEditable(el('div', { class: 'title', text: c.title }), () => c.title, (v) => { c.title = v; }, 'Untitled'));
     kids.push(makeCardEditable(el('div', { class: 'sub note', text: c.note || '' }), () => c.note, (v) => { setCardBody(c, 'note', v); }, 'add a note…'));
-    const editBtn = el('button', { class: 'card-lyric-btn', text: '✎  Edit' });
-    editBtn.addEventListener('click', (e) => { e.stopPropagation(); openLyricWindow(c.id); });
-    kids.push(el('div', { class: 'card-lyric-row' }, [editBtn]));
-    kids.push(el('div', { class: 'foot' }, [changeControl(c), makeCardEditable(el('span', { class: 'conflict', text: c.conflict || '' }), () => c.conflict, (v) => { c.conflict = v; }, '+ Conflict'), el('span', { class: 'foot-rt', text: '~' + c.min + 'm' })]));
+    kids.push(el('div', { class: 'foot' }, [changeControl(c), makeCardEditable(el('span', { class: 'conflict', text: c.conflict || '' }), () => c.conflict, (v) => { c.conflict = v; }, '+ Conflict'), statusControl(c)]));
   }
 
   const card = el('div', { class: 'bcard' + (c.type === 'beat' ? ' beat' : '') + (c.type === 'scene' ? ' scene' : ''), draggable: 'true', 'data-pos': trueIdx, 'data-id': c.id }, kids);
@@ -1594,14 +1594,21 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const toggleHighlight = () => {
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount) return;
-    const existing = findMarkAncestor(sel.anchorNode);
-    if (existing) {
-      const parent = existing.parentNode;
-      while (existing.firstChild) parent.insertBefore(existing.firstChild, existing);
-      parent.removeChild(existing);
-      if (parent.normalize) parent.normalize();   // merge the split text nodes
+    const range = sel.getRangeAt(0);
+    // Removal: any <mark> the caret sits in OR that the selection overlaps.
+    const caretMark = findMarkAncestor(sel.anchorNode) || findMarkAncestor(sel.focusNode);
+    const overlap = Array.from(lineEd.querySelectorAll('mark')).filter((m) => {
+      try { return range.intersectsNode(m); } catch (_) { return false; }
+    });
+    const existing = caretMark ? [caretMark, ...overlap.filter((m) => m !== caretMark)] : overlap;
+    if (existing.length) {
+      existing.forEach((m) => {
+        const parent = m.parentNode;
+        while (m.firstChild) parent.insertBefore(m.firstChild, m);
+        parent.removeChild(m);
+        if (parent.normalize) parent.normalize();  // merge the split text nodes
+      });
     } else {
-      const range = sel.getRangeAt(0);
       if (range.collapsed) return;                 // a highlight needs a selection
       const frag = range.extractContents();
       const mark = document.createElement('mark');
