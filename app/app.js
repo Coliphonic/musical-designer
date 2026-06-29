@@ -1350,7 +1350,7 @@ function collectCharacterNames() {
 // from `text`, lets the user cycle element types with Tab / advance with Enter,
 // and on blur serializes back to the seamless lyric format via onSave(value).
 // Used by both the Manuscript Edit mode and the lyric window's Rich tab.
-const RICH_EL_LABELS = { cue: 'Character', sung: 'Lyrics', dialogue: 'Dialogue', paren: 'Parenthetical', action: 'Action', section: 'Section' };
+const RICH_EL_LABELS = { cue: 'Character', sung: 'Lyrics', dialogue: 'Dialogue', paren: 'Parenthetical', action: 'Action', section: 'Section', blank: 'Blank line' };
 const RICH_EL_CLASS  = { cue: 'lw-char', sung: 'lw-sung', dialogue: 'lw-dialogue', paren: 'lw-paren', action: 'lw-action', section: 'lw-section-row' };
 const RICH_EL_CYCLE  = ['cue', 'dialogue', 'sung', 'paren', 'action', 'section'];
 
@@ -1645,7 +1645,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const styleSel = el('select', { class: 'ms-style-sel' });
   const modKey = navigator.platform.toUpperCase().includes('MAC') ? '⌘' : 'Ctrl+';
   Object.entries(RICH_EL_LABELS).forEach(([val, label]) => {
-    const n = RICH_EL_CYCLE.indexOf(val) + 1;
+    const n = val === 'blank' ? 7 : RICH_EL_CYCLE.indexOf(val) + 1;
     styleSel.appendChild(el('option', { value: val, text: n ? label + '  (' + modKey + n + ')' : label }));
   });
   // A button that runs an arbitrary action (undo/redo/highlight) while keeping the
@@ -1704,7 +1704,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   styleBar.appendChild(underlineBtn);
   styleBar.appendChild(strikeBtn);
   styleBar.appendChild(highlightBtn);
-  styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Enter · next element   ⇧Enter · same   Tab · cycle   ' + modKey + '1–6 · jump' }));
+  styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Enter · next element   ⇧Enter · same   Tab · cycle   ' + modKey + '1–7 · jump' }));
 
   const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
   lineEd.contentEditable = 'true'; // single editable host for the whole document
@@ -1807,9 +1807,26 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     pushHistory();
   });
   styleSel.addEventListener('mousedown', () => { styleSel._activeLine = getFocusedLine(lineEd); });
+  // Apply an element type to a line. "Blank line" on a line that already has text
+  // inserts a fresh spacer below rather than erasing the text (a blank carrying
+  // text reverts on normalize). Stack several to stagger dual-dialogue columns;
+  // Enter on a blank adds another. Shared by the element dropdown and ⌘1–7.
+  const setOrInsertType = (line, type) => {
+    if (type === 'blank' && (line.textContent || '').trim()) {
+      const nl = mkLine('blank', '');
+      line.after(nl);
+      placeCursorAt(nl, false);
+    } else {
+      setLineType(line, type);
+      placeCursorAt(line, true);
+    }
+    styleSel.value = type;
+  };
   styleSel.addEventListener('change', () => {
     const line = styleSel._activeLine || getFocusedLine(lineEd);
-    if (line) { setLineType(line, styleSel.value); placeCursorAt(line, true); pushHistory(); }
+    if (!line) return;
+    setOrInsertType(line, styleSel.value);
+    pushHistory();
   });
   lineEd.addEventListener('keydown', (e) => {
     const line = getFocusedLine(lineEd);
@@ -1852,13 +1869,11 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       applyEmphasis({ b: 'bold', i: 'italic', u: 'underline' }[e.key.toLowerCase()]);
       return;
     }
-    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key >= '1' && e.key <= '6') {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key >= '1' && e.key <= '7') {
       e.preventDefault();
-      const newType = RICH_EL_CYCLE[parseInt(e.key, 10) - 1];
-      setLineType(line, newType);
-      styleSel.value = newType;
-      placeCursorAt(line, true);
-      refreshAc(line);
+      const newType = e.key === '7' ? 'blank' : RICH_EL_CYCLE[parseInt(e.key, 10) - 1];
+      setOrInsertType(line, newType);
+      refreshAc(getFocusedLine(lineEd) || line);
       pushHistory();
       return;
     }
