@@ -1401,12 +1401,23 @@ function hasDisallowedMarkup(node) {
 // A read-only body line matching the editor's mkLine markup exactly, so the
 // static edit-doc render and the live editor have identical line boxes (no
 // reflow on click-in). Emphasis is rendered the same way in both.
-function bodyLineEl(type, text) {
+// Canonical scroll anchor for a token/card key, shared by Edit and Print views so
+// switching modes can keep the same content under the viewport top. Line keys
+// ('l:'+id) match identically in both views; structural keys (sc:/sg:/note:) all
+// collapse to their owning card ('card:'+id) so a header matches its card divider.
+function anchorFromKey(key) {
+  if (!key) return null;
+  return key.startsWith('l:') ? key : 'card:' + key.replace(/^[a-z]+:/, '');
+}
+
+function bodyLineEl(type, text, key) {
   const div = el('div', { class: 'ms-el ' + (RICH_EL_CLASS[type] || 'lw-blank ms-el-blank'), 'data-type': type });
   let display = (text || '');
   if (type === 'paren')   display = display.replace(/^\(/, '').replace(/\)$/, '');
   if (type === 'section') display = display.replace(/^\[/, '').replace(/\]$/, '');
   div.innerHTML = emphToHtml(display);
+  const a = anchorFromKey(key);
+  if (a) div.dataset.anchor = a;
   return div;
 }
 
@@ -2343,9 +2354,15 @@ function renderPageToken(tok, container) {
     });
     container.appendChild(row);
   }
+  // Tag the rendered element with a scroll anchor so switching to/from Edit view
+  // can keep the same content under the viewport top (see anchorFromKey).
+  const node = container.lastElementChild;
+  if (node) {
+    const a = anchorFromKey(tok.key);
+    if (a && !node.dataset.anchor) node.dataset.anchor = a;
+  }
   // Revision mark: a margin asterisk on any line changed under the active revision.
   if (tok.lastRev && state.currentRev && tok.lastRev === state.currentRev && state.msOptions.showRevisions !== false) {
-    const node = container.lastElementChild;
     if (node) { node.classList.add('lw-rev'); node.style.setProperty('--revc', currentRevColor()); }
   }
 }
@@ -3174,7 +3191,7 @@ function buildManuscriptPage(sceneId) {
     } else {
       // Render with the same .ms-el markup the editor uses, so clicking in swaps
       // to an identical box layout — no reflow.
-      cardBodyTokens(c).forEach((tok) => inner.appendChild(bodyLineEl(tok.type, tok.text)));
+      cardBodyTokens(c).forEach((tok) => inner.appendChild(bodyLineEl(tok.type, tok.text, tok.key)));
     }
     sec.appendChild(inner);
   };
@@ -3285,7 +3302,7 @@ function buildManuscriptPage(sceneId) {
       const c = state.cards[idx];
       if (!c) return;
       const isEmpty = !(c[cardField(c)] || '').trim();
-      const div = el('div', { class: 'ms-card-divider' + (isEmpty ? ' ms-card-divider-empty' : ''), 'data-card-id': c.id });
+      const div = el('div', { class: 'ms-card-divider' + (isEmpty ? ' ms-card-divider-empty' : ''), 'data-card-id': c.id, 'data-anchor': 'card:' + c.id });
       const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '●';
       div.appendChild(el('span', { class: 'ms-card-divider-label', text: icon + ' ' + (c.title || 'Untitled') }));
       doc.appendChild(div);
@@ -3309,7 +3326,38 @@ function buildManuscriptPage(sceneId) {
   };
 
   // ── Mode switching ───────────────────────────────────────────────
+  // Capture which content sits at the viewport top (an anchored line or card) and
+  // its pixel offset, so the new layout can scroll the same content back into the
+  // same spot — Edit (continuous) and Print (paginated) have different geometry,
+  // so a raw scrollTop carry-over lands on the wrong place.
+  // Capture the first few anchored elements at/below the viewport top (with their
+  // pixel offsets). A list, not one, so restore can skip an anchor that's unique to
+  // one view (act headers in Print, section lines hidden from Print) and use the
+  // next shared one.
+  const captureAnchor = () => {
+    const body = msWrap.querySelector('.ms-body');
+    if (!body) return null;
+    const top = body.getBoundingClientRect().top;
+    const out = [];
+    for (const n of body.querySelectorAll('[data-anchor]')) {
+      const r = n.getBoundingClientRect();
+      if (r.bottom > top + 1) { out.push({ key: n.dataset.anchor, offset: r.top - top }); if (out.length >= 6) break; }
+    }
+    return out.length ? out : null;
+  };
+  const restoreAnchor = (anchors) => {
+    if (!anchors) return;
+    const body = msWrap.querySelector('.ms-body');
+    if (!body) return;
+    for (const a of anchors) {
+      const n = body.querySelector('[data-anchor="' + a.key + '"]');
+      if (n) { body.scrollTop += (n.getBoundingClientRect().top - body.getBoundingClientRect().top) - a.offset; return; }
+    }
+    // None of the captured anchors exist in the target view — keep carried scrollTop.
+  };
+
   const applyMode = () => {
+    const anchor = captureAnchor();
     const isEdit = msMode === 'edit';
     editTab.classList.toggle('active', isEdit);
     layoutTab.classList.toggle('active', !isEdit);
@@ -3317,6 +3365,7 @@ function buildManuscriptPage(sceneId) {
     applyNav(); // outline panel + Navigation button reflect Edit/Print state
     if (isEdit) { rebuildEdit(); applyZoom(); }
     else { rebuildSheets(); applyZoom(); }
+    restoreAnchor(anchor);
   };
   editTab.addEventListener('click', () => { if (msMode !== 'edit') { msMode = 'edit'; applyMode(); } });
   layoutTab.addEventListener('click', () => { if (msMode !== 'layout') { msMode = 'layout'; applyMode(); } });
