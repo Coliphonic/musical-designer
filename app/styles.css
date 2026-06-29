@@ -1132,9 +1132,9 @@ mark { background: var(--hl); color: var(--hl-ink); -webkit-text-fill-color: var
   content: ' ⇄ dual';
   font-size: 0.7em;
   font-weight: 600;
-  color: var(--energy);
+  color: var(--sage);
   letter-spacing: 0.04em;
-  -webkit-text-fill-color: var(--energy);
+  -webkit-text-fill-color: var(--sage);
 }
 .ms-style-hint { font-size: 11px; color: #aaa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 body.dark .ms-style-bar { background: #1e1b2e; border-bottom-color: #2e2a45; }

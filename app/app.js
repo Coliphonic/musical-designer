@@ -1220,10 +1220,17 @@ function linesToSeamless(lines, isSong) { return serializeRows(lines || [], isSo
 // Tokens for a card's manuscript body, sourced from its persisted lines (so each
 // carries lastRev for revision marks) when present, else parsed from the blob.
 function cardBodyTokens(c) {
-  if (Array.isArray(c.lines) && c.lines.length) {
-    return c.lines.map((l) => ({ type: l.type, text: l.text, subtype: l.subtype, dual: l.dual, lastRev: l.lastRev, key: l.id ? 'l:' + l.id : undefined }));
+  const toks = (Array.isArray(c.lines) && c.lines.length)
+    ? c.lines.map((l) => ({ type: l.type, text: l.text, subtype: l.subtype, dual: l.dual, lastRev: l.lastRev, key: l.id ? 'l:' + l.id : undefined }))
+    : parseLyricLines(c[cardBodyField(c)] || '', c.type === 'song');
+  // Consecutive blank lines the writer typed are intentional vertical padding —
+  // e.g. dropping a dual-dialogue column so its lines stagger below the next
+  // voice. Tag the 2nd+ blank in any run as `pad` so the manuscript's
+  // blank-collapse (buildBlocks) preserves the run instead of merging it to one.
+  for (let i = 1; i < toks.length; i++) {
+    if (toks[i].type === 'blank' && toks[i - 1].type === 'blank') toks[i] = { ...toks[i], pad: true };
   }
-  return parseLyricLines(c[cardBodyField(c)] || '', c.type === 'song');
+  return toks;
 }
 
 // ---- Step 2: persisted structured lines -----------------------------------
@@ -2062,12 +2069,15 @@ function buildContentTokens(sceneId) {
 // never orphaned from their first line); headers stand alone with orphan
 // control; blanks are spacers that never trigger a break.
 function buildBlocks(toksRaw) {
-  // Collapse consecutive blanks first — a stanza break is one blank; doubles only
-  // arise from hidden section tags leaving an orphan blank. Done up front so the
-  // cue-gathering loop (which absorbs trailing blanks) never traps a double.
+  // Collapse consecutive blanks first — a stanza break is one blank; structural
+  // doubles arise from hidden section tags leaving an orphan blank, or from
+  // act/card boundaries abutting. Done up front so the cue-gathering loop (which
+  // absorbs trailing blanks) never traps a double. Exception: blanks tagged
+  // `pad` by cardBodyTokens are deliberate vertical spacing (column staggering)
+  // and survive — only an untagged blank following another blank is dropped.
   const toks = [];
   for (const t of toksRaw) {
-    if (t.type === 'blank' && toks.length && toks[toks.length - 1].type === 'blank') continue;
+    if (t.type === 'blank' && !t.pad && toks.length && toks[toks.length - 1].type === 'blank') continue;
     toks.push(t);
   }
   const blocks = [];
