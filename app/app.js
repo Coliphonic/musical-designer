@@ -2780,7 +2780,6 @@ function navigateTo(page, sceneId) {
   if (page === 'manuscript') buildManuscriptPage(sceneId);
   if (page === 'characters') buildCharactersPage();
   if (page === 'storydna') buildStoryDnaPage();
-  if (page === 'export') buildExportPage();
 }
 
 function exportShow() {
@@ -2939,51 +2938,70 @@ function exportPDF(includeTitlePages, revisedOnly) {
   setTimeout(() => window.print(), 60);
 }
 
-function buildExportPage() {
-  const host = document.getElementById('page-export');
-  host.innerHTML = '';
+// Export & backup lives in a right-side drawer (like Snapshots), reached from
+// the topnav icon — not its own page.
+function closeExportDrawer() {
+  const d = document.getElementById('exp-drawer'); if (d) d.remove();
+  const ov = document.getElementById('exp-overlay'); if (ov) ov.remove();
+}
+function openExportDrawer() {
+  closeShowPopover();
+  if (document.getElementById('exp-drawer')) { closeExportDrawer(); return; }
 
-  const wrap = el('div', { class: 'exp-wrap' });
+  const overlay = el('div', { class: 'snap-overlay', id: 'exp-overlay' });
+  overlay.addEventListener('click', closeExportDrawer);
+  document.body.appendChild(overlay);
 
-  // Export section
-  const exportSection = el('div', { class: 'exp-section' });
-  exportSection.appendChild(el('h2', { class: 'exp-heading', text: 'Save backup' }));
-  exportSection.appendChild(el('p', { class: 'exp-desc', text: 'Download a .songplot file you can keep locally or move to another computer.' }));
+  const drawer = el('div', { class: 'snap-drawer', id: 'exp-drawer' });
+  const head = el('div', { class: 'snap-head' });
+  head.appendChild(el('span', { class: 'snap-title', text: 'Export & backup' }));
+  const xBtn = el('button', { class: 'snap-close', text: '✕', title: 'Close' });
+  xBtn.addEventListener('click', closeExportDrawer);
+  head.appendChild(xBtn);
+  drawer.appendChild(head);
+
+  const body = el('div', { class: 'exp-drawer-body' });
+
+  // Save backup
+  const s1 = el('div', { class: 'exp-section' });
+  s1.appendChild(el('h2', { class: 'exp-heading', text: 'Save backup' }));
+  s1.appendChild(el('p', { class: 'exp-desc', text: 'Download a .songplot file you can keep locally or move to another computer.' }));
   const expBtn = el('button', { class: 'pbtn exp-btn', text: '↓  Download ' + (state.title || 'show') + '.songplot' });
   expBtn.addEventListener('click', exportShow);
   if (state.readonly) {
     expBtn.disabled = true;
-    exportSection.appendChild(el('p', { class: 'exp-note', text: 'Switch to a project (not a reference show) to export.' }));
+    s1.appendChild(el('p', { class: 'exp-note', text: 'Switch to a project (not a reference show) to export.' }));
   }
-  exportSection.appendChild(expBtn);
-  wrap.appendChild(exportSection);
+  s1.appendChild(expBtn);
+  body.appendChild(s1);
 
-  wrap.appendChild(el('div', { class: 'exp-divider' }));
+  body.appendChild(el('div', { class: 'exp-divider' }));
 
-  // Fountain export section
-  const fountainSection = el('div', { class: 'exp-section' });
-  fountainSection.appendChild(el('h2', { class: 'exp-heading', text: 'Export as Fountain' }));
-  fountainSection.appendChild(el('p', { class: 'exp-desc', text: 'Download a .fountain file — plain text screenplay format compatible with Final Draft, Highland, and Fade In. Lyrics use standard Fountain character/dialogue blocks.' }));
+  // Fountain export
+  const s2 = el('div', { class: 'exp-section' });
+  s2.appendChild(el('h2', { class: 'exp-heading', text: 'Export as Fountain' }));
+  s2.appendChild(el('p', { class: 'exp-desc', text: 'Download a .fountain file — plain-text screenplay format compatible with Final Draft, Highland, and Fade In. Lyrics use standard Fountain character/dialogue blocks.' }));
   const ftnBtn = el('button', { class: 'pbtn exp-btn', text: '↓  Download ' + (state.title || 'show') + '.fountain' });
   ftnBtn.addEventListener('click', exportFountain);
   if (state.readonly) ftnBtn.disabled = true;
-  fountainSection.appendChild(ftnBtn);
-  wrap.appendChild(fountainSection);
+  s2.appendChild(ftnBtn);
+  body.appendChild(s2);
 
-  wrap.appendChild(el('div', { class: 'exp-divider' }));
+  body.appendChild(el('div', { class: 'exp-divider' }));
 
-  // Import section
-  const importSection = el('div', { class: 'exp-section' });
-  importSection.appendChild(el('h2', { class: 'exp-heading', text: 'Open backup' }));
-  importSection.appendChild(el('p', { class: 'exp-desc', text: 'Load a .songplot file. It will be added as a new project and you can rename it.' }));
+  // Import
+  const s3 = el('div', { class: 'exp-section' });
+  s3.appendChild(el('h2', { class: 'exp-heading', text: 'Open backup' }));
+  s3.appendChild(el('p', { class: 'exp-desc', text: 'Load a .songplot file. It will be added as a new project and you can rename it.' }));
   const fileInput = el('input', { type: 'file', accept: '.songplot,.json', class: 'exp-file-input', id: 'exp-file-input' });
   const impLabel = el('label', { class: 'pbtn exp-btn', for: 'exp-file-input', text: '↑  Choose .songplot file…' });
-  fileInput.addEventListener('change', (e) => { if (e.target.files[0]) importShow(e.target.files[0]); });
-  importSection.appendChild(impLabel);
-  importSection.appendChild(fileInput);
-  wrap.appendChild(importSection);
+  fileInput.addEventListener('change', (e) => { if (e.target.files[0]) { closeExportDrawer(); importShow(e.target.files[0]); } });
+  s3.appendChild(impLabel);
+  s3.appendChild(fileInput);
+  body.appendChild(s3);
 
-  host.appendChild(wrap);
+  drawer.appendChild(body);
+  document.body.appendChild(drawer);
 }
 
 function tpEditable(tag, cls, value, key, isArray) {
@@ -4147,6 +4165,8 @@ function initControls() {
   // show switcher popover
   document.getElementById('sb-show-btn').addEventListener('click', (e) => { e.stopPropagation(); showShowPopover(); });
   document.getElementById('sb-snapshots').addEventListener('click', (e) => { e.stopPropagation(); openSnapshotsDrawer(); });
+  const exBtn = document.getElementById('sb-export');
+  if (exBtn) exBtn.addEventListener('click', (e) => { e.stopPropagation(); openExportDrawer(); });
 
   // show settings modal
   document.getElementById('ssm-cancel').addEventListener('click', closeShowSettingsModal);
@@ -4210,6 +4230,8 @@ function initControls() {
   }
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      const exd = document.getElementById('exp-drawer');
+      if (exd) { closeExportDrawer(); return; }
       const fm = document.getElementById('folder-modal');
       if (fm && fm.style.display !== 'none') { closeFolderModal(); return; }
       const shm = document.getElementById('share-modal');

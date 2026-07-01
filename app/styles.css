@@ -1209,6 +1209,11 @@ body.dark .ms-style-hint { color: #8b83a8; }
 ═══════════════════════════════════════════════ */
 #page-export { display: flex; flex-direction: column; overflow-y: auto; }
 .exp-wrap { max-width: 520px; padding: 40px 32px; display: flex; flex-direction: column; gap: 0; }
+.exp-drawer-body { overflow-y: auto; padding: 4px 16px 20px; }
+.exp-drawer-body .exp-section { padding: 18px 0; }
+.exp-drawer-body .exp-heading { font-size: 15px; }
+.exp-drawer-body .exp-desc { font-size: 13px; margin-bottom: 14px; }
+.exp-drawer-body .exp-btn { width: 100%; justify-content: center; }
 .exp-section { padding: 28px 0; }
 .exp-heading { font-size: 18px; font-weight: 700; margin: 0 0 8px; color: var(--ink); }
 .exp-desc { font-size: 14px; color: var(--muted); line-height: 1.6; margin: 0 0 18px; }
