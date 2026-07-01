@@ -52,6 +52,7 @@ const state = {
   currentRev: null,  // id of the active revision; null = not tracking (no marks)
   pageLock: null,    // { lockedAt, date, pages:[{label, anchor}] } — frozen page boundaries (A-pages)
   characters: {},
+  storyDna: dnaDefaults(),
   titlePage: { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } },
   scriptHeader: { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false },
   msOptions: (() => { try { return JSON.parse(localStorage.getItem('md-ms-opts') || '{}'); } catch (_) { return {}; } })(),
@@ -120,6 +121,7 @@ function openReference(key) {
   // Plain references have neither — fall back to empty so stale project data never leaks in.
   state.revisions = []; state.currentRev = null; state.pageLock = null; // references aren't revised
   state.characters = show.characters ? JSON.parse(JSON.stringify(show.characters)) : {};
+  state.storyDna = migrateDna(show.storyDna);
   const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
   state.titlePage = Object.assign({}, tpDefaults, show.titlePage || {});
   state.titlePage.include = Object.assign({}, tpDefaults.include, (show.titlePage || {}).include || {});
@@ -142,6 +144,7 @@ function applyShowData(d) {
   state.currentRev = d.currentRev || null;
   state.pageLock = d.pageLock || null;
   state.characters = d.characters || {};
+  state.storyDna = migrateDna(d.storyDna);
   const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
   state.titlePage = Object.assign({}, tpDefaults, d.titlePage || {});
   state.titlePage.include = Object.assign({}, tpDefaults.include, (d.titlePage || {}).include || {});
@@ -176,6 +179,7 @@ function serialize() {
     currentRev: state.currentRev,
     pageLock: state.pageLock,
     characters: state.characters,
+    storyDna: state.storyDna,
     titlePage: state.titlePage,
     scriptHeader: state.scriptHeader,
   });
@@ -2552,6 +2556,217 @@ function buildCharactersPage() {
   host.appendChild(grid);
 }
 
+// ---- Story DNA -----------------------------------------------------------
+// A broad-strokes analysis surface, decoupled from the board in v1: a mirrored
+// 7-beat chiasmus (Threshold carries a broken-out catch), a three-level stakes
+// theme (Arndt), and a character web (Truby) projected from the real cast.
+// See SPEC §15.
+function dnaDefaults() {
+  return {
+    whatIf: '',
+    beats: { setUpWant: '', threshold: '', catch: '', pinch: '', midpoint: '', crisis: '', aha: '', resolution: '' },
+    stakes: {
+      external: { truth: '', flaw: '' },
+      internal: { truth: '', flaw: '' },
+      philosophical: { truth: '', flaw: '' },
+    },
+  };
+}
+function migrateDna(d) {
+  const base = dnaDefaults();
+  if (!d || typeof d !== 'object') return base;
+  base.whatIf = d.whatIf || '';
+  if (d.beats) Object.assign(base.beats, d.beats);
+  if (d.stakes) ['external', 'internal', 'philosophical'].forEach((k) => { if (d.stakes[k]) Object.assign(base.stakes[k], d.stakes[k]); });
+  return base;
+}
+function dnaGrow(t) { t.style.height = 'auto'; t.style.height = Math.max(t.scrollHeight, 22) + 'px'; }
+
+function buildStoryDnaPage() {
+  const host = document.getElementById('page-storydna');
+  host.innerHTML = '';
+  const dna = state.storyDna || (state.storyDna = dnaDefaults());
+  const ro = state.readonly;
+
+  const bindArea = (node, get, set) => {
+    node.value = get() || '';
+    if (ro) node.setAttribute('readonly', '');
+    else node.addEventListener('input', () => { set(node.value); dnaGrow(node); scheduleSave(); });
+    requestAnimationFrame(() => dnaGrow(node));
+    return node;
+  };
+  const bindInput = (node, get, set) => {
+    node.value = get() || '';
+    if (ro) node.setAttribute('readonly', '');
+    else node.addEventListener('input', () => { set(node.value); scheduleSave(); });
+    return node;
+  };
+
+  const toolbar = el('div', { class: 'ribbon dna-toolbar' });
+  toolbar.appendChild(el('span', { class: 'ch-toolbar-title', text: 'Story DNA' }));
+  toolbar.appendChild(el('span', { style: 'flex:1' }));
+  toolbar.appendChild(el('span', { class: 'dna-note', text: 'Broad strokes — analysis only, kept separate from the board.' }));
+  host.appendChild(toolbar);
+
+  const wrap = el('div', { class: 'dna-wrap' });
+  host.appendChild(wrap);
+
+  // 1 — the "what if"
+  const wi = el('div', { class: 'dna-whatif' });
+  wi.appendChild(el('span', { class: 'dna-whatif-lbl', text: 'what if' }));
+  const wiTA = el('textarea', { class: 'dna-whatif-in', rows: '1', placeholder: 'A green girl who longs to belong discovers the wizard she idolizes is the tyrant…' });
+  wi.appendChild(bindArea(wiTA, () => dna.whatIf, (v) => { dna.whatIf = v; }));
+  wrap.appendChild(wi);
+  wrap.appendChild(el('p', { class: 'dna-lede', text: 'Seven beats, mirrored — the want line falls, the truth line rises, the midpoint turns. Free text; fill what you know.' }));
+
+  // 2 — the mirrored 7-beat chiasmus
+  const beatCard = (side, role, name, key) => {
+    const card = el('div', { class: 'dna-beat dna-' + side });
+    card.appendChild(el('div', { class: 'dna-role', text: role }));
+    card.appendChild(el('div', { class: 'dna-beat-name', text: name }));
+    const ta = el('textarea', { class: 'dna-in', rows: '2', placeholder: 'the beat, in a line' });
+    card.appendChild(bindArea(ta, () => dna.beats[key], (v) => { dna.beats[key] = v; }));
+    if (key === 'threshold') {
+      const cw = el('div', { class: 'dna-catch' });
+      cw.appendChild(el('div', { class: 'dna-catch-lbl', text: 'the catch' }));
+      const cta = el('textarea', { class: 'dna-in dna-catch-in', rows: '2', placeholder: '…but getting the want exposes the flaw' });
+      cw.appendChild(bindArea(cta, () => dna.beats.catch, (v) => { dna.beats.catch = v; }));
+      card.appendChild(cw);
+    }
+    return card;
+  };
+  const conn = (order, rel) => {
+    const c = el('div', { class: 'dna-conn' });
+    c.appendChild(el('span', { class: 'dna-conn-order', text: order }));
+    c.appendChild(el('span', { class: 'dna-conn-arrow', text: '↔' }));
+    c.appendChild(el('span', { class: 'dna-rel dna-rel-' + rel, text: rel }));
+    return c;
+  };
+  const grid = el('div', { class: 'dna-grid' });
+  grid.appendChild(beatCard('truth', 'truth line · beat 7', 'Resolution', 'resolution'));
+  grid.appendChild(conn('discover 1st', 'inverts'));
+  grid.appendChild(beatCard('want', 'want line · beat 1', 'Set up want', 'setUpWant'));
+  grid.appendChild(beatCard('truth', 'truth line · beat 6', 'A-ha', 'aha'));
+  grid.appendChild(conn('discover 2nd', 'inverts'));
+  grid.appendChild(beatCard('want', 'want line · beat 2', 'Threshold', 'threshold'));
+  grid.appendChild(beatCard('truth', 'truth line · beat 3', 'Pinch', 'pinch'));
+  grid.appendChild(conn('discover 3rd', 'escalates'));
+  grid.appendChild(beatCard('want', 'want line · beat 5', 'Crisis', 'crisis'));
+  wrap.appendChild(grid);
+
+  const midWrap = el('div', { class: 'dna-mid-wrap' });
+  midWrap.appendChild(el('div', { class: 'dna-mid-arrow', text: '↓' }));
+  const mid = el('div', { class: 'dna-beat dna-mid' });
+  mid.appendChild(el('div', { class: 'dna-role', text: 'nucleus · beat 4' }));
+  mid.appendChild(el('div', { class: 'dna-beat-name', text: 'Midpoint' }));
+  const mta = el('textarea', { class: 'dna-in', rows: '2', placeholder: 'the point of no return — often discovered last' });
+  mid.appendChild(bindArea(mta, () => dna.beats.midpoint, (v) => { dna.beats.midpoint = v; }));
+  midWrap.appendChild(mid);
+  wrap.appendChild(midWrap);
+
+  // 3 — the theme, three levels of stakes
+  wrap.appendChild(el('div', { class: 'dna-divider' }));
+  const stHead = el('div', { class: 'dna-sec-head' });
+  stHead.appendChild(el('h3', { class: 'dna-sec-title', text: 'Theme — the stakes it argues' }));
+  stHead.appendChild(el('p', { class: 'dna-sec-sub', text: 'Three levels, after Arndt. Each is an opposition — a truth pole and a flaw pole.' }));
+  wrap.appendChild(stHead);
+  const stakes = el('div', { class: 'dna-stakes' });
+  [['external', 'External', 'the plot’s stake'], ['internal', 'Internal', 'the relational self'], ['philosophical', 'Philosophical', 'the worldview']].forEach(([k, label, hint]) => {
+    const row = el('div', { class: 'dna-stake-row' });
+    const lab = el('div', { class: 'dna-stake-lbl' });
+    lab.appendChild(el('span', { class: 'dna-stake-name', text: label }));
+    lab.appendChild(el('span', { class: 'dna-stake-hint', text: hint }));
+    row.appendChild(lab);
+    const tIn = el('input', { class: 'dna-pole dna-pole-truth', type: 'text', placeholder: 'truth pole' });
+    row.appendChild(bindInput(tIn, () => dna.stakes[k].truth, (v) => { dna.stakes[k].truth = v; }));
+    row.appendChild(el('span', { class: 'dna-vs', text: '↔' }));
+    const fIn = el('input', { class: 'dna-pole dna-pole-flaw', type: 'text', placeholder: 'flaw pole' });
+    row.appendChild(bindInput(fIn, () => dna.stakes[k].flaw, (v) => { dna.stakes[k].flaw = v; }));
+    stakes.appendChild(row);
+  });
+  wrap.appendChild(stakes);
+
+  // 4 — the character web (Truby), projected from the real cast
+  wrap.appendChild(el('div', { class: 'dna-divider' }));
+  const webHead = el('div', { class: 'dna-sec-head' });
+  webHead.appendChild(el('h3', { class: 'dna-sec-title', text: 'Character web' }));
+  webHead.appendChild(el('p', { class: 'dna-sec-sub', text: 'The cast plotted on the two character-facing axes — internal × philosophical. An empty cell is a missing voice.' }));
+  wrap.appendChild(webHead);
+  buildDnaWeb(wrap, dna, ro);
+}
+
+function buildDnaWeb(wrap, dna, ro) {
+  const iT = dna.stakes.internal.truth, iF = dna.stakes.internal.flaw;
+  const pT = dna.stakes.philosophical.truth, pF = dna.stakes.philosophical.flaw;
+  const head = (v, fallback, cls) => v
+    ? el('div', { class: cls, text: v })
+    : el('div', { class: cls + ' dna-web-ph', text: fallback });
+
+  const cast = Object.keys(extractCharacters().merged).sort();
+  const chipsFor = (p, i) => cast.filter((n) => { const w = state.characters[n] && state.characters[n].web; return w && w.p === p && w.i === i; });
+  const cell = (p, i) => {
+    const c = el('div', { class: 'dna-web-cell' });
+    const chips = chipsFor(p, i);
+    if (chips.length) chips.forEach((n) => c.appendChild(el('span', { class: 'dna-web-chip', text: n })));
+    else c.appendChild(el('span', { class: 'dna-web-hole', text: '—' }));
+    return c;
+  };
+
+  const web = el('div', { class: 'dna-web' });
+  web.appendChild(el('div', { class: 'dna-web-corner', text: 'philos. ↓ · internal →' }));
+  web.appendChild(head(iT, 'internal truth', 'dna-web-colhead dna-truth-ink'));
+  web.appendChild(head(iF, 'internal flaw', 'dna-web-colhead dna-flaw-ink'));
+  web.appendChild(head(pT, 'philosophical truth', 'dna-web-rowhead dna-truth-ink'));
+  web.appendChild(cell('truth', 'truth'));
+  web.appendChild(cell('truth', 'flaw'));
+  web.appendChild(head(pF, 'philosophical flaw', 'dna-web-rowhead dna-flaw-ink'));
+  web.appendChild(cell('flaw', 'truth'));
+  web.appendChild(cell('flaw', 'flaw'));
+  wrap.appendChild(web);
+
+  if (!cast.length) {
+    wrap.appendChild(el('p', { class: 'dna-sec-sub', text: 'No characters yet — add them on the Characters page to plot the web.' }));
+    return;
+  }
+
+  // Placement tray: two selects per character; the grid above is a live projection.
+  const tray = el('div', { class: 'dna-tray' });
+  tray.appendChild(el('div', { class: 'dna-tray-lbl', text: 'Place the cast' }));
+  const opt = (sel, val, txt) => { const o = el('option', { value: val, text: txt }); if (sel === val) o.setAttribute('selected', ''); return o; };
+  const poleSelect = (name, axis, tLabel, fLabel) => {
+    const cur = (state.characters[name] && state.characters[name].web && state.characters[name].web[axis]) || '';
+    const sel = el('select', { class: 'dna-tray-sel fi' });
+    sel.appendChild(opt(cur, '', '—'));
+    sel.appendChild(opt(cur, 'truth', tLabel || 'Truth'));
+    sel.appendChild(opt(cur, 'flaw', fLabel || 'Flaw'));
+    if (ro) sel.setAttribute('disabled', '');
+    else sel.addEventListener('change', () => {
+      const rec = state.characters[name] || (state.characters[name] = {});
+      rec.web = rec.web || { i: '', p: '' };
+      rec.web[axis] = sel.value;
+      scheduleSave();
+      const y = window.scrollY;
+      buildStoryDnaPage();
+      window.scrollTo(0, y);
+    });
+    return sel;
+  };
+  const field = (label, node) => {
+    const w = el('label', { class: 'dna-tray-field' });
+    w.appendChild(el('span', { class: 'dna-tray-field-lbl', text: label }));
+    w.appendChild(node);
+    return w;
+  };
+  cast.forEach((name) => {
+    const row = el('div', { class: 'dna-tray-row' });
+    row.appendChild(el('span', { class: 'dna-tray-name', text: name }));
+    row.appendChild(field('internal', poleSelect(name, 'i', iT, iF)));
+    row.appendChild(field('philosophical', poleSelect(name, 'p', pT, pF)));
+    tray.appendChild(row);
+  });
+  wrap.appendChild(tray);
+}
+
 function navigateTo(page, sceneId) {
   state.page = page;
   document.querySelectorAll('.page').forEach((p) => { p.style.display = 'none'; });
@@ -2564,6 +2779,7 @@ function navigateTo(page, sceneId) {
   if (page === 'titlepage') buildTitlePagesFull();
   if (page === 'manuscript') buildManuscriptPage(sceneId);
   if (page === 'characters') buildCharactersPage();
+  if (page === 'storydna') buildStoryDnaPage();
   if (page === 'export') buildExportPage();
 }
 
