@@ -769,16 +769,16 @@ body.dark .ref-teach { background: #211d33; border-color: #3a3357; }
 body.dark .ref-teach-text { color: #c2bcee; }
 
 /* ---- Snapshots drawer (whole-show version history) ---- */
-.snap-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.28); z-index: 59; }
+.snap-overlay { position: fixed; inset: 0; background: transparent; z-index: 59; }
 .snap-drawer {
-  position: fixed; top: 0; right: 0; bottom: 0; width: 340px; max-width: 88vw;
-  background: var(--panel); border-left: 1px solid var(--line);
-  box-shadow: -8px 0 28px #00000026; z-index: 60;
-  display: flex; flex-direction: column;
-  padding-top: env(safe-area-inset-top);
-  animation: snapIn 0.16s ease;
+  position: fixed; top: 52px; right: 12px; width: 340px; max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 66px);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 12px 34px #00000026; z-index: 60;
+  display: flex; flex-direction: column; overflow: hidden;
+  animation: snapIn 0.14s ease;
 }
-@keyframes snapIn { from { transform: translateX(16px); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes snapIn { from { transform: translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
 .snap-head { display: flex; align-items: center; gap: 8px; padding: 14px 14px 12px; border-bottom: 1px solid var(--line); }
 .snap-title { font-size: 15px; font-weight: 500; color: var(--ink); flex: 1; }
 .snap-save-btn { font-family: inherit; font-size: 12.5px; font-weight: 500; padding: 6px 11px; border: none; border-radius: 8px; background: var(--energy); color: #fff; cursor: pointer; white-space: nowrap; }
