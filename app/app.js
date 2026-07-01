@@ -2671,12 +2671,21 @@ function buildStoryDnaPage() {
   wi.appendChild(bindArea(wiTA, () => dna.whatIf, (v) => { dna.whatIf = v; }));
   wrap.appendChild(wi);
 
-  // 2 — the mirrored 7-beat chiasmus
+  // 2 — the mirrored 7-beat chiasmus. Placeholders after Jill Chamberlain's
+  // Nutshell Technique turning points (A-ha here = her Climactic Choice).
+  const BEAT_PH = {
+    setUpWant: 'What she wants, and why she can’t have it yet',
+    threshold: 'The event that pulls her into the story',
+    pinch: 'A setback that raises the cost of pursuing the want',
+    crisis: 'Want vs. flaw comes to a head — an impossible choice',
+    aha: 'The decisive action that resolves the crisis (Climactic Choice)',
+    resolution: 'The new equilibrium her choice creates',
+  };
   const beatCard = (side, role, name, key) => {
     const card = el('div', { class: 'dna-beat dna-' + side });
     card.appendChild(el('div', { class: 'dna-role', text: role }));
     card.appendChild(el('div', { class: 'dna-beat-name', text: name }));
-    const ta = el('textarea', { class: 'dna-in', rows: '2', placeholder: 'the beat, in a line' });
+    const ta = el('textarea', { class: 'dna-in', rows: '2', placeholder: BEAT_PH[key] || 'the beat, in a line' });
     card.appendChild(bindArea(ta, () => dna.beats[key], (v) => { dna.beats[key] = v; }));
     if (key === 'threshold') {
       const cw = el('div', { class: 'dna-catch' });
