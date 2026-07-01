@@ -1403,7 +1403,7 @@ body.dark .ch-kind-btn.active { background: #6a61d0; }
 
 .dna-mid-row { grid-template-columns: 1fr; }
 .dna-beat.dna-mid { text-align: center; }
-.dna-mid .dna-role, .dna-mid .dna-beat-name { text-align: center; }
+.dna-mid .dna-role, .dna-mid .dna-beat-name, .dna-mid .dna-in { text-align: center; }
 
 .dna-divider { border-top: 1px solid var(--line); margin: 28px 0 18px; }
 .dna-sec-head { margin-bottom: 14px; }
