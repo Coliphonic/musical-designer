@@ -1414,8 +1414,8 @@ body.dark .ch-kind-btn.active { background: #6a61d0; }
 .dna-stake-name { font-size: 13px; font-weight: 600; color: var(--ink); }
 .dna-stake-hint { font-size: 10px; color: var(--muted); }
 .dna-pole { font-size: 13px; padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
-.dna-pole-truth { border-color: var(--sage-line); background: var(--sage-bg); }
-.dna-pole-flaw { border-color: var(--tension); background: var(--hl); }
+.dna-pole-truth { border-color: var(--sage-line); }
+.dna-pole-flaw { border-color: var(--tension); }
 .dna-vs { text-align: center; color: var(--muted); font-size: 13px; }
 
 .dna-web { display: grid; grid-template-columns: 132px minmax(0,1fr) minmax(0,1fr); gap: 8px; align-items: stretch; }
