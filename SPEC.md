@@ -423,6 +423,144 @@ tags, notes-report export. (4) Real-time multi-collaborator authoring.
 the anchored line's `lastRev` changes between drafts (nice nudge vs. noise); fixed tag palette vs. freeform
 (fixed keeps the Navigator dots meaningful); collaboration reach (labels now, true multi-user later).
 
+## 14. Research notes — the writer's notebook
+
+A third top-level destination alongside **Board** and **Manuscript**: a place for the thinking that
+isn't a card yet — theme work, character and relationship notes, setting, pasted research, quotes,
+sources. The model is the one the writer already runs by hand: **Apple Notes open next to the writing
+window**, with distinct notes for "Characters," "Setting," "Theme," "Sources." This ports that setup
+inside the app so it travels with the show instead of living in a separate silo.
+
+**Why a page, not a Manuscript drawer.** The friction being solved is *referencing back and forth
+without clicking into cards*. Notes get cross-referenced against **both** the board and the manuscript,
+so a panel bolted onto one mode would serve only half the flow. It's a sibling page. The Scrivener
+feel — flip to Research, flip back, don't lose your place — comes not from co-visibility but from
+**per-mode position memory** (below).
+
+**Structure — a list of named freeform notes** (Apple Notes' sidebar / Scrivener's binder), *not* one
+long chunked document. This is the cleaner shape and it maps directly onto the existing Navigator:
+
+- **Navigator rail = the note index.** Click a title, its page fills the pane. The Navigator *is* the
+  list of notes — no heading-anchor gymnastics; each note is its own anchor.
+- **Pane = the selected note** — freeform paste-and-write.
+
+**Data model** — notes live in the show file so they sync and travel with everything else:
+
+```
+show.notes = [ { id, title, body, createdAt, updatedAt } ]   // ordered; freeform body
+```
+
+Ship a couple of starter notes (Characters, Theme, Sources) but the categories are **not** hardcoded —
+add / rename / delete / reorder freely, since every show needs different buckets.
+
+**The editor is deliberately simpler than the Manuscript's.** Headings, paragraphs, block quotes,
+links — explicitly **not** cue/dialogue/lyric elements. Paste lands as plain text with line breaks
+preserved (predictable over pretty), with a manual block-quote style for quotes and sources.
+
+**Position memory is the one hard requirement, and it's per-mode.** "Keeps my position in both modes"
+means each destination independently remembers where you were:
+
+- **Notes** remembers *which note is open + its scroll position*.
+- **Board** remembers *scroll / zoom*.
+- **Manuscript** remembers *its scroll spot* (the Edit/Print anchor system already built — now also
+  "don't reset when I leave and come back").
+
+Get this right and flipping Notes ↔ Board ↔ Manuscript never loses your place. That's the whole
+"doesn't interrupt my flow" property.
+
+**Distinct from §13 (Editorial notes).** Opposite direction of flow. Editorial notes are *commentary
+on material that already exists* ("cut this song?", anchored to a line). Research notes are *generative
+capture flowing toward the board* — ideas with no home yet. Same neighborhood, different jobs; keep
+them separate systems even if they share visual vocabulary.
+
+**Phasing (UI-first).** (1) The page + note list + simple editor + show-file storage — the core port
+of the Apple Notes habit. (2) Per-mode position memory across all three destinations. (3) Paste
+handling / block-quote style / links. (4) *Optional, later:* "link this note to a card or scene" — skip
+for v1; the stated value is fast reference, not wiring.
+
+**Open decisions.** Whether the pane can expand to full width for pure dumping vs. always list-plus-pane;
+whether to keep the future note→card "promote" affordance in reserve (the Option-B idea we set aside)
+or commit to notes-as-reference-only; rich-paste fidelity (plain-plus-quotes now, more later).
+
+## 15. Story DNA — the broad-strokes analysis tab
+
+A singleton **Story DNA** page (a sibling top-level tab, like Characters or Research Notes) for working
+out the *shape* of the show before it's cards: the structural spine, the theme it argues, and the cast
+plotted on that theme. Lineage: a distillation of the separate **Story Symmetry** app (Wells/Baugh
+7-point chiasmus, Chamberlain's catch, Bell's mirror moment), narrowed to the broad strokes and
+re-drawn in *this* app's design language, plus **Arndt**'s three levels of stakes and **Truby**'s
+character web.
+
+**Deliberately decoupled in v1.** It's an *analysis* surface, not a generator — editing the DNA does
+**not** touch the board, and the board doesn't feed it. The writer fills it out, then goes and makes
+songs/cards by hand from what they learned. This is the whole complexity-saving decision: no structural
+model kept in sync with the card model, no orphans, no bidirectional edits. (A "create a card from this
+beat" bridge is a later phase, not v1.) One singleton per show, stored in the show file; inherits the
+same per-mode scroll/position memory as the other tabs (see §14).
+
+**The unifying idea — stakes are the shared spine.** The theme *is* a set of value oppositions; the
+beats trace the protagonist across them; the characters each stake out a position on them. One small
+set of oppositions, expressed at three levels. That's what earns the name.
+
+**Four panels, top to bottom, all free text:**
+
+1. **The "what if" line** — the logline / premise, one field.
+
+2. **The mirrored 7-beat diagram** — the chiasmus, flattened into this app's calmer language (no
+   sliders, no polarity/comedy-tragedy fork — those stay in Story Symmetry). Truth line down the left
+   (rising), want line down the right (falling), each horizontal **pair** linked by its relationship
+   (`inverts` / `escalates`), the **midpoint** dropped to the center as the nucleus.
+
+   | Left (truth line) | ↔ | Right (want line) |
+   |---|---|---|
+   | Resolution · beat 7 | inverts | Set up want · beat 1 |
+   | A-ha · beat 6 | inverts | Threshold · beat 2 |
+   | Pinch · beat 3 | escalates | Crisis · beat 5 |
+   | | Midpoint · beat 4 (nucleus) | |
+
+   **A beat is usually one text field — except the Threshold, which carries two:** the beat *and* a
+   broken-out **catch** (Chamberlain's "you get the want, but…"). The catch gets its own labeled line
+   because it's the specific thing the A-ha inverts, and burying it in prose hides the mirror. (Wicked:
+   catch = "the special treatment makes her visible" ↔ A-ha = "she chooses to become invisible.") So the
+   data shape is a beat with role, text, and an optional `catch` on the Threshold — mirroring Story
+   Symmetry's model without importing its numeric machinery.
+
+3. **The theme — three levels of stakes (Arndt).** Each level is one opposition, two free-text poles
+   (the truth pole and the flaw pole):
+
+   | Level | Truth pole | Flaw pole |
+   |---|---|---|
+   | External (the plot's stake) | Justice for all | Tyranny |
+   | Internal (the relational self) | Solidarity | Isolation |
+   | Philosophical (the worldview) | Be yourself | Keep appearances |
+
+   This is the step past Story Symmetry, which had only two axes (internal, philosophical) — **External
+   is the new third strand.**
+
+4. **The character web (Truby)** — inline on this page (not the Characters tab), a 2×2 grid crossing
+   **Internal × Philosophical** *only* — the two *character-facing* axes. External is the plot's stake,
+   not a way to sort a cast. Row/column labels are **read live from the theme block above** (one-
+   directional read from the same show file — no sync, no orphans; blank axes just show placeholders).
+   Cells are multi-occupant, and an **empty cell is a diagnostic** — a stance no character embodies,
+   i.e. a possibly-missing voice. (Wicked: "be yourself · isolation" = Elphaba, Fiyero; "keep
+   appearances · isolation" = the Wizard, Morrible, Nessa.)
+
+**What we're leaving in Story Symmetry (not porting):** the numeric stakes sliders and transformation
+curve, the 2-D plane, the mirror desk, the lenses, the comedy/tragedy variant fork, the 40-card
+expansion (this app's **board** already *is* the expansion), and the polarity-aware **validator**. The
+validator is the most tempting to bring back — it's the real "analysis engine" — but it's a later phase.
+
+**Phasing (UI-first).** (1) The tab: what-if + 7-beat chiasmus (with the Threshold catch) + three-level
+stakes + inline character web — all free text, zero board coupling. (2) The validator / mirror-integrity
+checks and hole-finding (pair inversions, resolution ↔ set-up-want, empty web cells). (3) The External
+axis participating in a web view; a "create card/song from this beat" bridge to the board; optional
+comedy/tragedy fork.
+
+**Open decisions.** Whether v1 seeds a new project *onto* this page (discovery-first) or leaves it as an
+optional side tool — lean optional, never a forced gate; whether character placement is free-text cells
+or stored on real character records so the grid is a projection (leaning the latter — B-lite — once the
+Characters model is touched); how far the validator goes before it becomes noise.
+
 ### Design lessons we're keeping
 
 - **The substrate earns the feature.** Two foundations — the **pagination/measurement engine** and
