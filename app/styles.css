@@ -9,7 +9,7 @@
   --hover: #f0ece4;
   --btn: #f4f0e8;
   --energy: #534ab7;
-  --tension: #d85a30;
+  --tension: #d85a30; --tension-line: #e8cabd;
   --radius: 12px;
   /* Editor-zone accents: Sections = sage (matches loglines), Rhymes = rose, Details = azure. */
   --sage: #5f7d57; --sage-bg: #eef3e7; --sage-line: #cdddbf;
@@ -29,7 +29,7 @@ body.dark {
   --hover: #2e2c28;
   --btn: #2a2825;
   --energy: #8b82e8;
-  --tension: #e07a55;
+  --tension: #e07a55; --tension-line: #5a3a2c;
   --sage: #9cc28d; --sage-bg: #16210f; --sage-line: #3a5a2d;
   --rose: #e07898; --rose-bg: #2a0f1c; --rose-line: #5a2540;
   --azure: #82b8ec; --azure-bg: #0d1f35; --azure-line: #2a4a6e;
@@ -1415,7 +1415,7 @@ body.dark .ch-kind-btn.active { background: #6a61d0; }
 .dna-stake-hint { font-size: 10px; color: var(--muted); }
 .dna-pole { font-size: 13px; padding: 7px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); }
 .dna-pole-truth { border-color: var(--sage-line); }
-.dna-pole-flaw { border-color: var(--tension); }
+.dna-pole-flaw { border-color: var(--tension-line); }
 .dna-vs { text-align: center; color: var(--muted); font-size: 13px; }
 
 .dna-web { display: grid; grid-template-columns: 132px minmax(0,1fr) minmax(0,1fr); gap: 8px; align-items: stretch; }
