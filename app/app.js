@@ -2417,6 +2417,23 @@ function extractCharacters() {
   return { merged, appearances };
 }
 
+// A "group" cue is an arrangement of people (ALL, BOTH, COMPANY) or a multi-name
+// cue (LUNA & FELIX) — tracked, but not a real character. autoKind() is the guess;
+// an explicit record.kind (set via the Characters-page toggle) always wins and is
+// never clobbered by re-syncing.
+const GROUP_WORDS = new Set(['ALL', 'BOTH', 'EVERYONE', 'EVERYBODY', 'COMPANY', 'FULL COMPANY', 'ENSEMBLE', 'CHORUS', 'CROWD', 'MEN', 'WOMEN', 'THE MEN', 'THE WOMEN', 'BOYS', 'GIRLS', 'OTHERS', 'ALL OTHERS', 'GROUP', 'TOGETHER', 'TUTTI', 'OMNES']);
+function autoKind(name) {
+  const n = (name || '').toUpperCase().trim();
+  if (GROUP_WORDS.has(n)) return 'group';
+  if (/\s*&\s*|\s+AND\s+|\s*\/\s*|\s*,\s*|\s*\+\s*|\s+WITH\s+/.test(n)) return 'group'; // arrangement of people
+  return 'character';
+}
+function charKind(name) {
+  const rec = state.characters[name];
+  if (rec && (rec.kind === 'character' || rec.kind === 'group')) return rec.kind;
+  return autoKind(name);
+}
+
 // Deterministic hue (0–359) from a character name, so each card's avatar/accent
 // is stable and well-distributed across the spectrum.
 function charHue(name) {
@@ -2462,12 +2479,12 @@ function buildCharactersPage() {
     return;
   }
 
-  const grid = el('div', { class: 'ch-grid' });
-  names.forEach((name) => {
+  const makeCard = (name) => {
     const data = merged[name];
     const apps = appearances[name] || [];
     const hue = charHue(name);
-    const card = el('div', { class: 'ch-card' + (data.manual && !apps.length ? ' ch-manual' : '') });
+    const kind = charKind(name);
+    const card = el('div', { class: 'ch-card' + (data.manual && !apps.length ? ' ch-manual' : '') + (kind === 'group' ? ' ch-group' : '') });
     card.style.setProperty('--ch-hue', hue);
 
     const cardHead = el('div', { class: 'ch-card-head' });
@@ -2480,6 +2497,23 @@ function buildCharactersPage() {
     else headText.appendChild(el('span', { class: 'ch-count', text: apps.length + ' song' + (apps.length !== 1 ? 's' : '') }));
     cardHead.appendChild(headText);
     card.appendChild(cardHead);
+
+    // Character vs. group toggle — groups drop out of the cast list and the web.
+    const kindWrap = el('div', { class: 'ch-kind', title: 'A group (ALL, BOTH, a duet cue) is an arrangement, not a character — kept out of the cast list and the Story DNA web.' });
+    [['character', 'Character'], ['group', 'Group']].forEach(([k, lbl]) => {
+      const b = el('button', { class: 'ch-kind-btn' + (kind === k ? ' active' : '') });
+      b.textContent = lbl;
+      if (state.readonly) b.disabled = true;
+      else b.addEventListener('click', () => {
+        if (kind === k) return;
+        const rec = state.characters[name] || (state.characters[name] = {});
+        rec.kind = k;
+        scheduleSave();
+        buildCharactersPage();
+      });
+      kindWrap.appendChild(b);
+    });
+    card.appendChild(kindWrap);
 
     // Voice type selector
     const vtWrap = el('div', { class: 'ch-field' });
@@ -2551,9 +2585,28 @@ function buildCharactersPage() {
       card.appendChild(removeBtn);
     }
 
-    grid.appendChild(card);
-  });
+    return card;
+  };
+
+  const realNames = names.filter((n) => charKind(n) === 'character');
+  const groupNames = names.filter((n) => charKind(n) === 'group');
+
+  const grid = el('div', { class: 'ch-grid' });
+  if (realNames.length) realNames.forEach((name) => grid.appendChild(makeCard(name)));
+  else grid.appendChild(el('p', { class: 'ch-empty-note', text: 'No individual characters yet — everything below is a grouping.' }));
   host.appendChild(grid);
+
+  if (groupNames.length) {
+    const sec = el('div', { class: 'ch-groupsec' });
+    const head = el('div', { class: 'ch-section-head' });
+    head.appendChild(el('span', { class: 'ch-section-title', text: 'Ensemble & groupings' }));
+    head.appendChild(el('span', { class: 'ch-section-sub', text: 'Arrangements like ALL or BOTH — kept out of the cast list and the character web. Flip one to Character if it belongs in the cast.' }));
+    sec.appendChild(head);
+    const ggrid = el('div', { class: 'ch-grid' });
+    groupNames.forEach((name) => ggrid.appendChild(makeCard(name)));
+    sec.appendChild(ggrid);
+    host.appendChild(sec);
+  }
 }
 
 // ---- Story DNA -----------------------------------------------------------
@@ -2702,7 +2755,7 @@ function buildDnaWeb(wrap, dna, ro) {
     ? el('div', { class: cls, text: v })
     : el('div', { class: cls + ' dna-web-ph', text: fallback });
 
-  const cast = Object.keys(extractCharacters().merged).sort();
+  const cast = Object.keys(extractCharacters().merged).filter((n) => charKind(n) === 'character').sort();
   const chipsFor = (p, i) => cast.filter((n) => { const w = state.characters[n] && state.characters[n].web; return w && w.p === p && w.i === i; });
   const cell = (p, i) => {
     const c = el('div', { class: 'dna-web-cell' });
@@ -3162,7 +3215,7 @@ function buildTitlePages() {
   if (inc.cast !== false) addSheet((c) => {
     c.appendChild(el('div', { class: 'tp-section-heading tp-cast-heading', text: 'Characters' }));
     c.appendChild(el('div', { class: 'tp-spacer' }));
-    const charNames = Object.keys(state.characters).sort();
+    const charNames = Object.keys(state.characters).filter((n) => charKind(n) === 'character').sort();
     if (charNames.length === 0) {
       c.appendChild(el('div', { class: 'tp-cast-hint', text: '(No characters yet — add @NAME cues in lyrics, then sync on the Characters page)' }));
     } else {

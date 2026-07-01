@@ -1352,6 +1352,22 @@ body.dark .ms-style-hint { color: #8b83a8; }
 .ch-card:hover .ch-remove { opacity: 1; }
 .ch-remove:hover { background: var(--tension); color: #fff; }
 
+/* Character vs. group toggle */
+.ch-kind { display: inline-flex; align-self: flex-start; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; margin: -2px 0 2px; }
+.ch-kind-btn { font-family: inherit; font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; padding: 3px 10px; border: none; background: transparent; color: var(--muted); cursor: pointer; transition: background 0.12s, color 0.12s; }
+.ch-kind-btn + .ch-kind-btn { border-left: 1px solid var(--line); }
+.ch-kind-btn.active { background: var(--energy); color: #fff; }
+body.dark .ch-kind-btn.active { background: #6a61d0; }
+.ch-kind-btn:not(.active):hover { background: var(--hover); color: var(--ink); }
+.ch-kind-btn:disabled { cursor: default; }
+.ch-card.ch-group { opacity: 0.82; }
+.ch-card.ch-group .ch-avatar { filter: grayscale(0.55); }
+.ch-empty-note { font-size: 13px; color: var(--muted); margin: 4px 2px; }
+.ch-groupsec { margin-top: 26px; }
+.ch-section-head { border-top: 1px solid var(--line); padding: 18px 2px 12px; display: flex; flex-direction: column; gap: 3px; }
+.ch-section-title { font-size: 14px; font-weight: 600; color: var(--ink); }
+.ch-section-sub { font-size: 12px; color: var(--muted); line-height: 1.5; max-width: 620px; }
+
 /* ---- Story DNA ---- */
 .dna-note { font-size: 12px; color: var(--muted); }
 .dna-wrap { max-width: 720px; margin: 16px auto 60px; padding: 0 16px; }
