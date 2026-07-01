@@ -1401,9 +1401,9 @@ body.dark .ch-kind-btn.active { background: #6a61d0; }
 .dna-rel-inverts { background: var(--sage-bg); color: var(--sage); }
 .dna-rel-escalates { background: var(--hl); color: var(--hl-ink); }
 
-.dna-mid-row { grid-template-columns: 1fr; background: var(--btn); }
-.dna-beat.dna-mid { text-align: center; max-width: 480px; margin: 0 auto; }
-.dna-mid .dna-in { text-align: center; }
+.dna-mid-row { grid-template-columns: 1fr; }
+.dna-beat.dna-mid { text-align: center; }
+.dna-mid .dna-role, .dna-mid .dna-beat-name { text-align: center; }
 
 .dna-divider { border-top: 1px solid var(--line); margin: 28px 0 18px; }
 .dna-sec-head { margin-bottom: 14px; }
