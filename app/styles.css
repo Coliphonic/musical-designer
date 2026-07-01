@@ -1371,13 +1371,13 @@ body.dark .ch-kind-btn.active { background: #6a61d0; }
 /* ---- Story DNA ---- */
 .dna-note { font-size: 12px; color: var(--muted); }
 .dna-wrap { max-width: 720px; margin: 16px auto 60px; padding: 0 16px; }
-.dna-whatif { display: flex; align-items: baseline; gap: 10px; padding: 4px 0; }
-.dna-whatif-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); font-weight: 600; flex: 0 0 auto; }
-.dna-whatif-in { flex: 1; font-size: 15px; font-style: italic; color: var(--note); font-family: Georgia, 'Times New Roman', serif; line-height: 1.5; }
-.dna-lede { font-size: 12px; color: var(--muted); margin: 4px 0 18px; }
+.dna-field { display: flex; flex-direction: column; gap: 5px; margin: 4px 0 20px; }
+.dna-field-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); font-weight: 600; }
+.dna-field-in { width: 100%; font-size: 14px; color: var(--ink); font-family: inherit; line-height: 1.5; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); padding: 9px 11px; resize: none; overflow: hidden; }
+.dna-field-in:focus { outline: none; border-color: var(--energy); background: var(--panel); }
 
-.dna-in, .dna-whatif-in { width: 100%; border: none; background: transparent; resize: none; overflow: hidden; padding: 0; color: var(--ink); font-family: inherit; }
-.dna-in:focus, .dna-whatif-in:focus, .dna-pole:focus, .dna-tray-sel:focus { outline: none; }
+.dna-in { width: 100%; border: none; background: transparent; resize: none; overflow: hidden; padding: 0; color: var(--ink); font-family: inherit; }
+.dna-in:focus, .dna-field-in:focus, .dna-pole:focus, .dna-tray-sel:focus { outline: none; }
 
 .dna-grid { display: grid; grid-template-columns: minmax(0,1fr) 96px minmax(0,1fr); gap: 14px 10px; align-items: stretch; }
 .dna-beat { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 11px 13px; }
@@ -1388,7 +1388,7 @@ body.dark .ch-kind-btn.active { background: #6a61d0; }
 .dna-want .dna-role { color: var(--azure); }
 .dna-beat-name { font-size: 15px; font-weight: 600; color: var(--ink); margin-bottom: 5px; }
 .dna-in { font-size: 13px; color: var(--note); line-height: 1.5; min-height: 22px; }
-.dna-in::placeholder, .dna-whatif-in::placeholder, .dna-pole::placeholder { color: var(--faint); }
+.dna-in::placeholder, .dna-field-in::placeholder, .dna-pole::placeholder { color: var(--faint); }
 .dna-catch { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
 .dna-catch-lbl { font-size: 10px; letter-spacing: 0.04em; color: var(--tension); margin-bottom: 2px; }
 

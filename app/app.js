@@ -2665,12 +2665,11 @@ function buildStoryDnaPage() {
   host.appendChild(wrap);
 
   // 1 — the "what if"
-  const wi = el('div', { class: 'dna-whatif' });
-  wi.appendChild(el('span', { class: 'dna-whatif-lbl', text: 'what if' }));
-  const wiTA = el('textarea', { class: 'dna-whatif-in', rows: '1', placeholder: 'A green girl who longs to belong discovers the wizard she idolizes is the tyrant…' });
+  const wi = el('div', { class: 'dna-field' });
+  wi.appendChild(el('label', { class: 'dna-field-lbl', text: 'What if…' }));
+  const wiTA = el('textarea', { class: 'dna-field-in', rows: '2', placeholder: 'The premise in a sentence — the “what if” at the heart of the show.' });
   wi.appendChild(bindArea(wiTA, () => dna.whatIf, (v) => { dna.whatIf = v; }));
   wrap.appendChild(wi);
-  wrap.appendChild(el('p', { class: 'dna-lede', text: 'Seven beats, mirrored — the want line falls, the truth line rises, the midpoint turns. Free text; fill what you know.' }));
 
   // 2 — the mirrored 7-beat chiasmus
   const beatCard = (side, role, name, key) => {
@@ -2720,8 +2719,7 @@ function buildStoryDnaPage() {
   // 3 — the theme, three levels of stakes
   wrap.appendChild(el('div', { class: 'dna-divider' }));
   const stHead = el('div', { class: 'dna-sec-head' });
-  stHead.appendChild(el('h3', { class: 'dna-sec-title', text: 'Theme — the stakes it argues' }));
-  stHead.appendChild(el('p', { class: 'dna-sec-sub', text: 'Three levels, after Arndt. Each is an opposition — a truth pole and a flaw pole.' }));
+  stHead.appendChild(el('h3', { class: 'dna-sec-title', text: 'Theme' }));
   wrap.appendChild(stHead);
   const stakes = el('div', { class: 'dna-stakes' });
   [['external', 'External', 'the plot’s stake'], ['internal', 'Internal', 'the relational self'], ['philosophical', 'Philosophical', 'the worldview']].forEach(([k, label, hint]) => {
@@ -2743,7 +2741,6 @@ function buildStoryDnaPage() {
   wrap.appendChild(el('div', { class: 'dna-divider' }));
   const webHead = el('div', { class: 'dna-sec-head' });
   webHead.appendChild(el('h3', { class: 'dna-sec-title', text: 'Character web' }));
-  webHead.appendChild(el('p', { class: 'dna-sec-sub', text: 'The cast plotted on the two character-facing axes — internal × philosophical. An empty cell is a missing voice.' }));
   wrap.appendChild(webHead);
   buildDnaWeb(wrap, dna, ro);
 }
