@@ -2694,21 +2694,16 @@ function buildStoryDnaPage() {
     c.appendChild(el('span', { class: 'dna-rel dna-rel-' + rel, text: rel }));
     return c;
   };
-  const grid = el('div', { class: 'dna-grid' });
-  grid.appendChild(beatCard('truth', 'truth line · beat 7', 'Resolution', 'resolution'));
-  grid.appendChild(conn('discover 1st', 'inverts'));
-  grid.appendChild(beatCard('want', 'want line · beat 1', 'Set up want', 'setUpWant'));
-  grid.appendChild(beatCard('truth', 'truth line · beat 6', 'A-ha', 'aha'));
-  grid.appendChild(conn('discover 2nd', 'inverts'));
-  grid.appendChild(beatCard('want', 'want line · beat 2', 'Threshold', 'threshold'));
-  grid.appendChild(beatCard('truth', 'truth line · beat 3', 'Pinch', 'pinch'));
-  grid.appendChild(conn('discover 3rd', 'escalates'));
-  grid.appendChild(beatCard('want', 'want line · beat 5', 'Crisis', 'crisis'));
+  const gridRow = (...cells) => { const r = el('div', { class: 'dna-grid-row' }); cells.forEach((c) => r.appendChild(c)); return r; };
+  const grid = el('div', { class: 'dna-grid dna-ledger' });
+  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 7', 'Resolution', 'resolution'), conn('discover 1st', 'inverts'), beatCard('want', 'want line · beat 1', 'Set up want', 'setUpWant')));
+  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 6', 'A-ha', 'aha'), conn('discover 2nd', 'inverts'), beatCard('want', 'want line · beat 2', 'Threshold', 'threshold')));
+  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 3', 'Pinch', 'pinch'), conn('discover 3rd', 'escalates'), beatCard('want', 'want line · beat 5', 'Crisis', 'crisis')));
   wrap.appendChild(grid);
 
   const midWrap = el('div', { class: 'dna-mid-wrap' });
   midWrap.appendChild(el('div', { class: 'dna-mid-arrow', text: '↓' }));
-  const mid = el('div', { class: 'dna-beat dna-mid' });
+  const mid = el('div', { class: 'dna-beat dna-mid dna-ledger' });
   mid.appendChild(el('div', { class: 'dna-role', text: 'nucleus · beat 4' }));
   mid.appendChild(el('div', { class: 'dna-beat-name', text: 'Midpoint' }));
   const mta = el('textarea', { class: 'dna-in', rows: '2', placeholder: 'the point of no return — often discovered last' });
@@ -2721,7 +2716,7 @@ function buildStoryDnaPage() {
   const stHead = el('div', { class: 'dna-sec-head' });
   stHead.appendChild(el('h3', { class: 'dna-sec-title', text: 'Theme' }));
   wrap.appendChild(stHead);
-  const stakes = el('div', { class: 'dna-stakes' });
+  const stakes = el('div', { class: 'dna-stakes dna-ledger' });
   [['external', 'External', 'the plot’s stake'], ['internal', 'Internal', 'the relational self'], ['philosophical', 'Philosophical', 'the worldview']].forEach(([k, label, hint]) => {
     const row = el('div', { class: 'dna-stake-row' });
     const lab = el('div', { class: 'dna-stake-lbl' });
@@ -2762,7 +2757,7 @@ function buildDnaWeb(wrap, dna, ro) {
     return c;
   };
 
-  const web = el('div', { class: 'dna-web' });
+  const web = el('div', { class: 'dna-web dna-ledger' });
   web.appendChild(el('div', { class: 'dna-web-corner', text: 'philos. ↓ · internal →' }));
   web.appendChild(head(iT, 'internal truth', 'dna-web-colhead dna-truth-ink'));
   web.appendChild(head(iF, 'internal flaw', 'dna-web-colhead dna-flaw-ink'));
