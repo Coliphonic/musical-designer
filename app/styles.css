@@ -769,7 +769,7 @@ body.dark .ref-teach { background: #211d33; border-color: #3a3357; }
 body.dark .ref-teach-text { color: #c2bcee; }
 
 /* ---- Snapshots drawer (whole-show version history) ---- */
-.snap-overlay { position: fixed; inset: 0; background: transparent; z-index: 59; }
+.snap-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.32); z-index: 59; }
 .snap-drawer {
   position: fixed; top: 52px; right: 12px; width: 340px; max-width: calc(100vw - 24px);
   max-height: calc(100vh - 66px);
