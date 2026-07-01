@@ -2696,29 +2696,29 @@ function buildStoryDnaPage() {
     }
     return card;
   };
-  const conn = (order, rel) => {
+  const conn = (rel) => {
     const c = el('div', { class: 'dna-conn' });
-    c.appendChild(el('span', { class: 'dna-conn-order', text: order }));
     c.appendChild(el('span', { class: 'dna-conn-arrow', text: '↔' }));
     c.appendChild(el('span', { class: 'dna-rel dna-rel-' + rel, text: rel }));
     return c;
   };
   const gridRow = (...cells) => { const r = el('div', { class: 'dna-grid-row' }); cells.forEach((c) => r.appendChild(c)); return r; };
   const grid = el('div', { class: 'dna-grid dna-ledger' });
-  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 7', 'Resolution', 'resolution'), conn('discover 1st', 'inverts'), beatCard('want', 'want line · beat 1', 'Set up want', 'setUpWant')));
-  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 6', 'A-ha', 'aha'), conn('discover 2nd', 'inverts'), beatCard('want', 'want line · beat 2', 'Threshold', 'threshold')));
-  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 3', 'Pinch', 'pinch'), conn('discover 3rd', 'escalates'), beatCard('want', 'want line · beat 5', 'Crisis', 'crisis')));
-  wrap.appendChild(grid);
+  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 7', 'Resolution', 'resolution'), conn('inverts'), beatCard('want', 'want line · beat 1', 'Set up want', 'setUpWant')));
+  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 6', 'A-ha', 'aha'), conn('inverts'), beatCard('want', 'want line · beat 2', 'Threshold', 'threshold')));
+  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 3', 'Pinch', 'pinch'), conn('escalates'), beatCard('want', 'want line · beat 5', 'Crisis', 'crisis')));
 
-  const midWrap = el('div', { class: 'dna-mid-wrap' });
-  midWrap.appendChild(el('div', { class: 'dna-mid-arrow', text: '↓' }));
-  const mid = el('div', { class: 'dna-beat dna-mid dna-ledger' });
+  // Midpoint is the nucleus everything else mirrors around — an attached
+  // row in the same ledger, not a separate box floating below it.
+  const midRow = el('div', { class: 'dna-grid-row dna-mid-row' });
+  const mid = el('div', { class: 'dna-beat dna-mid' });
   mid.appendChild(el('div', { class: 'dna-role', text: 'nucleus · beat 4' }));
   mid.appendChild(el('div', { class: 'dna-beat-name', text: 'Midpoint' }));
   const mta = el('textarea', { class: 'dna-in', rows: '2', placeholder: 'the point of no return — often discovered last' });
   mid.appendChild(bindArea(mta, () => dna.beats.midpoint, (v) => { dna.beats.midpoint = v; }));
-  midWrap.appendChild(mid);
-  wrap.appendChild(midWrap);
+  midRow.appendChild(mid);
+  grid.appendChild(midRow);
+  wrap.appendChild(grid);
 
   // 3 — the theme, three levels of stakes
   wrap.appendChild(el('div', { class: 'dna-divider' }));

@@ -1396,15 +1396,14 @@ body.dark .ch-kind-btn.active { background: #6a61d0; }
 .dna-catch-lbl { font-size: 10px; letter-spacing: 0.04em; color: var(--tension); margin-bottom: 2px; }
 
 .dna-conn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; }
-.dna-conn-order { font-size: 10px; color: var(--muted); }
 .dna-conn-arrow { font-size: 15px; color: var(--muted); line-height: 1; }
 .dna-rel { font-size: 10px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
 .dna-rel-inverts { background: var(--sage-bg); color: var(--sage); }
 .dna-rel-escalates { background: var(--hl); color: var(--hl-ink); }
 
-.dna-mid-wrap { display: flex; flex-direction: column; align-items: center; margin-top: 12px; }
-.dna-mid-arrow { font-size: 16px; color: var(--muted); margin-bottom: 8px; }
-.dna-beat.dna-mid { max-width: 340px; text-align: center; }
+.dna-mid-row { grid-template-columns: 1fr; background: var(--btn); }
+.dna-beat.dna-mid { text-align: center; max-width: 480px; margin: 0 auto; }
+.dna-mid .dna-in { text-align: center; }
 
 .dna-divider { border-top: 1px solid var(--line); margin: 28px 0 18px; }
 .dna-sec-head { margin-bottom: 14px; }
