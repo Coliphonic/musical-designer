@@ -182,12 +182,15 @@
   <!-- Find & Replace modal -->
   <div id="find-modal" class="modal-overlay" style="display:none">
     <div class="modal-box find-box">
-      <h3 class="modal-title">Find &amp; Replace</h3>
+      <div class="seg find-mode-seg" id="find-mode-seg">
+        <button data-mode="find" class="active">Find</button>
+        <button data-mode="replace">Find &amp; Replace</button>
+      </div>
       <div class="fld">
         <span class="fl">Find</span>
         <input class="fi" type="text" id="find-q" placeholder="Find…" />
       </div>
-      <div class="fld">
+      <div class="fld" id="find-r-row">
         <span class="fl">Replace with</span>
         <input class="fi" type="text" id="find-r" placeholder="Replace with…" />
       </div>
@@ -197,8 +200,12 @@
       </div>
       <div class="find-status" id="find-status">Searches song &amp; scene text and notes.</div>
       <div class="modal-btns">
+        <div class="find-nav" id="find-nav">
+          <button id="find-prev" class="pbtn" title="Previous match">‹</button>
+          <button id="find-next" class="pbtn" title="Next match">›</button>
+        </div>
         <button id="find-cancel" class="pbtn">Close</button>
-        <button id="find-replace" class="pbtn primary">Replace all</button>
+        <button id="find-replace" class="pbtn primary" hidden>Replace all</button>
       </div>
     </div>
   </div>

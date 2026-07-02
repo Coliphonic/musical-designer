@@ -480,21 +480,81 @@ function findMatchCount(re) {
   return count;
 }
 function setFindStatus(text) { document.getElementById('find-status').textContent = text; }
+let findMode = 'find';
+let _findIdx = -1; // current position within the live match list (Find mode only)
 function updateFindStatus() {
   const q = document.getElementById('find-q').value;
   if (!q) { setFindStatus('Searches song & scene text and notes.'); return; }
   const re = buildFindRegex(q, findOpts());
   const n = re ? findMatchCount(re) : 0;
-  setFindStatus(n ? (n + ' match' + (n === 1 ? '' : 'es') + ' found.') : 'No matches found.');
+  if (findMode === 'find' && n) {
+    setFindStatus((_findIdx >= 0 ? (_findIdx + 1) + ' of ' : '') + n + ' match' + (n === 1 ? '' : 'es') + '.');
+  } else {
+    setFindStatus(n ? (n + ' match' + (n === 1 ? '' : 'es') + ' found.') : 'No matches found.');
+  }
+}
+function setFindMode(mode) {
+  findMode = mode;
+  _findIdx = -1;
+  document.querySelectorAll('#find-mode-seg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
+  document.getElementById('find-r-row').hidden = mode !== 'replace';
+  document.getElementById('find-replace').hidden = mode !== 'replace';
+  document.getElementById('find-nav').hidden = mode !== 'find';
+  updateFindStatus();
 }
 function openFindModal() {
   document.getElementById('find-modal').style.display = '';
-  updateFindStatus();
+  setFindMode('find');
   const q = document.getElementById('find-q');
   q.focus();
   q.select();
 }
 function closeFindModal() { document.getElementById('find-modal').style.display = 'none'; }
+
+// Ordered list of every match location, in Board/card order then Notes order —
+// rebuilt fresh on each Next/Prev press so it always reflects live text.
+function buildFindMatches(re) {
+  const list = [];
+  state.cards.forEach((c) => {
+    const n = countMatches(c[cardBodyField(c)] || '', re);
+    for (let i = 0; i < n; i++) list.push({ kind: 'card', id: c.id });
+  });
+  (state.notes || []).forEach((n) => {
+    const cnt = countMatches(htmlToText(n.body), re);
+    for (let i = 0; i < cnt; i++) list.push({ kind: 'note', id: n.id });
+  });
+  return list;
+}
+function flashEl(node) {
+  if (!node) return;
+  node.classList.remove('find-flash');
+  void node.offsetWidth; // restart the animation if it's already mid-flash
+  node.classList.add('find-flash');
+  setTimeout(() => node.classList.remove('find-flash'), 1200);
+}
+function goToMatch(match) {
+  if (match.kind === 'card') {
+    navigateTo('manuscript');
+    const body = document.getElementById('ms-body');
+    const anchor = body && body.querySelector('[data-anchor="card:' + match.id + '"]');
+    if (anchor) anchor.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    flashEl((body && body.querySelector('.ms-card-section[data-card-id="' + match.id + '"]')) || anchor);
+  } else {
+    notesSelId = match.id;
+    navigateTo('notes');
+    flashEl(document.querySelector('#page-notes .notes-editor'));
+  }
+}
+function stepFindMatch(dir) {
+  const q = document.getElementById('find-q').value;
+  const re = buildFindRegex(q, findOpts());
+  if (!re) return;
+  const matches = buildFindMatches(re);
+  if (!matches.length) { _findIdx = -1; updateFindStatus(); return; }
+  _findIdx = ((_findIdx < 0 ? (dir > 0 ? -1 : 0) : _findIdx) + dir + matches.length) % matches.length;
+  goToMatch(matches[_findIdx]);
+  updateFindStatus();
+}
 function doReplaceAll() {
   if (state.readonly) return;
   const q = document.getElementById('find-q').value;
@@ -4635,10 +4695,20 @@ function initControls() {
   document.getElementById('find-cancel').addEventListener('click', closeFindModal);
   document.getElementById('find-replace').addEventListener('click', doReplaceAll);
   document.getElementById('find-modal').addEventListener('click', (e) => { if (e.target.id === 'find-modal') closeFindModal(); });
-  ['find-q', 'find-case', 'find-whole'].forEach((id) => {
-    document.getElementById(id).addEventListener('input', updateFindStatus);
+  document.querySelectorAll('#find-mode-seg button').forEach((b) => {
+    b.addEventListener('click', () => setFindMode(b.dataset.mode));
   });
-  document.getElementById('find-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') doReplaceAll(); });
+  document.getElementById('find-prev').addEventListener('click', () => stepFindMatch(-1));
+  document.getElementById('find-next').addEventListener('click', () => stepFindMatch(1));
+  ['find-case', 'find-whole'].forEach((id) => {
+    document.getElementById(id).addEventListener('input', () => { _findIdx = -1; updateFindStatus(); });
+  });
+  document.getElementById('find-q').addEventListener('input', () => { _findIdx = -1; updateFindStatus(); });
+  document.getElementById('find-q').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    if (findMode === 'find') stepFindMatch(e.shiftKey ? -1 : 1);
+    else doReplaceAll();
+  });
   document.getElementById('find-r').addEventListener('keydown', (e) => { if (e.key === 'Enter') doReplaceAll(); });
 
   // show settings modal
