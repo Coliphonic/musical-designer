@@ -1090,6 +1090,12 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 .notes-editor a { color: var(--energy); text-decoration: underline; }
 .notes-editor ul, .notes-editor ol { margin: 0 0 12px; padding-left: 24px; }
 .notes-editor li { margin-bottom: 4px; }
+/* Indenting a list item (Tab) nests a new <ul>/<ol> inside the <li> — give each
+   nesting level a different bullet/number shape, as Apple Notes / Word do. */
+.notes-editor ul ul { list-style-type: circle; }
+.notes-editor ul ul ul { list-style-type: square; }
+.notes-editor ol ol { list-style-type: lower-alpha; }
+.notes-editor ol ol ol { list-style-type: lower-roman; }
 .notes-editor table { border-collapse: collapse; margin: 0 0 14px; }
 .notes-editor td, .notes-editor th { border: 1px solid var(--line); padding: 6px 10px; min-width: 60px; }
 .notes-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 13px; }

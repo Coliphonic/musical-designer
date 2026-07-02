@@ -2797,6 +2797,19 @@ function buildNotesPage() {
       note.updatedAt = Date.now();
       scheduleSave();
     });
+    // Tab/Shift+Tab inside a list item nests/un-nests it (Word / Apple Notes
+    // convention). Nested levels get different bullet/number shapes via CSS
+    // (see .notes-editor ul/ol depth rules), matching what execCommand('indent')
+    // actually produces (a real nested <ul>/<ol>), rather than tracking depth in JS.
+    editorEl.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const sel = window.getSelection();
+      const node = sel && sel.anchorNode;
+      const li = node && (node.nodeType === 3 ? node.parentElement : node).closest('li');
+      if (!li) return;
+      e.preventDefault();
+      document.execCommand(e.shiftKey ? 'outdent' : 'indent');
+    });
   }
   docEl.appendChild(editorEl);
   scroll.appendChild(docEl);
