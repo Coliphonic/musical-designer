@@ -3063,7 +3063,47 @@ function buildDnaWeb(wrap, dna, ro) {
   wrap.appendChild(tray);
 }
 
+// Per-mode position memory (SPEC §14 phase 2): Board keeps its scroll for free
+// (its DOM is never rebuilt on navigation), but Manuscript and Notes rebuild
+// their page from scratch on every visit, which would otherwise reset scroll
+// to the top. Capture the outgoing page's spot before it's torn down, restore
+// it once the incoming page's fresh DOM is in place.
+let msSavedAnchor = null;
+let notesScrollTop = 0;
+
+// Manuscript uses content-anchored (not raw scrollTop) memory, matching the
+// anchor system already used for its own Edit/Print mode switches — offsets
+// don't line up between visits since displayOrder/pagination can shift.
+function captureMsAnchor() {
+  const outer = document.getElementById('ms-body');
+  const body = outer && outer.querySelector('.ms-body');
+  if (!body) return null;
+  const top = body.getBoundingClientRect().top;
+  const out = [];
+  for (const n of body.querySelectorAll('[data-anchor]')) {
+    const r = n.getBoundingClientRect();
+    if (r.bottom > top + 1) { out.push({ key: n.dataset.anchor, offset: r.top - top }); if (out.length >= 6) break; }
+  }
+  return out.length ? out : null;
+}
+function restoreMsAnchor(anchors) {
+  if (!anchors) return;
+  const outer = document.getElementById('ms-body');
+  const body = outer && outer.querySelector('.ms-body');
+  if (!body) return;
+  for (const a of anchors) {
+    const n = body.querySelector('[data-anchor="' + a.key + '"]');
+    if (n) { body.scrollTop += (n.getBoundingClientRect().top - body.getBoundingClientRect().top) - a.offset; return; }
+  }
+}
+
 function navigateTo(page, sceneId) {
+  const prevPage = state.page;
+  if (prevPage === 'manuscript') msSavedAnchor = captureMsAnchor();
+  if (prevPage === 'notes') {
+    const sc = document.querySelector('#page-notes .notes-scroll');
+    if (sc) notesScrollTop = sc.scrollTop;
+  }
   state.page = page;
   document.querySelectorAll('.page').forEach((p) => { p.style.display = 'none'; });
   const target = document.getElementById('page-' + page);
@@ -3072,8 +3112,12 @@ function navigateTo(page, sceneId) {
     b.classList.toggle('active', b.dataset.page === page);
   });
   if (page === 'library') buildLibraryPage();
-  if (page === 'manuscript') buildManuscriptPage(sceneId);
-  if (page === 'notes') buildNotesPage();
+  if (page === 'manuscript') { buildManuscriptPage(sceneId); restoreMsAnchor(msSavedAnchor); }
+  if (page === 'notes') {
+    buildNotesPage();
+    const sc = document.querySelector('#page-notes .notes-scroll');
+    if (sc) sc.scrollTop = notesScrollTop;
+  }
   if (page === 'characters') buildCharactersPage();
   if (page === 'storydna') buildStoryDnaPage();
 }
