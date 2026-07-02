@@ -1022,7 +1022,8 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 }
 .notes-rail-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 9px 8px 9px 13px; border-bottom: 1px solid var(--line); flex-shrink: 0;
+  min-height: 44px; box-sizing: border-box;
+  padding: 0 8px 0 13px; border-bottom: 1px solid var(--line); flex-shrink: 0;
 }
 .notes-rail-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); }
 .notes-add-btn {
