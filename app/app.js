@@ -4211,6 +4211,7 @@ function buildManuscriptPage(sceneId) {
         doSave(); // persist immediately — blur may be followed by navigating away
         renderCardSection(sec, c);
         updateWordCount();
+        if (refreshNav) refreshNav(); // outline's note sub-rows track this card's body
       },
       onClose: () => { if (setActiveFormatBar) setActiveFormatBar(null); }, // release the shared bar
     });
