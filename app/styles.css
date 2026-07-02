@@ -1044,6 +1044,7 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 
 .notes-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
 .notes-toolbar { gap: 12px; }
+.notes-toolbar .ms-zoom-wrap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .notes-title-in {
   flex: 1; min-width: 0; border: none; background: transparent; color: var(--ink);
   font-size: 15px; font-weight: 700; font-family: inherit; padding: 4px 2px;
@@ -1073,6 +1074,10 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
   color: var(--muted); font-style: italic;
 }
 .notes-editor a { color: var(--energy); text-decoration: underline; }
+.notes-editor ul, .notes-editor ol { margin: 0 0 12px; padding-left: 24px; }
+.notes-editor li { margin-bottom: 4px; }
+.notes-editor table { border-collapse: collapse; margin: 0 0 14px; }
+.notes-editor td, .notes-editor th { border: 1px solid var(--line); padding: 6px 10px; min-width: 60px; }
 .notes-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 13px; }
 
 /* Edit mode ─────────────────────────────────── */

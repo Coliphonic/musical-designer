@@ -2697,6 +2697,24 @@ function buildNotesPage() {
   });
   toolbar.appendChild(titleIn);
 
+  // Same centered zoom control as the Manuscript, applied to the editor's CSS zoom.
+  const ZOOM_STEP = 0.15, ZOOM_MIN = 0.4, ZOOM_MAX = 2.0;
+  let zoom = (() => { try { return parseFloat(localStorage.getItem('md-notes-zoom')) || 1; } catch (_) { return 1; } })();
+  const zoomOut = el('button', { class: 'ms-zoom-btn', text: '−', title: 'Zoom out' });
+  const zoomIn  = el('button', { class: 'ms-zoom-btn', text: '+', title: 'Zoom in' });
+  const zoomLbl = el('span', { class: 'ms-zoom-lbl' });
+  const zoomWrap = el('div', { class: 'ms-zoom-wrap' }, [zoomOut, zoomLbl, zoomIn]);
+  const applyZoom = () => {
+    editorEl.style.zoom = zoom;
+    zoomLbl.textContent = Math.round(zoom * 100) + '%';
+    zoomOut.disabled = zoom <= ZOOM_MIN;
+    zoomIn.disabled = zoom >= ZOOM_MAX;
+    try { localStorage.setItem('md-notes-zoom', zoom); } catch (_) {}
+  };
+  zoomOut.addEventListener('click', () => { zoom = Math.max(ZOOM_MIN, +(zoom - ZOOM_STEP).toFixed(2)); applyZoom(); });
+  zoomIn.addEventListener('click', () => { zoom = Math.min(ZOOM_MAX, +(zoom + ZOOM_STEP).toFixed(2)); applyZoom(); });
+  toolbar.appendChild(zoomWrap); // absolutely centered via CSS
+
   let editorEl;
   if (!ro) {
     const fmt = el('div', { class: 'notes-fmt' });
@@ -2711,6 +2729,8 @@ function buildNotesPage() {
     fmt.appendChild(mkBtn('❝', 'Quote', 'formatBlock', 'BLOCKQUOTE'));
     fmt.appendChild(mkBtn('B', 'Bold', 'bold'));
     fmt.appendChild(mkBtn('I', 'Italic', 'italic'));
+    fmt.appendChild(mkBtn('•', 'Bulleted list', 'insertUnorderedList'));
+    fmt.appendChild(mkBtn('1.', 'Numbered list', 'insertOrderedList'));
     const linkBtn = el('button', { class: 'notes-fmt-btn', title: 'Link', text: '🔗' });
     linkBtn.addEventListener('mousedown', (e) => e.preventDefault());
     linkBtn.addEventListener('click', () => {
@@ -2719,6 +2739,14 @@ function buildNotesPage() {
       editorEl.focus();
     });
     fmt.appendChild(linkBtn);
+    const tableBtn = el('button', { class: 'notes-fmt-btn', title: 'Insert table', text: '⊞' });
+    tableBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    tableBtn.addEventListener('click', () => {
+      editorEl.focus();
+      document.execCommand('insertHTML', false,
+        '<table><tbody><tr><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td></tr></tbody></table><p><br></p>');
+    });
+    fmt.appendChild(tableBtn);
     toolbar.appendChild(fmt);
 
     const delBtn = el('button', { class: 'notes-del-btn', title: 'Delete note', text: '×' });
@@ -2745,6 +2773,7 @@ function buildNotesPage() {
     });
   }
   pane.appendChild(editorEl);
+  applyZoom();
 
   wrap.appendChild(pane);
   host.appendChild(wrap);
