@@ -4315,18 +4315,36 @@ function buildManuscriptPage(sceneId) {
       navList.appendChild(row);
       navRows.set(c.id, row);
     });
-    // Highlight the card currently near the top of the viewport.
-    const visible = new Set();
+    // Highlight the card whose content currently fills the top of the
+    // viewport — not just the instant its divider passes by. Track which
+    // dividers have scrolled above a trigger line near the top of the body;
+    // the active row is the *last* one passed, so it stays lit through the
+    // whole card until the next divider crosses the same line.
+    const TRIGGER_FRAC = 0.15; // 15% down from the top of the scroll container
+    const passed = new Map(); // card id -> has its divider scrolled above the trigger line
+    const applyActive = () => {
+      let activeId = null;
+      for (const idx of order) { const c = state.cards[idx]; if (c && passed.get(c.id)) activeId = c.id; }
+      navRows.forEach((r, id) => r.classList.toggle('active', id === activeId));
+    };
     navObserver = new IntersectionObserver((entries) => {
       entries.forEach((e) => {
         const id = e.target.getAttribute('data-card-id');
-        if (e.isIntersecting) visible.add(id); else visible.delete(id);
+        const triggerY = e.rootBounds ? e.rootBounds.top + e.rootBounds.height * TRIGGER_FRAC : 0;
+        passed.set(id, e.boundingClientRect.top < triggerY);
       });
-      let activeId = null;
-      for (const idx of order) { const c = state.cards[idx]; if (c && visible.has(c.id)) { activeId = c.id; break; } }
-      navRows.forEach((r, id) => r.classList.toggle('active', id === activeId));
-    }, { root: bodyEl, rootMargin: '0px 0px -70% 0px', threshold: 0 });
-    bodyEl.querySelectorAll('.ms-card-divider[data-card-id]').forEach((d) => navObserver.observe(d));
+      applyActive();
+    }, { root: bodyEl, rootMargin: `0px 0px -${Math.round((1 - TRIGGER_FRAC) * 100)}% 0px`, threshold: 0 });
+    const rootRect = bodyEl.getBoundingClientRect();
+    bodyEl.querySelectorAll('.ms-card-divider[data-card-id]').forEach((d) => {
+      // Seed the initial state synchronously — the observer only reports
+      // future crossings, so without this the right row won't light up
+      // until the next scroll (e.g. right after opening the manuscript).
+      const rect = d.getBoundingClientRect();
+      passed.set(d.getAttribute('data-card-id'), rect.top < rootRect.top + rootRect.height * TRIGGER_FRAC);
+      navObserver.observe(d);
+    });
+    applyActive();
   };
 
   msWrap.appendChild(msNav);
