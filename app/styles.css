@@ -1277,7 +1277,7 @@ mark.note-mark:hover { text-decoration-style: solid; }
 .note-popup-close:hover { background: var(--sage-bg); color: var(--sage); }
 
 /* Navigator sub-rows for inline notes, nested under their card's row. */
-.ms-nav-note { padding-left: 24px; color: var(--faint); }
+.ms-nav-note { padding-left: 24px; color: var(--sage); }
 .ms-nav-note-icon { color: var(--sage); }
 .ms-nav-note:hover { background: var(--sage-bg); color: var(--sage); }
 .ms-nav-note.active { background: var(--sage-bg); color: var(--sage); border-left-color: var(--sage); }
