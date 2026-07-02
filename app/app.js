@@ -113,10 +113,14 @@ function cardBodyField(c) {
 }
 
 // Word count on the manuscript body — strips emphasis markup (see emphToHtml)
-// so **bold**/_underline_/~~strike~~/==highlight== symbols aren't counted as
-// their own words.
+// so **bold**/_underline_/~~strike~~/==highlight== symbols, and inline-note
+// markers, aren't counted as their own words.
 function countWords(text) {
-  const m = (text || '').replace(/[*_~=]/g, ' ').match(/\S+/g);
+  const cleaned = (text || '')
+    .replace(/\[\[note:[a-z0-9]+:[A-Za-z0-9+/=]*\]\]/g, '')
+    .replace(/\[\[\/note\]\]/g, '')
+    .replace(/[*_~=]/g, ' ');
+  const m = cleaned.match(/\S+/g);
   return m ? m.length : 0;
 }
 function totalShowWords() {
@@ -1385,6 +1389,12 @@ function parseLyricLines(text, defaultSung) {
 // exact inverse — and shares serializeRows with the rich editor so the editor
 // and the model can never drift.
 const lid = () => 'l' + Math.random().toString(36).slice(2, 9);
+const nid = () => 'n' + Math.random().toString(36).slice(2, 9);
+// UTF-8-safe base64 — inline note text rides inside the [[note:id:b64]] marker
+// opaque to the emphasis parser, so it can hold any characters (including the
+// literal brackets the marker syntax itself uses) without corrupting the parse.
+function b64encode(s) { try { return btoa(unescape(encodeURIComponent(s || ''))); } catch (_) { return ''; } }
+function b64decode(s) { try { return decodeURIComponent(escape(atob(s || ''))); } catch (_) { return ''; } }
 
 // rows ({type,text}[]) → seamless text. The single source of truth for going
 // back to the blob, used by both buildRichEditor and linesToSeamless.
@@ -1583,6 +1593,10 @@ function emphToHtml(text) {
        .replace(/\*([^*]+?)\*/g, '<i>$1</i>')
        .replace(/_([^_]+?)_/g, '<u>$1</u>')
        .replace(/~~([^~]+?)~~/g, '<s>$1</s>')     // strikethrough
+       // Inline note: an id + base64 note text ride in the marker, invisible in
+       // the rendered phrase — see buildRichEditor's note popup / toggleHighlight sibling.
+       .replace(/\[\[note:([a-z0-9]+):([A-Za-z0-9+/=]*)\]\]([\s\S]*?)\[\[\/note\]\]/g,
+         (_m, id, enc, inner) => '<mark class="note-mark" data-note-id="' + id + '" data-note-text="' + enc + '">' + inner + '</mark>')
        .replace(/==([^=]+?)==/g, '<mark>$1</mark>'); // editorial highlight
   return s;
 }
@@ -1600,6 +1614,7 @@ function emphFromNode(node) {
     else if (tag === 'i' || tag === 'em') out += '*' + inner + '*';
     else if (tag === 'u') out += '_' + inner + '_';
     else if (tag === 's' || tag === 'strike' || tag === 'del') out += '~~' + inner + '~~';
+    else if (tag === 'mark' && n.dataset && n.dataset.noteId) out += '[[note:' + n.dataset.noteId + ':' + (n.dataset.noteText || '') + ']]' + inner + '[[/note]]';
     else if (tag === 'mark') out += '==' + inner + '==';
     else if (tag === 'br') out += '';
     else out += inner;
@@ -1614,6 +1629,48 @@ function hasDisallowedMarkup(node) {
     if (!EMPH_TAGS.has(ch.tagName) || hasDisallowedMarkup(ch)) return true;
   }
   return false;
+}
+
+// ---- inline notes (highlighted phrase + attached comment) ----------------
+// A note's text lives inside its own marker (see emphToHtml), so deleting the
+// highlighted phrase deletes the note with it — no separate store to garbage-collect.
+const NOTE_RE = /\[\[note:([a-z0-9]+):([A-Za-z0-9+/=]*)\]\]([\s\S]*?)\[\[\/note\]\]/g;
+function extractCardNotes(c) {
+  const text = c[cardBodyField(c)] || '';
+  const out = [];
+  let m;
+  NOTE_RE.lastIndex = 0;
+  while ((m = NOTE_RE.exec(text))) {
+    const phrase = m[3].replace(/\[\[note:[^\]]*\]\]/g, '').replace(/\[\[\/note\]\]/g, '').replace(/[*_~=]/g, '');
+    out.push({ id: m[1], text: b64decode(m[2]), phrase });
+  }
+  return out;
+}
+// Read-only popover for a note-mark clicked outside an active editor (static
+// manuscript render / print view). Editing happens only via buildRichEditor's
+// own popup, opened when the mark is clicked while its card is being edited.
+let _roNotePopover = null;
+let _roNoteOutsideHandler = null;
+function closeReadOnlyNotePopover() {
+  if (_roNotePopover) { _roNotePopover.remove(); _roNotePopover = null; }
+  if (_roNoteOutsideHandler) { document.removeEventListener('mousedown', _roNoteOutsideHandler); _roNoteOutsideHandler = null; }
+}
+function showReadOnlyNotePopover(mark) {
+  closeReadOnlyNotePopover();
+  const text = b64decode(mark.dataset.noteText || '');
+  const pop = el('div', { class: 'note-popup note-popup-ro' }, [
+    el('div', { class: 'note-popup-text', text: text || '(empty note)' }),
+    el('button', { class: 'note-popup-close', type: 'button', text: '×', title: 'Close' }),
+  ]);
+  document.body.appendChild(pop);
+  const rect = mark.getBoundingClientRect();
+  const top = rect.bottom + 8 + pop.offsetHeight > window.innerHeight ? rect.top - pop.offsetHeight - 8 : rect.bottom + 8;
+  pop.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - pop.offsetWidth - 8)) + 'px';
+  pop.style.top = Math.max(8, top) + 'px';
+  _roNotePopover = pop;
+  pop.querySelector('.note-popup-close').addEventListener('click', closeReadOnlyNotePopover);
+  _roNoteOutsideHandler = (e) => { if (!pop.contains(e.target)) closeReadOnlyNotePopover(); };
+  setTimeout(() => document.addEventListener('mousedown', _roNoteOutsideHandler), 0);
 }
 // A read-only body line matching the editor's mkLine markup exactly, so the
 // static edit-doc render and the live editor have identical line boxes (no
@@ -1858,6 +1915,135 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     syncPicker();
   };
 
+  // ---- inline notes (highlighted phrase + attached comment) ----
+  // A floating "+ Note" pill appears near a single-line selection; clicking it
+  // (or an existing note phrase) opens a small popup to type/edit/delete the
+  // note. Both live in document.body (outside richWrap/styleBar) so the
+  // focusout handler below must explicitly treat them as "still in the editor."
+  const singleLineSelection = () => {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !sel.rangeCount) return null;
+    const range = sel.getRangeAt(0);
+    if (range.collapsed) return null;
+    const line = getFocusedLine(lineEd);
+    if (!line || !line.contains(range.startContainer) || !line.contains(range.endContainer)) return null;
+    return range;
+  };
+
+  const noteToolbar = el('div', { class: 'note-float-toolbar', style: 'display:none' });
+  const noteToolbarBtn = el('button', {
+    class: 'note-float-btn', type: 'button', title: 'Add note',
+    html: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Note',
+  });
+  noteToolbar.appendChild(noteToolbarBtn);
+  document.body.appendChild(noteToolbar);
+  const hideNoteToolbar = () => { noteToolbar.style.display = 'none'; };
+  const updateNoteToolbar = () => {
+    if (notePopup.style.display !== 'none') { hideNoteToolbar(); return; } // popup open takes priority
+    const range = singleLineSelection();
+    if (!range) { hideNoteToolbar(); return; }
+    const rect = range.getBoundingClientRect();
+    if (!rect || (!rect.width && !rect.height)) { hideNoteToolbar(); return; }
+    noteToolbar.style.left = Math.round(rect.left + rect.width / 2) + 'px';
+    noteToolbar.style.top = Math.round(rect.top) + 'px';
+    noteToolbar.style.display = '';
+  };
+
+  const notePopup = el('div', { class: 'note-popup note-popup-edit', style: 'display:none' });
+  const noteTextarea = el('textarea', { class: 'note-popup-ta', placeholder: 'Type a note…' });
+  const noteDeleteBtn = el('button', { class: 'pbtn note-popup-delete', type: 'button', text: 'Delete' });
+  const noteCancelBtn = el('button', { class: 'pbtn', type: 'button', text: 'Cancel' });
+  const noteSaveBtn = el('button', { class: 'pbtn primary', type: 'button', text: 'Save' });
+  notePopup.appendChild(noteTextarea);
+  notePopup.appendChild(el('div', { class: 'note-popup-btns' }, [noteDeleteBtn, noteCancelBtn, noteSaveBtn]));
+  document.body.appendChild(notePopup);
+  let noteCtx = null; // { mode: 'create', range } | { mode: 'edit', mark }
+
+  const positionNotePopup = (rect) => {
+    notePopup.style.display = '';
+    const top = rect.bottom + 8 + 120 > window.innerHeight ? Math.max(8, rect.top - 128) : rect.bottom + 8;
+    notePopup.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 260)) + 'px';
+    notePopup.style.top = top + 'px';
+  };
+  const closeNotePopup = (refocus) => {
+    notePopup.style.display = 'none';
+    noteCtx = null;
+    if (refocus !== false) lineEd.focus({ preventScroll: true });
+  };
+  const openNoteCreate = () => {
+    const range = singleLineSelection();
+    if (!range) return;
+    noteCtx = { mode: 'create', range: range.cloneRange() };
+    noteTextarea.value = '';
+    noteDeleteBtn.hidden = true;
+    hideNoteToolbar();
+    positionNotePopup(range.getBoundingClientRect());
+    noteTextarea.focus();
+  };
+  const openNoteEdit = (mark) => {
+    noteCtx = { mode: 'edit', mark };
+    noteTextarea.value = b64decode(mark.dataset.noteText || '');
+    noteDeleteBtn.hidden = false;
+    hideNoteToolbar();
+    positionNotePopup(mark.getBoundingClientRect());
+    noteTextarea.focus();
+  };
+  const doDeleteNote = () => {
+    if (noteCtx && noteCtx.mode === 'edit') {
+      const m = noteCtx.mark;
+      const parent = m.parentNode;
+      while (m.firstChild) parent.insertBefore(m.firstChild, m);
+      parent.removeChild(m);
+      if (parent.normalize) parent.normalize();
+      pushHistory();
+      syncPicker();
+    }
+    closeNotePopup();
+  };
+  const doSaveNote = () => {
+    if (!noteCtx) return;
+    const text = noteTextarea.value.trim();
+    if (!text) { if (noteCtx.mode === 'edit') doDeleteNote(); else closeNotePopup(); return; }
+    if (noteCtx.mode === 'create') {
+      const range = noteCtx.range;
+      const frag = range.extractContents();
+      const mark = document.createElement('mark');
+      mark.className = 'note-mark';
+      mark.dataset.noteId = nid();
+      mark.dataset.noteText = b64encode(text);
+      mark.appendChild(frag);
+      range.insertNode(mark);
+      lineEd.focus({ preventScroll: true });
+      const r2 = document.createRange();
+      r2.selectNodeContents(mark);
+      r2.collapse(false);
+      const sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(r2);
+    } else {
+      noteCtx.mark.dataset.noteText = b64encode(text);
+      lineEd.focus({ preventScroll: true });
+    }
+    if (needsNormalize()) normalize(true);
+    pushHistory();
+    syncPicker();
+    closeNotePopup(false); // already refocused above
+  };
+  noteToolbarBtn.addEventListener('mousedown', (e) => { e.preventDefault(); openNoteCreate(); });
+  noteSaveBtn.addEventListener('mousedown', (e) => { e.preventDefault(); doSaveNote(); });
+  noteDeleteBtn.addEventListener('mousedown', (e) => { e.preventDefault(); doDeleteNote(); });
+  noteCancelBtn.addEventListener('mousedown', (e) => { e.preventDefault(); closeNotePopup(); });
+  noteTextarea.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { e.preventDefault(); closeNotePopup(); }
+    else if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSaveNote(); }
+  });
+  document.addEventListener('selectionchange', updateNoteToolbar);
+  const onNoteDocMouseDown = (e) => {
+    // Exempt the "+ Note" toolbar itself — this same mousedown is what opens the
+    // popup (bubbling here right after), so without this it would close on arrival.
+    if (notePopup.style.display !== 'none' && !notePopup.contains(e.target) && !noteToolbar.contains(e.target) && !(e.target.closest && e.target.closest('mark.note-mark'))) closeNotePopup();
+  };
+  document.addEventListener('mousedown', onNoteDocMouseDown);
+
   const styleBar = el('div', { class: 'ms-style-bar' });
   const styleSel = el('select', { class: 'ms-style-sel' });
   const modKey = navigator.platform.toUpperCase().includes('MAC') ? '⌘' : 'Ctrl+';
@@ -1930,6 +2116,13 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const seed = (lines && lines.length)
     ? lines.map((l) => ({ type: l.type, text: l.text, dual: l.dual, id: l.id, subtype: l.subtype }))
     : parseLyricLines(text || '', isSong).map((tok) => ({ type: tok.type, text: tok.text, dual: tok.dual, id: null, subtype: tok.subtype }));
+  // Existing note phrase clicked while its card is being edited: open the same
+  // popup for editing (a click outside the editor is handled by the read-only
+  // popover wired in initControls instead).
+  lineEd.addEventListener('click', (e) => {
+    const mark = e.target.closest && e.target.closest('mark.note-mark');
+    if (mark) openNoteEdit(mark);
+  });
   if (!seed.some((t) => t.type !== 'blank')) lineEd.appendChild(mkLine('cue', ''));
   else seed.forEach((l) => lineEd.appendChild(mkLine(l.type, l.text, l.dual, l.id, l.subtype)));
 
@@ -2169,6 +2362,12 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     if (committed) return;
     committed = true;
     closeAc();
+    hideNoteToolbar();
+    closeNotePopup(false);
+    document.removeEventListener('selectionchange', updateNoteToolbar);
+    document.removeEventListener('mousedown', onNoteDocMouseDown);
+    noteToolbar.remove();
+    notePopup.remove();
     if (onSave) onSave(serializeLines(lineEd), serializeToLines(lineEd));
     if (onClose) onClose();
   };
@@ -2176,7 +2375,9 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   richWrap.addEventListener('focusout', (e) => {
     // The style bar may live outside richWrap (detachBar) — focusing it (the
     // element-type select, dual toggle) must not count as leaving the editor.
-    if (richWrap.contains(e.relatedTarget) || styleBar.contains(e.relatedTarget)) return;
+    // The note toolbar/popup also live outside richWrap (document.body, so they
+    // can be positioned in fixed viewport coordinates) — same treatment.
+    if (richWrap.contains(e.relatedTarget) || styleBar.contains(e.relatedTarget) || noteToolbar.contains(e.relatedTarget) || notePopup.contains(e.relatedTarget)) return;
     commit();
   });
   if (!detachBar) richWrap.appendChild(styleBar);
@@ -4314,6 +4515,24 @@ function buildManuscriptPage(sceneId) {
       });
       navList.appendChild(row);
       navRows.set(c.id, row);
+      extractCardNotes(c).forEach((note) => {
+        const nrow = el('button', { class: 'ms-nav-row ms-nav-note' }, [
+          el('span', { class: 'ms-nav-icon ms-nav-note-icon', text: '✎' }),
+          el('span', { class: 'ms-nav-label', text: note.text || note.phrase || '(empty note)' }),
+        ]);
+        nrow.addEventListener('click', () => {
+          const cardTarget = bodyEl.querySelector('.ms-card-divider[data-card-id="' + c.id + '"]');
+          if (cardTarget) cardTarget.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          setTimeout(() => {
+            const markEl = bodyEl.querySelector('mark.note-mark[data-note-id="' + note.id + '"]');
+            if (!markEl) return;
+            markEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            flashEl(markEl);
+            showReadOnlyNotePopover(markEl);
+          }, 260);
+        });
+        navList.appendChild(nrow);
+      });
     });
     // Highlight the card whose content currently fills the top of the
     // viewport — not just the instant its divider passes by. Track which
@@ -4714,6 +4933,16 @@ function render() {
 // ---- controls ----
 function initControls() {
   document.querySelectorAll('#view-seg button').forEach((b) => b.addEventListener('click', () => { state.view = b.dataset.view; render(); }));
+
+  // Inline notes: clicking a highlighted note phrase outside an active editor
+  // (static manuscript render, print view) shows a read-only popover. Clicks
+  // while that card IS being edited are handled inside buildRichEditor instead.
+  document.addEventListener('click', (e) => {
+    const mark = e.target.closest && e.target.closest('mark.note-mark');
+    if (!mark || mark.closest('.ms-line-editor')) return;
+    e.stopPropagation();
+    showReadOnlyNotePopover(mark);
+  });
   document.getElementById('lyricwin').addEventListener('click', (e) => { if (e.target.id === 'lyricwin') closeLyricWindow(); });
   document.querySelectorAll('.tn-tab[data-page]').forEach((b) => {
     b.addEventListener('click', () => { if (!b.classList.contains('sb-disabled')) navigateTo(b.dataset.page); });
