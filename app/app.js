@@ -5,7 +5,13 @@
 const CCOL = 92, CH = 132, PAD_T = 14, PAD_B = 14;
 const SVGNS = 'http://www.w3.org/2000/svg';
 let _uid = 0;
-const uid = () => 'c' + (++_uid);
+// Cards get 'c' ids that are regenerated from scratch on every load (cards
+// aren't stored with ids — see cardFromStored/exportShow), so the counter
+// reliably lands on the same numbers each session. Notes and revisions DO
+// keep a stored, permanent id across sessions — give them their own prefixes
+// so a fresh session's card ids (or a newly-created note/revision) can never
+// collide with an old note/revision id that happens to share a number.
+const uid = (prefix) => (prefix || 'c') + (++_uid);
 
 const LANES = [
   { key: '1', label: 'Act 1' },
@@ -138,6 +144,28 @@ function openReference(key) {
   setSaveInd('ref');
 }
 
+// One-time upgrade for shows saved before notes/revisions got their own id
+// namespaces (see uid() above): a stored 'c'-prefixed note/revision id can
+// collide with a card id regenerated this session, or a note/revision id
+// minted from now on. Re-mint any legacy id, fixing up whatever else in
+// `state` points at it. Must run after state.cards is assigned (cardFromStored
+// consumes the low end of the counter, so migrated ids land safely above it).
+function migrateLegacyIds() {
+  (state.notes || []).forEach((n) => {
+    if (!/^c\d+$/.test(n.id)) return;
+    const newId = uid('n');
+    if (notesSelId === n.id) notesSelId = newId;
+    n.id = newId;
+  });
+  (state.revisions || []).forEach((r) => {
+    if (!/^c\d+$/.test(r.id)) return;
+    const newId = uid('r');
+    if (state.currentRev === r.id) state.currentRev = newId;
+    if (state.pageLock && state.pageLock.lockedAt === r.id) state.pageLock.lockedAt = newId;
+    r.id = newId;
+  });
+}
+
 // Load a show payload (from the server, or a restored snapshot) into state.
 // Does not touch projectId/showKey/readonly or render — the caller owns those.
 function applyShowData(d) {
@@ -147,6 +175,7 @@ function applyShowData(d) {
   state.pageLock = d.pageLock || null;
   state.characters = d.characters || {};
   state.notes = d.notes || [];
+  migrateLegacyIds();
   state.storyDna = migrateDna(d.storyDna);
   const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
   state.titlePage = Object.assign({}, tpDefaults, d.titlePage || {});
@@ -2621,7 +2650,7 @@ function buildCharactersPage() {
 // headings, paragraphs, block quotes, links only.
 function notesSeed() {
   const now = Date.now();
-  return ['Characters', 'Theme', 'Sources'].map((title) => ({ id: uid(), title, body: '', createdAt: now, updatedAt: now }));
+  return ['Characters', 'Theme', 'Sources'].map((title) => ({ id: uid('n'), title, body: '', createdAt: now, updatedAt: now }));
 }
 let notesSelId = (() => { try { return localStorage.getItem('md-notes-sel') || null; } catch (_) { return null; } })();
 function buildNotesPage() {
@@ -2648,7 +2677,7 @@ function buildNotesPage() {
   if (!ro) {
     const addBtn = el('button', { class: 'notes-add-btn', title: 'New note', text: '+' });
     addBtn.addEventListener('click', () => {
-      const n = { id: uid(), title: 'Untitled note', body: '', createdAt: Date.now(), updatedAt: Date.now() };
+      const n = { id: uid('n'), title: 'Untitled note', body: '', createdAt: Date.now(), updatedAt: Date.now() };
       state.notes.push(n);
       notesSelId = n.id;
       scheduleSave();
@@ -4000,7 +4029,7 @@ function buildManuscriptPage(sceneId) {
           }
         });
         const color = REV_COLORS[(state.revisions || []).length % REV_COLORS.length];
-        state.revisions = (state.revisions || []).concat([{ id: uid(), name: color.name, hex: color.hex, date: Date.now() }]);
+        state.revisions = (state.revisions || []).concat([{ id: uid('r'), name: color.name, hex: color.hex, date: Date.now() }]);
         state.currentRev = state.revisions[state.revisions.length - 1].id;
         if (state.msOptions.showRevisions === undefined) { state.msOptions.showRevisions = true; saveMsOpts(); }
         doSave();
