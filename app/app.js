@@ -52,6 +52,7 @@ const state = {
   currentRev: null,  // id of the active revision; null = not tracking (no marks)
   pageLock: null,    // { lockedAt, date, pages:[{label, anchor}] } — frozen page boundaries (A-pages)
   characters: {},
+  notes: [],
   storyDna: dnaDefaults(),
   titlePage: { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } },
   scriptHeader: { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false },
@@ -121,6 +122,7 @@ function openReference(key) {
   // Plain references have neither — fall back to empty so stale project data never leaks in.
   state.revisions = []; state.currentRev = null; state.pageLock = null; // references aren't revised
   state.characters = show.characters ? JSON.parse(JSON.stringify(show.characters)) : {};
+  state.notes = show.notes ? JSON.parse(JSON.stringify(show.notes)) : [];
   state.storyDna = migrateDna(show.storyDna);
   const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
   state.titlePage = Object.assign({}, tpDefaults, show.titlePage || {});
@@ -144,6 +146,7 @@ function applyShowData(d) {
   state.currentRev = d.currentRev || null;
   state.pageLock = d.pageLock || null;
   state.characters = d.characters || {};
+  state.notes = d.notes || [];
   state.storyDna = migrateDna(d.storyDna);
   const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
   state.titlePage = Object.assign({}, tpDefaults, d.titlePage || {});
@@ -179,6 +182,7 @@ function serialize() {
     currentRev: state.currentRev,
     pageLock: state.pageLock,
     characters: state.characters,
+    notes: state.notes,
     storyDna: state.storyDna,
     titlePage: state.titlePage,
     scriptHeader: state.scriptHeader,
@@ -2609,6 +2613,143 @@ function buildCharactersPage() {
   }
 }
 
+// ---- Research notes (SPEC §14) --------------------------------------------
+// The writer's notebook: a named list of freeform notes (Apple Notes / Scrivener
+// binder feel), stored on the show as notes = [{id, title, body, createdAt, updatedAt}].
+// The Navigator rail IS the note index — each note is its own anchor, no
+// heading-scan needed. Editor is deliberately simpler than the Manuscript's:
+// headings, paragraphs, block quotes, links only.
+function notesSeed() {
+  const now = Date.now();
+  return ['Characters', 'Theme', 'Sources'].map((title) => ({ id: uid(), title, body: '', createdAt: now, updatedAt: now }));
+}
+let notesSelId = (() => { try { return localStorage.getItem('md-notes-sel') || null; } catch (_) { return null; } })();
+function buildNotesPage() {
+  const host = document.getElementById('page-notes');
+  host.innerHTML = '';
+  if (!Array.isArray(state.notes)) state.notes = [];
+  const ro = state.readonly;
+  if (!state.notes.length && !ro) {
+    state.notes = notesSeed();
+    scheduleSave();
+  }
+  if (!notesSelId || !state.notes.find((n) => n.id === notesSelId)) {
+    notesSelId = state.notes.length ? state.notes[0].id : null;
+  }
+  try { if (notesSelId) localStorage.setItem('md-notes-sel', notesSelId); } catch (_) {}
+
+  const wrap = el('div', { class: 'notes-wrap' });
+
+  // ── Rail — the note index / Navigator ──
+  const rail = el('div', { class: 'notes-rail' });
+  const railHead = el('div', { class: 'notes-rail-head' }, [
+    el('span', { class: 'notes-rail-title', text: 'Notes' }),
+  ]);
+  if (!ro) {
+    const addBtn = el('button', { class: 'notes-add-btn', title: 'New note', text: '+' });
+    addBtn.addEventListener('click', () => {
+      const n = { id: uid(), title: 'Untitled note', body: '', createdAt: Date.now(), updatedAt: Date.now() };
+      state.notes.push(n);
+      notesSelId = n.id;
+      scheduleSave();
+      buildNotesPage();
+    });
+    railHead.appendChild(addBtn);
+  }
+  rail.appendChild(railHead);
+
+  const railList = el('div', { class: 'notes-rail-list' });
+  state.notes.forEach((n) => {
+    const row = el('button', { class: 'notes-rail-row' + (n.id === notesSelId ? ' active' : '') });
+    row.appendChild(el('span', { class: 'notes-rail-label', text: n.title || 'Untitled note' }));
+    row.addEventListener('click', () => {
+      if (notesSelId === n.id) return;
+      notesSelId = n.id;
+      buildNotesPage();
+    });
+    railList.appendChild(row);
+  });
+  rail.appendChild(railList);
+  wrap.appendChild(rail);
+
+  // ── Pane — the selected note ──
+  const pane = el('div', { class: 'notes-pane' });
+  const note = state.notes.find((n) => n.id === notesSelId);
+  if (!note) {
+    pane.appendChild(el('div', { class: 'notes-empty' }, [
+      el('p', { text: ro ? 'No notes yet.' : 'No notes yet. Click + to start one.' }),
+    ]));
+    wrap.appendChild(pane);
+    host.appendChild(wrap);
+    return;
+  }
+
+  const toolbar = el('div', { class: 'notes-toolbar ribbon' });
+  const titleIn = el('input', { class: 'notes-title-in', type: 'text', value: note.title || '', placeholder: 'Untitled note' });
+  if (ro) titleIn.disabled = true;
+  else titleIn.addEventListener('input', () => {
+    note.title = titleIn.value;
+    note.updatedAt = Date.now();
+    scheduleSave();
+    const idx = state.notes.indexOf(note);
+    const row = railList.children[idx];
+    if (row) row.querySelector('.notes-rail-label').textContent = titleIn.value || 'Untitled note';
+  });
+  toolbar.appendChild(titleIn);
+
+  let editorEl;
+  if (!ro) {
+    const fmt = el('div', { class: 'notes-fmt' });
+    const mkBtn = (label, title, cmd, val) => {
+      const b = el('button', { class: 'notes-fmt-btn', title, text: label });
+      b.addEventListener('mousedown', (e) => e.preventDefault()); // keep the text selection alive
+      b.addEventListener('click', () => { document.execCommand(cmd, false, val); editorEl.focus(); });
+      return b;
+    };
+    fmt.appendChild(mkBtn('H1', 'Heading', 'formatBlock', 'H2'));
+    fmt.appendChild(mkBtn('¶', 'Paragraph', 'formatBlock', 'P'));
+    fmt.appendChild(mkBtn('❝', 'Quote', 'formatBlock', 'BLOCKQUOTE'));
+    fmt.appendChild(mkBtn('B', 'Bold', 'bold'));
+    fmt.appendChild(mkBtn('I', 'Italic', 'italic'));
+    const linkBtn = el('button', { class: 'notes-fmt-btn', title: 'Link', text: '🔗' });
+    linkBtn.addEventListener('mousedown', (e) => e.preventDefault());
+    linkBtn.addEventListener('click', () => {
+      const url = prompt('Link URL:');
+      if (url) document.execCommand('createLink', false, url);
+      editorEl.focus();
+    });
+    fmt.appendChild(linkBtn);
+    toolbar.appendChild(fmt);
+
+    const delBtn = el('button', { class: 'notes-del-btn', title: 'Delete note', text: '×' });
+    delBtn.addEventListener('click', () => {
+      if (!confirm('Delete "' + (note.title || 'Untitled note') + '"? This cannot be undone.')) return;
+      state.notes = state.notes.filter((n) => n.id !== note.id);
+      notesSelId = null;
+      scheduleSave();
+      buildNotesPage();
+    });
+    toolbar.appendChild(delBtn);
+  }
+  pane.appendChild(toolbar);
+
+  editorEl = el('div', { class: 'notes-editor' });
+  editorEl.innerHTML = note.body || '';
+  if (ro) editorEl.setAttribute('contenteditable', 'false');
+  else {
+    editorEl.setAttribute('contenteditable', 'true');
+    editorEl.addEventListener('input', () => {
+      note.body = editorEl.innerHTML;
+      note.updatedAt = Date.now();
+      scheduleSave();
+    });
+  }
+  pane.appendChild(editorEl);
+
+  wrap.appendChild(pane);
+  host.appendChild(wrap);
+}
+
 // ---- Story DNA -----------------------------------------------------------
 // A broad-strokes analysis surface, decoupled from the board in v1: a mirrored
 // 7-beat chiasmus (Threshold carries a broken-out catch), a three-level stakes
@@ -2831,6 +2972,7 @@ function navigateTo(page, sceneId) {
   });
   if (page === 'library') buildLibraryPage();
   if (page === 'manuscript') buildManuscriptPage(sceneId);
+  if (page === 'notes') buildNotesPage();
   if (page === 'characters') buildCharactersPage();
   if (page === 'storydna') buildStoryDnaPage();
 }
