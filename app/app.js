@@ -2830,7 +2830,6 @@ function navigateTo(page, sceneId) {
     b.classList.toggle('active', b.dataset.page === page);
   });
   if (page === 'library') buildLibraryPage();
-  if (page === 'titlepage') buildTitlePagesFull();
   if (page === 'manuscript') buildManuscriptPage(sceneId);
   if (page === 'characters') buildCharactersPage();
   if (page === 'storydna') buildStoryDnaPage();
@@ -3072,87 +3071,6 @@ function tpEditable(tag, cls, value, key, isArray) {
     });
   }
   return d;
-}
-
-function buildTitlePagesFull() {
-  const host = document.getElementById('page-titlepage');
-  host.innerHTML = '';
-
-  const ZOOM_STEP = 0.15, ZOOM_MIN = 0.4, ZOOM_MAX = 2.0;
-  let zoom = (() => { try { return parseFloat(localStorage.getItem('md-ms-zoom')) || 0.75; } catch (_) { return 0.75; } })();
-
-  // Toolbar
-  const toolbar = el('div', { class: 'ms-toolbar' });
-  const zoomOut = el('button', { class: 'ms-zoom-btn', text: '−', title: 'Zoom out' });
-  const zoomIn  = el('button', { class: 'ms-zoom-btn', text: '+', title: 'Zoom in' });
-  const zoomLbl = el('span', { class: 'ms-zoom-lbl' });
-  toolbar.appendChild(el('span', { class: 'ms-toolbar-title', text: 'Title Pages' }));
-  toolbar.appendChild(el('span', { style: 'flex:1' }));
-  toolbar.appendChild(el('div', { class: 'ms-zoom-wrap' }, [zoomOut, zoomLbl, zoomIn]));
-  host.appendChild(toolbar);
-
-  // Page include checkboxes, grouped by what they affect.
-  const checks = el('div', { class: 'tp-checks' });
-  const groups = [
-    { label: 'Title page', items: [
-      { key: 'subtitle',        label: 'Subtitle',   defOff: true },
-      { key: 'rule',            label: 'Title line', defOff: true },
-      { key: 'draft',           label: 'Draft / date', defOff: true },
-      { key: 'contact',         label: 'Contact info' },
-    ] },
-    { label: 'Additional pages', items: [
-      { key: 'cast',            label: 'Cast of Characters' },
-      { key: 'settings',        label: 'Settings' },
-      { key: 'songs',           label: 'Songs' },
-      { key: 'productionNotes', label: 'Production Notes' },
-      { key: 'acknowledgements',label: 'Acknowledgements' },
-    ] },
-  ];
-  groups.forEach(({ label: groupLabel, items }) => {
-    const group = el('div', { class: 'tp-checks-group' });
-    group.appendChild(el('span', { class: 'tp-checks-label', text: groupLabel }));
-    items.forEach(({ key, label, defOff }) => {
-      const lbl = el('label', { class: 'tp-check-item' });
-      const cb = el('input', { type: 'checkbox' });
-      cb.checked = defOff ? state.titlePage.include[key] === true : state.titlePage.include[key] !== false;
-      if (state.readonly) cb.disabled = true;
-      cb.addEventListener('change', () => {
-        state.titlePage.include[key] = cb.checked;
-        scheduleSave();
-        renderViewport();
-      });
-      lbl.appendChild(cb);
-      lbl.appendChild(el('span', { text: label }));
-      group.appendChild(lbl);
-    });
-    checks.appendChild(group);
-  });
-  host.appendChild(checks);
-
-  // Scrollable body
-  const body = el('div', { class: 'ms-body' });
-  host.appendChild(body);
-
-  let viewport = null;
-  const renderViewport = () => {
-    body.innerHTML = '';
-    viewport = buildTitlePages();
-    viewport.style.zoom = zoom;
-    body.appendChild(viewport);
-  };
-
-  const applyZoom = () => {
-    if (viewport) viewport.style.zoom = zoom;
-    zoomLbl.textContent = Math.round(zoom * 100) + '%';
-    zoomOut.disabled = zoom <= ZOOM_MIN;
-    zoomIn.disabled  = zoom >= ZOOM_MAX;
-    try { localStorage.setItem('md-ms-zoom', zoom); } catch (_) {}
-  };
-  zoomOut.addEventListener('click', () => { zoom = Math.max(ZOOM_MIN, +(zoom - ZOOM_STEP).toFixed(2)); applyZoom(); });
-  zoomIn.addEventListener('click',  () => { zoom = Math.min(ZOOM_MAX, +(zoom + ZOOM_STEP).toFixed(2)); applyZoom(); });
-
-  renderViewport();
-  applyZoom();
 }
 
 function buildTitlePages() {
@@ -3424,8 +3342,10 @@ function buildManuscriptPage(sceneId) {
   const modeSeg = el('div', { class: 'seg ms-mode-seg', title: 'Switch view' });
   const editTab = el('button', { text: 'Edit' });
   const layoutTab = el('button', { text: 'Print View' });
+  const titleTab = el('button', { text: 'Title pages' });
   modeSeg.appendChild(editTab);
   modeSeg.appendChild(layoutTab);
+  modeSeg.appendChild(titleTab);
   const printBtn = el('button', { class: 'ms-print-btn', title: 'Print / Save as PDF' });
   printBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span>Print</span>';
   printBtn.addEventListener('click', () => exportPDF(true));
@@ -3467,6 +3387,60 @@ function buildManuscriptPage(sceneId) {
       viewport.appendChild(sheet);
     });
     newBody.appendChild(viewport);
+    msWrap.insertBefore(newBody, msWrap.querySelector('.ms-hd-drawer'));
+    newBody.scrollTop = scrollTop;
+  };
+
+  // ── Title-pages mode (front matter) ─────────────────────────────
+  // The former standalone Title Pages tab, folded into Manuscript as a view.
+  // Include-checkboxes sit inline above the zoomable sheet preview; Print
+  // (exportPDF(true)) already emits these pages ahead of the script.
+  const rebuildTitle = () => {
+    const oldBody = msWrap.querySelector('.ms-body');
+    const scrollTop = oldBody ? oldBody.scrollTop : 0;
+    if (oldBody) oldBody.remove();
+    const newBody = el('div', { class: 'ms-body' });
+
+    const checks = el('div', { class: 'tp-checks' });
+    let vp = null;
+    const renderVp = () => {
+      if (vp) vp.remove();
+      vp = buildTitlePages();
+      vp.style.zoom = zoom;
+      newBody.appendChild(vp);
+    };
+    const groups = [
+      { label: 'Title page', items: [
+        { key: 'subtitle', label: 'Subtitle', defOff: true },
+        { key: 'rule', label: 'Title line', defOff: true },
+        { key: 'draft', label: 'Draft / date', defOff: true },
+        { key: 'contact', label: 'Contact info' },
+      ] },
+      { label: 'Additional pages', items: [
+        { key: 'cast', label: 'Cast of Characters' },
+        { key: 'settings', label: 'Settings' },
+        { key: 'songs', label: 'Songs' },
+        { key: 'productionNotes', label: 'Production Notes' },
+        { key: 'acknowledgements', label: 'Acknowledgements' },
+      ] },
+    ];
+    groups.forEach(({ label: groupLabel, items }) => {
+      const group = el('div', { class: 'tp-checks-group' });
+      group.appendChild(el('span', { class: 'tp-checks-label', text: groupLabel }));
+      items.forEach(({ key, label, defOff }) => {
+        const lbl = el('label', { class: 'tp-check-item' });
+        const cb = el('input', { type: 'checkbox' });
+        cb.checked = defOff ? state.titlePage.include[key] === true : state.titlePage.include[key] !== false;
+        if (state.readonly) cb.disabled = true;
+        cb.addEventListener('change', () => { state.titlePage.include[key] = cb.checked; scheduleSave(); renderVp(); });
+        lbl.appendChild(cb);
+        lbl.appendChild(el('span', { text: label }));
+        group.appendChild(lbl);
+      });
+      checks.appendChild(group);
+    });
+    newBody.appendChild(checks);
+    renderVp();
     msWrap.insertBefore(newBody, msWrap.querySelector('.ms-hd-drawer'));
     newBody.scrollTop = scrollTop;
   };
@@ -3661,17 +3635,23 @@ function buildManuscriptPage(sceneId) {
 
   const applyMode = () => {
     const anchor = captureAnchor();
-    const isEdit = msMode === 'edit';
-    editTab.classList.toggle('active', isEdit);
-    layoutTab.classList.toggle('active', !isEdit);
+    editTab.classList.toggle('active', msMode === 'edit');
+    layoutTab.classList.toggle('active', msMode === 'layout');
+    titleTab.classList.toggle('active', msMode === 'title');
     try { localStorage.setItem('md-ms-mode', msMode); } catch (_) {}
     applyNav(); // outline panel + Navigation button reflect Edit/Print state
-    if (isEdit) { rebuildEdit(); applyZoom(); }
-    else { rebuildSheets(); applyZoom(); }
+    // Title mode has its own inline include-checkboxes, so the settings gear
+    // (script options: title/act headers/section tags) is hidden there.
+    settingsBtn.style.display = msMode === 'title' ? 'none' : '';
+    if (msMode === 'edit') rebuildEdit();
+    else if (msMode === 'title') rebuildTitle();
+    else rebuildSheets();
+    applyZoom();
     restoreAnchor(anchor);
   };
   editTab.addEventListener('click', () => { if (msMode !== 'edit') { msMode = 'edit'; applyMode(); } });
   layoutTab.addEventListener('click', () => { if (msMode !== 'layout') { msMode = 'layout'; applyMode(); } });
+  titleTab.addEventListener('click', () => { if (msMode !== 'title') { msMode = 'title'; applyMode(); } });
 
   // ── Settings drawer ──────────────────────────────────────────────
   const drawer = buildHeaderDrawer(() => { if (msMode === 'layout') rebuildSheets(); else rebuildEdit(); });

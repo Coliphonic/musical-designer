@@ -581,6 +581,9 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
   border-bottom: 1px solid var(--line);
   background: var(--panel);
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 .tp-checks-group { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
 .tp-checks-label { flex-shrink: 0; width: 120px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--faint); font-weight: 600; }
