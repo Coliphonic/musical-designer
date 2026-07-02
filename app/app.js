@@ -2660,13 +2660,22 @@ function buildNotesPage() {
 
   const railList = el('div', { class: 'notes-rail-list' });
   state.notes.forEach((n) => {
-    const row = el('button', { class: 'notes-rail-row' + (n.id === notesSelId ? ' active' : '') });
+    const row = el('div', { class: 'notes-rail-row' + (n.id === notesSelId ? ' active' : '') });
     row.appendChild(el('span', { class: 'notes-rail-label', text: n.title || 'Untitled note' }));
     row.addEventListener('click', () => {
       if (notesSelId === n.id) return;
       notesSelId = n.id;
       buildNotesPage();
     });
+    // Rename / Delete live in a per-note context menu (dots on hover, or
+    // right-click) — keeps those destructive/rename actions off the format bar.
+    if (!ro) {
+      const dots = el('button', { class: 'notes-rail-dots', title: 'Note options',
+        html: '<svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>' });
+      dots.addEventListener('click', (e) => { e.stopPropagation(); openNoteMenu(n, dots); });
+      row.addEventListener('contextmenu', (e) => { e.preventDefault(); openNoteMenu(n, dots); });
+      row.appendChild(dots);
+    }
     railList.appendChild(row);
   });
   rail.appendChild(railList);
@@ -2717,47 +2726,50 @@ function buildNotesPage() {
 
   let editorEl;
   if (!ro) {
+    const mod = navigator.platform.toUpperCase().includes('MAC') ? '⌘' : 'Ctrl+';
+    const ICON = {
+      quote: '<svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M9 11H5.5c0-1.66 1.34-3 3-3V6C5.46 6 3 8.46 3 11.5V17h6v-6zm11 0h-3.5c0-1.66 1.34-3 3-3V6c-3.04 0-5.5 2.46-5.5 5.5V17h6v-6z"/></svg>',
+      bullet: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4.5" cy="6" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="12" r="1.3" fill="currentColor" stroke="none"/><circle cx="4.5" cy="18" r="1.3" fill="currentColor" stroke="none"/></svg>',
+      number: '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/><text x="2.5" y="8.5" font-size="7" fill="currentColor" stroke="none" font-family="sans-serif">1</text><text x="2.5" y="14.5" font-size="7" fill="currentColor" stroke="none" font-family="sans-serif">2</text><text x="2.5" y="20.5" font-size="7" fill="currentColor" stroke="none" font-family="sans-serif">3</text></svg>',
+      link: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
+      table: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="1.5"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="4" x2="9" y2="20"/><line x1="15" y1="4" x2="15" y2="20"/></svg>',
+    };
     const fmt = el('div', { class: 'notes-fmt' });
-    const mkBtn = (label, title, cmd, val) => {
-      const b = el('button', { class: 'notes-fmt-btn', title, text: label });
+    // label may be plain text or an SVG icon (html:true); extraCls tunes glyph weight/style
+    const mkBtn = (label, title, run, opts) => {
+      const o = opts || {};
+      const b = el('button', { class: 'notes-fmt-btn' + (o.cls ? ' ' + o.cls : ''), title });
+      if (o.html) b.innerHTML = label; else b.textContent = label;
       b.addEventListener('mousedown', (e) => e.preventDefault()); // keep the text selection alive
-      b.addEventListener('click', () => { document.execCommand(cmd, false, val); editorEl.focus(); });
+      b.addEventListener('click', () => { run(); editorEl.focus(); });
       return b;
     };
-    fmt.appendChild(mkBtn('H1', 'Heading', 'formatBlock', 'H2'));
-    fmt.appendChild(mkBtn('¶', 'Paragraph', 'formatBlock', 'P'));
-    fmt.appendChild(mkBtn('❝', 'Quote', 'formatBlock', 'BLOCKQUOTE'));
-    fmt.appendChild(mkBtn('B', 'Bold', 'bold'));
-    fmt.appendChild(mkBtn('I', 'Italic', 'italic'));
-    fmt.appendChild(mkBtn('•', 'Bulleted list', 'insertUnorderedList'));
-    fmt.appendChild(mkBtn('1.', 'Numbered list', 'insertOrderedList'));
-    const linkBtn = el('button', { class: 'notes-fmt-btn', title: 'Link', text: '🔗' });
-    linkBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    linkBtn.addEventListener('click', () => {
+    const cmd = (name, val) => () => document.execCommand(name, false, val);
+    const divider = () => el('span', { class: 'notes-fmt-divider' });
+
+    // Block style
+    fmt.appendChild(mkBtn('Heading', 'Heading', cmd('formatBlock', 'H2'), { cls: 'wide' }));
+    fmt.appendChild(mkBtn('Body', 'Body text', cmd('formatBlock', 'P'), { cls: 'wide' }));
+    fmt.appendChild(mkBtn(ICON.quote, 'Block quote', cmd('formatBlock', 'BLOCKQUOTE'), { html: true }));
+    fmt.appendChild(divider());
+    // Emphasis
+    fmt.appendChild(mkBtn('B', 'Bold (' + mod + 'B)', cmd('bold'), { cls: 'strong' }));
+    fmt.appendChild(mkBtn('I', 'Italic (' + mod + 'I)', cmd('italic'), { cls: 'em' }));
+    fmt.appendChild(divider());
+    // Lists
+    fmt.appendChild(mkBtn(ICON.bullet, 'Bulleted list', cmd('insertUnorderedList'), { html: true }));
+    fmt.appendChild(mkBtn(ICON.number, 'Numbered list', cmd('insertOrderedList'), { html: true }));
+    fmt.appendChild(divider());
+    // Insert
+    fmt.appendChild(mkBtn(ICON.link, 'Insert link', () => {
       const url = prompt('Link URL:');
       if (url) document.execCommand('createLink', false, url);
-      editorEl.focus();
-    });
-    fmt.appendChild(linkBtn);
-    const tableBtn = el('button', { class: 'notes-fmt-btn', title: 'Insert table', text: '⊞' });
-    tableBtn.addEventListener('mousedown', (e) => e.preventDefault());
-    tableBtn.addEventListener('click', () => {
-      editorEl.focus();
+    }, { html: true }));
+    fmt.appendChild(mkBtn(ICON.table, 'Insert table', () => {
       document.execCommand('insertHTML', false,
         '<table><tbody><tr><td><br></td><td><br></td></tr><tr><td><br></td><td><br></td></tr></tbody></table><p><br></p>');
-    });
-    fmt.appendChild(tableBtn);
+    }, { html: true }));
     toolbar.appendChild(fmt);
-
-    const delBtn = el('button', { class: 'notes-del-btn', title: 'Delete note', text: '×' });
-    delBtn.addEventListener('click', () => {
-      if (!confirm('Delete "' + (note.title || 'Untitled note') + '"? This cannot be undone.')) return;
-      state.notes = state.notes.filter((n) => n.id !== note.id);
-      notesSelId = null;
-      scheduleSave();
-      buildNotesPage();
-    });
-    toolbar.appendChild(delBtn);
   }
   pane.appendChild(toolbar);
 
@@ -2777,6 +2789,37 @@ function buildNotesPage() {
 
   wrap.appendChild(pane);
   host.appendChild(wrap);
+}
+
+// Per-note Rename / Delete menu — reuses the library card menu chrome (and its
+// global outside-click close handler, keyed on #lib-card-menu).
+function openNoteMenu(note, anchor) {
+  closeCardMenu();
+  const menu = el('div', { class: 'lib-menu', id: 'lib-card-menu' });
+  const add = (label, fn, danger) => {
+    const b = el('button', { class: 'lib-menu-item' + (danger ? ' danger' : ''), text: label });
+    b.addEventListener('click', (e) => { e.stopPropagation(); closeCardMenu(); fn(); });
+    menu.appendChild(b);
+  };
+  add('Rename', () => {
+    const t = prompt('Rename note:', note.title || '');
+    if (t == null) return;
+    note.title = t.trim() || 'Untitled note';
+    note.updatedAt = Date.now();
+    scheduleSave();
+    buildNotesPage();
+  });
+  add('Delete', () => {
+    if (!confirm('Delete "' + (note.title || 'Untitled note') + '"? This cannot be undone.')) return;
+    state.notes = state.notes.filter((n) => n.id !== note.id);
+    if (notesSelId === note.id) notesSelId = null;
+    scheduleSave();
+    buildNotesPage();
+  }, true);
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.top = (r.bottom + 4) + 'px';
+  menu.style.left = Math.max(8, r.right - menu.offsetWidth) + 'px';
 }
 
 // ---- Story DNA -----------------------------------------------------------
