@@ -423,6 +423,112 @@ function createFolderAndMove() {
   applyFolder(name);
 }
 
+// ---- Find & Replace --------------------------------------------------------
+// Searches every card's manuscript body (song lyrics / scene note — see
+// cardBodyField) plus every note's body. Card titles and structural fields
+// (fn, voicing, min) are intentionally out of scope so a rename can't corrupt
+// board metadata.
+function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function findOpts() {
+  return {
+    case: !!document.getElementById('find-case').checked,
+    whole: !!document.getElementById('find-whole').checked,
+  };
+}
+function buildFindRegex(query, opts) {
+  if (!query) return null;
+  let pattern = escapeRegExp(query);
+  if (opts.whole) pattern = '\\b' + pattern + '\\b';
+  try { return new RegExp(pattern, 'g' + (opts.case ? '' : 'i')); } catch (_) { return null; }
+}
+function htmlToText(html) {
+  const d = document.createElement('div');
+  d.innerHTML = html || '';
+  return d.textContent || '';
+}
+// Replaces within text nodes only, so bold/italic/links survive. A match that
+// spans a formatting boundary (half bold, half not) won't be found — a known
+// limitation shared with most rich-text editors' basic find/replace.
+function replaceInHtml(html, re, replacement) {
+  const container = document.createElement('div');
+  container.innerHTML = html || '';
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  let n;
+  while ((n = walker.nextNode())) nodes.push(n);
+  let changed = false;
+  nodes.forEach((node) => {
+    re.lastIndex = 0;
+    if (re.test(node.nodeValue)) {
+      re.lastIndex = 0;
+      node.nodeValue = node.nodeValue.replace(re, replacement);
+      changed = true;
+    }
+  });
+  return changed ? container.innerHTML : null;
+}
+function countMatches(text, re) {
+  if (!text || !re) return 0;
+  re.lastIndex = 0;
+  const m = text.match(re);
+  return m ? m.length : 0;
+}
+function findMatchCount(re) {
+  let count = 0;
+  state.cards.forEach((c) => { count += countMatches(c[cardBodyField(c)] || '', re); });
+  (state.notes || []).forEach((n) => { count += countMatches(htmlToText(n.body), re); });
+  return count;
+}
+function setFindStatus(text) { document.getElementById('find-status').textContent = text; }
+function updateFindStatus() {
+  const q = document.getElementById('find-q').value;
+  if (!q) { setFindStatus('Searches song & scene text and notes.'); return; }
+  const re = buildFindRegex(q, findOpts());
+  const n = re ? findMatchCount(re) : 0;
+  setFindStatus(n ? (n + ' match' + (n === 1 ? '' : 'es') + ' found.') : 'No matches found.');
+}
+function openFindModal() {
+  document.getElementById('find-modal').style.display = '';
+  updateFindStatus();
+  const q = document.getElementById('find-q');
+  q.focus();
+  q.select();
+}
+function closeFindModal() { document.getElementById('find-modal').style.display = 'none'; }
+function doReplaceAll() {
+  if (state.readonly) return;
+  const q = document.getElementById('find-q').value;
+  if (!q) return;
+  const rep = document.getElementById('find-r').value;
+  const re = buildFindRegex(q, findOpts());
+  if (!re) return;
+  let total = 0;
+  state.cards.forEach((c) => {
+    const field = cardBodyField(c);
+    const text = c[field] || '';
+    const n = countMatches(text, re);
+    if (!n) return;
+    total += n;
+    re.lastIndex = 0;
+    setCardBody(c, field, text.replace(re, rep));
+  });
+  (state.notes || []).forEach((n) => {
+    const n2 = countMatches(htmlToText(n.body), re);
+    if (!n2) return;
+    const newHtml = replaceInHtml(n.body, re, rep);
+    if (newHtml == null) return;
+    total += n2;
+    n.body = newHtml;
+    n.updatedAt = Date.now();
+  });
+  if (total > 0) {
+    scheduleSave();
+    if (state.page === 'manuscript') { const a = captureMsAnchor(); buildManuscriptPage(); restoreMsAnchor(a); }
+    if (state.page === 'notes') buildNotesPage();
+  }
+  setFindStatus(total ? ('Replaced ' + total + ' match' + (total === 1 ? '' : 'es') + '.') : 'No matches found.');
+}
+
 function duplicateShowById(id) {
   fetch('/api/shows/' + id).then((r) => r.json()).then((d) => {
     const body = JSON.stringify({ title: (d.title || 'Untitled') + ' (copy)', mode: d.mode, status: 'draft', updated: Date.now(), cards: d.cards || [], characters: d.characters || {}, titlePage: d.titlePage, scriptHeader: d.scriptHeader });
@@ -480,9 +586,12 @@ function setSaveInd(s) {
 function renderShowBtn() {
   const nameEl = document.getElementById('sb-show-name');
   if (nameEl) nameEl.textContent = state.title || (state.showKey && SHOWS[state.showKey] ? SHOWS[state.showKey].title : '—');
-  // Snapshots apply to the user's own editable shows, not read-only references.
+  // Snapshots and Find & Replace apply to the user's own editable shows, not
+  // read-only references.
   const snap = document.getElementById('sb-snapshots');
   if (snap) snap.hidden = !(state.projectId && !state.readonly);
+  const fnd = document.getElementById('sb-find');
+  if (fnd) fnd.hidden = !(state.projectId && !state.readonly);
 }
 
 function closeShowPopover() {
@@ -4521,6 +4630,17 @@ function initControls() {
   const exBtn = document.getElementById('sb-export');
   if (exBtn) exBtn.addEventListener('click', (e) => { e.stopPropagation(); openExportDrawer(); });
 
+  // Find & Replace modal
+  document.getElementById('sb-find').addEventListener('click', (e) => { e.stopPropagation(); openFindModal(); });
+  document.getElementById('find-cancel').addEventListener('click', closeFindModal);
+  document.getElementById('find-replace').addEventListener('click', doReplaceAll);
+  document.getElementById('find-modal').addEventListener('click', (e) => { if (e.target.id === 'find-modal') closeFindModal(); });
+  ['find-q', 'find-case', 'find-whole'].forEach((id) => {
+    document.getElementById(id).addEventListener('input', updateFindStatus);
+  });
+  document.getElementById('find-q').addEventListener('keydown', (e) => { if (e.key === 'Enter') doReplaceAll(); });
+  document.getElementById('find-r').addEventListener('keydown', (e) => { if (e.key === 'Enter') doReplaceAll(); });
+
   // show settings modal
   document.getElementById('ssm-cancel').addEventListener('click', closeShowSettingsModal);
   document.getElementById('ssm-save').addEventListener('click', saveShowSettings);
@@ -4582,9 +4702,16 @@ function initControls() {
     dmBtn.addEventListener('click', () => { dark = !dark; applyDark(dark); try { localStorage.setItem('md-dark', dark ? '1' : '0'); } catch (_) {} });
   }
   document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === 'f' || e.key === 'F') && !state.readonly) {
+      e.preventDefault();
+      openFindModal();
+      return;
+    }
     if (e.key === 'Escape') {
       const exd = document.getElementById('exp-drawer');
       if (exd) { closeExportDrawer(); return; }
+      const fnd = document.getElementById('find-modal');
+      if (fnd && fnd.style.display !== 'none') { closeFindModal(); return; }
       const fm = document.getElementById('folder-modal');
       if (fm && fm.style.display !== 'none') { closeFolderModal(); return; }
       const shm = document.getElementById('share-modal');
