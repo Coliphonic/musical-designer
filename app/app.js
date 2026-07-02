@@ -4084,7 +4084,7 @@ function buildManuscriptPage(sceneId) {
       if (!c) return;
       const isEmpty = !(c[cardField(c)] || '').trim();
       const div = el('div', { class: 'ms-card-divider' + (isEmpty ? ' ms-card-divider-empty' : ''), 'data-card-id': c.id, 'data-anchor': 'card:' + c.id });
-      const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '●';
+      const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '◦';
       div.appendChild(el('span', { class: 'ms-card-divider-label', text: icon + ' ' + (c.title || 'Untitled') }));
       doc.appendChild(div);
       const sec = el('div', { class: 'ms-card-section', 'data-card-id': c.id });
@@ -4303,7 +4303,7 @@ function buildManuscriptPage(sceneId) {
         curAct = c.act;
         navList.appendChild(el('div', { class: 'ms-nav-act', text: LANE_LABELS[c.act] || c.act }));
       }
-      const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '●';
+      const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '◦';
       const row = el('button', { class: 'ms-nav-row ms-nav-' + c.type }, [
         el('span', { class: 'ms-nav-icon', text: icon }),
         el('span', { class: 'ms-nav-label', text: c.title || 'Untitled' }),
