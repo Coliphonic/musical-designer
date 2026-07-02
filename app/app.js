@@ -112,6 +112,17 @@ function cardBodyField(c) {
   return c.type === 'scene' ? 'note' : 'lyrics';
 }
 
+// Word count on the manuscript body — strips emphasis markup (see emphToHtml)
+// so **bold**/_underline_/~~strike~~/==highlight== symbols aren't counted as
+// their own words.
+function countWords(text) {
+  const m = (text || '').replace(/[*_~=]/g, ' ').match(/\S+/g);
+  return m ? m.length : 0;
+}
+function totalShowWords() {
+  return state.cards.reduce((s, c) => s + countWords(c[cardBodyField(c)] || ''), 0);
+}
+
 function saveLastOpened(type, val) {
   try { localStorage.setItem('md-last', JSON.stringify({ type, val })); } catch (_) {}
 }
@@ -3838,10 +3849,14 @@ function buildManuscriptPage(sceneId) {
   const settingsBtn = el('button', { class: 'ms-settings-btn', title: 'Page settings' });
   settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
   const navBtn = el('button', { class: 'ms-nav-btn', title: 'Show/hide the outline navigation', text: '☰ Navigation' });
+  const wcLbl = el('span', { class: 'ms-wc-lbl' });
+  const updateWordCount = () => { wcLbl.textContent = totalShowWords().toLocaleString() + ' words'; };
+  updateWordCount();
 
   const saveMsOpts = () => { try { localStorage.setItem('md-ms-opts', JSON.stringify(state.msOptions)); } catch (_) {} };
 
   toolbar.appendChild(navBtn); // leftmost — the outline opens on the left
+  toolbar.appendChild(wcLbl);
   toolbar.appendChild(zoomWrap); // absolutely centered via CSS
   // Mode toggle lives on the right beside Print so it stays anchored when the
   // Edit-only Navigation button disappears in Print View.
@@ -3994,6 +4009,7 @@ function buildManuscriptPage(sceneId) {
         setCardLines(c, lines); // lines canonical; derives the body blob
         doSave(); // persist immediately — blur may be followed by navigating away
         renderCardSection(sec, c);
+        updateWordCount();
       },
       onClose: () => { if (setActiveFormatBar) setActiveFormatBar(null); }, // release the shared bar
     });
@@ -4651,6 +4667,7 @@ function buildStats() {
   wrap.appendChild(stat('Beats', beats));
   wrap.appendChild(stat('Runtime', '~' + Math.round(total) + 'm'));
   wrap.appendChild(stat(state.mode === 'full' ? 'Pre / post int' : 'Pre / post mid', `${Math.round(pre)} / ${Math.round(total - pre)}`));
+  wrap.appendChild(stat('Words', totalShowWords().toLocaleString()));
 }
 
 // ---- render ----

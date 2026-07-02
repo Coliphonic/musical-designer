@@ -992,6 +992,7 @@ body.dark .ms-body { background: var(--bg); }
 body.dark .ribbon, body.dark .ms-toolbar { background: #211e2c; }
 .ms-toolbar .ms-zoom-wrap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
 .ms-tb-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.ms-wc-lbl { font-size: 12px; color: var(--muted); margin-left: 12px; white-space: nowrap; }
 /* Navigation, Print, and Settings share one bare-button language. They sit at
    the same 32px height as the Edit/Print View seg track so the whole ribbon
    reads as one uniform row. */
