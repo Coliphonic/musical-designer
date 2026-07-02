@@ -979,15 +979,15 @@ body.dark .ribbon, body.dark .ms-toolbar { background: #211e2c; }
 /* Navigation, Print, and Settings share one bare-button language. They sit at
    the same 32px height as the Edit/Print View seg track so the whole ribbon
    reads as one uniform row. */
-.ms-nav-btn, .ms-print-btn, .ms-settings-btn {
+.ms-nav-btn, .ms-print-btn, .ms-settings-btn, .ms-title-btn {
   display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
   height: 32px; padding: 0 11px; border-radius: 7px; border: 1px solid transparent;
   background: transparent; color: var(--muted); font-size: 12px; font-weight: 500;
   font-family: inherit; cursor: pointer; transition: background 0.12s, color 0.12s;
 }
-.ms-nav-btn:hover, .ms-print-btn:hover, .ms-settings-btn:hover { background: var(--hover); color: var(--ink); }
-.ms-nav-btn.active, .ms-settings-btn.active { background: #534ab7; color: #fff; border-color: #534ab7; }
-body.dark .ms-nav-btn.active, body.dark .ms-settings-btn.active { background: #6a61d0; color: #fff; border-color: #6a61d0; }
+.ms-nav-btn:hover, .ms-print-btn:hover, .ms-settings-btn:hover, .ms-title-btn:hover { background: var(--hover); color: var(--ink); }
+.ms-nav-btn.active, .ms-settings-btn.active, .ms-title-btn.active { background: #534ab7; color: #fff; border-color: #534ab7; }
+body.dark .ms-nav-btn.active, body.dark .ms-settings-btn.active, body.dark .ms-title-btn.active { background: #6a61d0; color: #fff; border-color: #6a61d0; }
 .ms-tb-divider { width: 1px; height: 22px; background: var(--line); flex-shrink: 0; }
 /* Segmented toggles in a ribbon share the nav-pill language: a tinted track
    container with a purple-filled active chip (matches the top-nav pill and the
