@@ -2694,27 +2694,20 @@ function buildNotesPage() {
   }
 
   const toolbar = el('div', { class: 'notes-toolbar ribbon' });
-  const titleIn = el('input', { class: 'notes-title-in', type: 'text', value: note.title || '', placeholder: 'Untitled note' });
-  if (ro) titleIn.disabled = true;
-  else titleIn.addEventListener('input', () => {
-    note.title = titleIn.value;
-    note.updatedAt = Date.now();
-    scheduleSave();
-    const idx = state.notes.indexOf(note);
-    const row = railList.children[idx];
-    if (row) row.querySelector('.notes-rail-label').textContent = titleIn.value || 'Untitled note';
-  });
-  toolbar.appendChild(titleIn);
 
-  // Same centered zoom control as the Manuscript, applied to the editor's CSS zoom.
+  // Zoom control (declared early; applied once the document is built). Same as
+  // the Manuscript's, but right-anchored — the format bar leads on the left, the
+  // way Word / Google Docs / Scrivener put controls where the text begins.
   const ZOOM_STEP = 0.15, ZOOM_MIN = 0.4, ZOOM_MAX = 2.0;
   let zoom = (() => { try { return parseFloat(localStorage.getItem('md-notes-zoom')) || 1; } catch (_) { return 1; } })();
   const zoomOut = el('button', { class: 'ms-zoom-btn', text: '−', title: 'Zoom out' });
   const zoomIn  = el('button', { class: 'ms-zoom-btn', text: '+', title: 'Zoom in' });
   const zoomLbl = el('span', { class: 'ms-zoom-lbl' });
   const zoomWrap = el('div', { class: 'ms-zoom-wrap' }, [zoomOut, zoomLbl, zoomIn]);
+
+  let docEl, editorEl;
   const applyZoom = () => {
-    editorEl.style.zoom = zoom;
+    if (docEl) docEl.style.zoom = zoom;
     zoomLbl.textContent = Math.round(zoom * 100) + '%';
     zoomOut.disabled = zoom <= ZOOM_MIN;
     zoomIn.disabled = zoom >= ZOOM_MAX;
@@ -2722,9 +2715,7 @@ function buildNotesPage() {
   };
   zoomOut.addEventListener('click', () => { zoom = Math.max(ZOOM_MIN, +(zoom - ZOOM_STEP).toFixed(2)); applyZoom(); });
   zoomIn.addEventListener('click', () => { zoom = Math.min(ZOOM_MAX, +(zoom + ZOOM_STEP).toFixed(2)); applyZoom(); });
-  toolbar.appendChild(zoomWrap); // absolutely centered via CSS
 
-  let editorEl;
   if (!ro) {
     const mod = navigator.platform.toUpperCase().includes('MAC') ? '⌘' : 'Ctrl+';
     const ICON = {
@@ -2771,7 +2762,30 @@ function buildNotesPage() {
     }, { html: true }));
     toolbar.appendChild(fmt);
   }
+  toolbar.appendChild(zoomWrap); // right-anchored via CSS margin-left:auto
   pane.appendChild(toolbar);
+
+  // Scrolling document — a big editable title heading (the page title, like
+  // Notion / Apple Notes) above the freeform body. Both scale with zoom.
+  const scroll = el('div', { class: 'notes-scroll' });
+  docEl = el('div', { class: 'notes-doc' });
+
+  const titleHead = el('input', { class: 'notes-title-head', type: 'text', value: note.title || '', placeholder: 'Untitled note' });
+  if (ro) titleHead.disabled = true;
+  else {
+    titleHead.addEventListener('input', () => {
+      note.title = titleHead.value;
+      note.updatedAt = Date.now();
+      scheduleSave();
+      const idx = state.notes.indexOf(note);
+      const row = railList.children[idx];
+      if (row) row.querySelector('.notes-rail-label').textContent = titleHead.value || 'Untitled note';
+    });
+    titleHead.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); editorEl.focus(); }
+    });
+  }
+  docEl.appendChild(titleHead);
 
   editorEl = el('div', { class: 'notes-editor' });
   editorEl.innerHTML = note.body || '';
@@ -2784,7 +2798,9 @@ function buildNotesPage() {
       scheduleSave();
     });
   }
-  pane.appendChild(editorEl);
+  docEl.appendChild(editorEl);
+  scroll.appendChild(docEl);
+  pane.appendChild(scroll);
   applyZoom();
 
   wrap.appendChild(pane);

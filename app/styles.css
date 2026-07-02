@@ -1050,13 +1050,11 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 .notes-rail-dots:hover { background: var(--line); color: var(--ink); }
 
 .notes-pane { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
-.notes-toolbar { gap: 12px; }
-.notes-toolbar .ms-zoom-wrap { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
-.notes-title-in {
-  flex: 1; min-width: 0; border: none; background: transparent; color: var(--ink);
-  font-size: 15px; font-weight: 700; font-family: inherit; padding: 4px 2px;
-}
-.notes-title-in:focus { outline: none; }
+/* Firm 44px (border-box) so the bar matches the rail head exactly — the zoom
+   control is now in normal flow (not absolutely positioned like the Manuscript's)
+   and would otherwise push the ribbon past its min-height. */
+.notes-toolbar { gap: 6px; height: 44px; min-height: 44px; padding: 0 14px; box-sizing: border-box; }
+.notes-toolbar .ms-zoom-wrap { margin-left: auto; flex-shrink: 0; }
 .notes-fmt { display: inline-flex; align-items: center; gap: 2px; flex-shrink: 0; }
 .notes-fmt-btn {
   display: inline-flex; align-items: center; justify-content: center;
@@ -1069,8 +1067,17 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 .notes-fmt-btn.strong { font-weight: 800; }
 .notes-fmt-btn.em { font-style: italic; font-family: Georgia, 'Times New Roman', serif; font-size: 14px; }
 .notes-fmt-divider { width: 1px; height: 18px; background: var(--line); margin: 0 5px; flex-shrink: 0; }
+.notes-scroll { flex: 1; overflow-y: auto; background: var(--bg); }
+.notes-doc { max-width: 760px; padding: 30px 40px 90px; }
+.notes-title-head {
+  display: block; width: 100%; border: none; background: transparent; color: var(--ink);
+  font-family: inherit; font-size: 26px; font-weight: 800; letter-spacing: -0.02em;
+  padding: 0 0 12px; margin: 0; border-bottom: 1px solid var(--line);
+}
+.notes-title-head:focus { outline: none; }
+.notes-title-head::placeholder { color: var(--faint); }
 .notes-editor {
-  flex: 1; overflow-y: auto; padding: 26px 40px 80px; max-width: 760px;
+  min-height: 55vh; padding-top: 16px;
   font-size: 14.5px; line-height: 1.65; color: var(--ink);
 }
 .notes-editor:focus { outline: none; background: transparent; }
