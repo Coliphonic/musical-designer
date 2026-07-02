@@ -87,7 +87,7 @@ body.dark .lwtoggle.active { background: #4a453e; color: #f3eee3; box-shadow: 0 
 .actcards.dragover { border-color: var(--ink); background: var(--panel); }
 
 .bcard {
-  width: 218px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  width: 218px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
   padding: 10px 11px 11px; cursor: grab; display: flex; flex-direction: column; gap: 6px;
   transition: box-shadow .12s, border-color .12s;
 }
