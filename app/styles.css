@@ -1238,10 +1238,11 @@ body.dark .ms-fmt-divider { background: #3d3760; }
 .ms-fmt-hl.active mark { background: transparent; padding: 0; }
 /* Editorial highlight in the text — soft amber, dark ink so it stays legible in both themes. */
 mark { background: var(--hl); color: var(--hl-ink); -webkit-text-fill-color: var(--hl-ink); border-radius: 2px; padding: 0 1px; }
-/* Inline note: underline only (no fill), distinct from the plain editorial highlight above. */
+/* Inline note: underline only (no fill), distinct from the plain editorial highlight above.
+   Sage, matching the outline/note family (Section tags, loglines, Story DNA truths). */
 mark.note-mark {
   background: transparent; color: inherit; -webkit-text-fill-color: inherit; padding: 0; border-radius: 0;
-  text-decoration: underline dotted var(--energy); text-decoration-thickness: 1.5px; text-underline-offset: 3px;
+  text-decoration: underline dotted var(--sage); text-decoration-thickness: 1.5px; text-underline-offset: 3px;
   cursor: pointer;
 }
 mark.note-mark:hover { text-decoration-style: solid; }
@@ -1250,34 +1251,36 @@ mark.note-mark:hover { text-decoration-style: solid; }
 .note-float-toolbar { position: fixed; z-index: 4000; transform: translate(-50%, calc(-100% - 8px)); }
 .note-float-btn {
   display: flex; align-items: center; gap: 5px; font-family: inherit; font-size: 12px; font-weight: 600;
-  padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink);
+  padding: 6px 10px; border: 1px solid var(--sage-line); border-radius: 8px; background: var(--sage-bg); color: var(--sage);
   box-shadow: 0 4px 14px rgba(0,0,0,0.18); cursor: pointer;
 }
-.note-float-btn:hover { background: var(--hover); }
+.note-float-btn:hover { filter: brightness(0.96); }
 
 /* Note create/edit popup and the read-only viewer popover. */
 .note-popup {
-  position: fixed; z-index: 4001; width: 240px; background: var(--panel); border: 1px solid var(--line);
+  position: fixed; z-index: 4001; width: 240px; background: var(--panel); border: 1px solid var(--sage-line);
   border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); padding: 10px;
 }
 .note-popup-ta {
   width: 100%; min-height: 64px; resize: vertical; font-family: inherit; font-size: 13px; padding: 8px;
-  border: 1px solid var(--line); border-radius: 7px; background: var(--panel); color: var(--ink);
+  border: 1px solid var(--sage-line); border-radius: 7px; background: var(--panel); color: var(--ink);
 }
 .note-popup-btns { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
 .note-popup-delete { margin-right: auto; }
-.note-popup-ro { padding: 12px; }
+.note-popup-btns .pbtn.primary { background: var(--sage); border-color: var(--sage); color: #fff; }
+.note-popup-ro { padding: 12px; border-color: var(--sage-line); }
 .note-popup-text { font-size: 13px; color: var(--ink); white-space: pre-wrap; word-break: break-word; max-width: 216px; }
 .note-popup-close {
   position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border: none; background: transparent;
   color: var(--muted); font-size: 15px; line-height: 1; cursor: pointer; border-radius: 5px;
 }
-.note-popup-close:hover { background: var(--hover); color: var(--ink); }
+.note-popup-close:hover { background: var(--sage-bg); color: var(--sage); }
 
 /* Navigator sub-rows for inline notes, nested under their card's row. */
 .ms-nav-note { padding-left: 24px; color: var(--faint); }
-.ms-nav-note-icon { color: var(--muted); }
-.ms-nav-note:hover { color: var(--ink); }
+.ms-nav-note-icon { color: var(--sage); }
+.ms-nav-note:hover { background: var(--sage-bg); color: var(--sage); }
+.ms-nav-note.active { background: var(--sage-bg); color: var(--sage); border-left-color: var(--sage); }
 
 /* Mark a dual cue in the editor so the writer sees the pairing. */
 .ms-el[data-dual="1"]::after {
