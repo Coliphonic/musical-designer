@@ -1137,8 +1137,12 @@ function makeFnPicker(c) {
 // Focus a freshly-created card's inline title for immediate typing. Returns false
 // when the card has no editable title (scenes), so the caller can open the editor.
 function focusCardTitle(id) {
-  const t = document.querySelector('.bcard[data-id="' + id + '"] .title[contenteditable="true"]');
+  // .cardedit marks a title wired up by makeCardEditable (song/beat titles);
+  // it only gets contenteditable="true" on click, so a fresh card needs that
+  // turned on here rather than checking for it.
+  const t = document.querySelector('.bcard[data-id="' + id + '"] .title.cardedit');
   if (!t) return false;
+  t.setAttribute('contenteditable', 'true');
   t.focus();
   const range = document.createRange(); range.selectNodeContents(t);
   const s = window.getSelection(); s.removeAllRanges(); s.addRange(range);
