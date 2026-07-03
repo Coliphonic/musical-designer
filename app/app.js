@@ -44,6 +44,8 @@ const state = {
   format: 'song',      // 'song' | 'prose' — which Plot Suite app this show belongs to
   currentApp: 'song',  // which app's Library you're currently browsing (waffle launcher)
   wordTarget: 0,       // Prose Plot only — the ribbon's "words / target" progress stat
+  wordCountBaseline: 0,     // total word count as of the start of wordCountBaselineDate
+  wordCountBaselineDate: '', // 'YYYY-MM-DD', local time — rolls forward in buildStats
   projectId: null,
   readonly: true,
   loading: false,
@@ -161,6 +163,8 @@ function openReference(key) {
   state.format = 'song'; // the reference library is Song Plot-only for now
   state.currentApp = 'song';
   state.wordTarget = 0;
+  state.wordCountBaseline = 0;
+  state.wordCountBaselineDate = '';
   state.loading = false;
   render();
   setSaveInd('ref');
@@ -211,6 +215,8 @@ function applyShowData(d) {
   state.format = d.format || 'song';
   state.currentApp = state.format;
   state.wordTarget = d.wordTarget || 0;
+  state.wordCountBaseline = d.wordCountBaseline || 0;
+  state.wordCountBaselineDate = d.wordCountBaselineDate || '';
 }
 
 function openProject(id, afterOpen) {
@@ -233,6 +239,8 @@ function serialize() {
     title: state.title, mode: state.mode, status: state.status || 'active', folder: state.folder || '', updated: Date.now(),
     format: state.format || 'song',
     wordTarget: state.wordTarget || 0,
+    wordCountBaseline: state.wordCountBaseline || 0,
+    wordCountBaselineDate: state.wordCountBaselineDate || '',
     cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
     revisions: state.revisions,
     currentRev: state.currentRev,
@@ -1207,7 +1215,12 @@ function buildCard(c, trueIdx, pct) {
     top.appendChild(el('span', { class: 'pct', text: pct + '%' }));
   } else if (c.type === 'beat') {
     top.appendChild(makeBeatFnPill(c));
-    top.appendChild(el('span', { class: 'pct', text: pct + '%' }));
+    if (state.format === 'prose' && c.wordTarget) {
+      const n = countWords(c[cardBodyField(c)] || '');
+      top.appendChild(el('span', { class: 'pct' + (n >= c.wordTarget ? ' pct-hit' : ''), text: n.toLocaleString() + ' / ' + c.wordTarget.toLocaleString() }));
+    } else {
+      top.appendChild(el('span', { class: 'pct', text: pct + '%' }));
+    }
   }
 
   const kids = c.type === 'scene' ? [] : [top];
@@ -4932,9 +4945,10 @@ function updateSummary(c, node) {
 }
 // Prose Plot's equivalent of updateSummary — word count is the metric that
 // matters, not sung lines/syllables/rhyme scheme.
-function updateProseSummary(text, node) {
+function updateProseSummary(text, node, target) {
   const n = countWords(text || '');
-  node.textContent = n === 1 ? '1 word' : `${n.toLocaleString()} words`;
+  const base = n === 1 ? '1 word' : `${n.toLocaleString()} words`;
+  node.textContent = target ? `${base} / ${target.toLocaleString()}` : base;
 }
 function updateVerseNote(c, node) {
   const n = verseCheck(c.lyrics || '', c.type === 'song');
@@ -4995,6 +5009,7 @@ function buildDetailsPanel(c, onChange) {
   wrap.appendChild(body);
 
   const commit = () => { scheduleSave(); if (onChange) onChange(); };
+  const isProse = state.format === 'prose';
 
   body.appendChild(field('Title', textInput('title', c.title, (v) => { c.title = v; commit(); })));
 
@@ -5020,7 +5035,11 @@ function buildDetailsPanel(c, onChange) {
   } else if (c.type === 'scene') {
     // Scene metadata lives in its title + board position; nothing else to tune here.
   } else { // beat — the editor body is its script; the note is its one-line logline
-    body.appendChild(field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })));
+    // Prose has no runtime to track, but chasing a word target per beat is the
+    // equivalent thing writers want to see progress against.
+    body.appendChild(isProse
+      ? field('Word target', numInput(c.wordTarget, (v) => { c.wordTarget = v; commit(); }))
+      : field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })));
     body.appendChild(field('Beatline / what happens', textareaInput(c.note, (v) => { setCardBody(c, 'note', v); commit(); }, 'The book scene — what happens here?')));
   }
 
@@ -5204,7 +5223,7 @@ function buildLyricWindow(c) {
       updateVerseNote(c, vnote);
       if (!rin._touched) { rin.value = LYRIC.lastWord(lastNonEmptyLine(editor.value)); showRhymes(rin.value); }
     } else if (isProse) {
-      updateProseSummary(editor.value, summary);
+      updateProseSummary(editor.value, summary, c.wordTarget);
       if (!tin._touched) { tin.value = LYRIC.lastWord(lastNonEmptyLine(editor.value)); showSynonyms(tin.value); }
     }
   };
@@ -5240,7 +5259,7 @@ function buildLyricWindow(c) {
         if (val === (c[bodyField] || '')) return;  // nothing changed (e.g. just viewing)
         setCardLines(c, lines);                // lines canonical; keeps the Fountain source in sync
         if (richTools) { updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote); }
-        else if (isProse) { updateProseSummary(val, summary); }
+        else if (isProse) { updateProseSummary(val, summary, c.wordTarget); }
         scheduleSave();
       },
     }));
@@ -5261,7 +5280,7 @@ function buildLyricWindow(c) {
     rin.value = LYRIC.lastWord(lastNonEmptyLine(c[bodyField] || ''));
     renderRhymesInsertable(rin.value, res, editor, refresh);
   } else if (isProse) {
-    updateProseSummary(c[bodyField] || '', summary);
+    updateProseSummary(c[bodyField] || '', summary, c.wordTarget);
     tin.value = LYRIC.lastWord(lastNonEmptyLine(c[bodyField] || ''));
     renderSynonymsInsertable(tin.value, tres, editor, refresh);
   }
@@ -5287,6 +5306,23 @@ function closeLyricWindow() {
 function refreshLyricWindow() { if (state.lyricWinId) openLyricWindow(state.lyricWinId); }
 
 // ---- stats ----
+// Rolls the baseline forward to today's start-of-day total the first time
+// buildStats runs on a new day, so "Today" always reads as words written
+// since then — a lightweight stand-in for a full sprint/session timer.
+function todayLocalStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function todayWordDelta() {
+  const today = todayLocalStr();
+  const words = totalShowWords();
+  if (state.wordCountBaselineDate !== today) {
+    state.wordCountBaselineDate = today;
+    state.wordCountBaseline = words;
+    scheduleSave();
+  }
+  return words - state.wordCountBaseline;
+}
 function buildStats() {
   const wrap = document.getElementById('stats');
   wrap.innerHTML = '';
@@ -5318,6 +5354,8 @@ function buildStats() {
       });
     }
     wrap.appendChild(wordsStat);
+    const delta = todayWordDelta();
+    wrap.appendChild(stat('Today', (delta >= 0 ? '+' : '') + delta.toLocaleString()));
     return;
   }
   const songs = state.cards.filter((c) => c.type === 'song').length;
@@ -5329,6 +5367,8 @@ function buildStats() {
   wrap.appendChild(stat('Runtime', '~' + Math.round(total) + 'm'));
   wrap.appendChild(stat(state.mode === 'full' ? 'Pre / post int' : 'Pre / post mid', `${Math.round(pre)} / ${Math.round(total - pre)}`));
   wrap.appendChild(stat('Words', totalShowWords().toLocaleString()));
+  const delta = todayWordDelta();
+  wrap.appendChild(stat('Today', (delta >= 0 ? '+' : '') + delta.toLocaleString()));
 }
 
 // ---- render ----
