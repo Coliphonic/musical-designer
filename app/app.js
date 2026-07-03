@@ -133,6 +133,22 @@ function totalShowWords() {
   return state.cards.reduce((s, c) => s + countWords(c[cardBodyField(c)] || ''), 0);
 }
 
+// Sum of a chapter's own body plus every beat under it, up to (not including)
+// the next scene card in reading order — mirrors editOrder's per-scene slice
+// in buildManuscriptPage, so "current chapter" always means the same span.
+function chapterWordCount(sceneId) {
+  const order = displayOrder();
+  const startPos = order.findIndex((i) => state.cards[i] && state.cards[i].id === sceneId);
+  if (startPos < 0) return 0;
+  let sum = 0;
+  for (let j = startPos; j < order.length; j++) {
+    const c = state.cards[order[j]];
+    if (j > startPos && c.type === 'scene') break;
+    sum += countWords(c[cardBodyField(c)] || '');
+  }
+  return sum;
+}
+
 function saveLastOpened(type, val) {
   try { localStorage.setItem('md-last', JSON.stringify({ type, val })); } catch (_) {}
 }
@@ -4796,6 +4812,7 @@ function buildManuscriptPage(sceneId) {
   zoomIn.addEventListener('click',  () => { zoom = Math.min(ZOOM_MAX, +(zoom + ZOOM_STEP).toFixed(2)); applyZoom(); });
 
   // ── Edit-mode outline navigator — shown/hidden via the ribbon's "Navigation" ──
+  const isProse = state.format === 'prose';
   const msNav = el('div', { class: 'ms-nav' });
   const navHead = el('div', { class: 'ms-nav-head' }, [
     el('span', { class: 'ms-nav-title', text: 'Navigation' }),
@@ -4803,6 +4820,26 @@ function buildManuscriptPage(sceneId) {
   const navList = el('div', { class: 'ms-nav-list' });
   msNav.appendChild(navHead);
   msNav.appendChild(navList);
+
+  // Prose-only word-count footer, pinned to the bottom of the outline panel —
+  // tracks whichever chapter the scroll position (see applyActive below) is
+  // currently in, so it reads like a live "how's this chapter going" gauge
+  // while writing, without cluttering the top toolbar.
+  let navFootChapEl = null, navFootBookEl = null;
+  if (isProse) {
+    navFootChapEl = el('div', { class: 'v', text: '—' });
+    navFootBookEl = el('div', { class: 'v', text: '—' });
+    const navFoot = el('div', { class: 'ms-nav-foot' }, [
+      el('div', { class: 'ms-nav-foot-stat' }, [el('div', { class: 'k', text: 'This chapter' }), navFootChapEl]),
+      el('div', { class: 'ms-nav-foot-stat' }, [el('div', { class: 'k', text: 'Book total' }), navFootBookEl]),
+    ]);
+    msNav.appendChild(navFoot);
+  }
+  const updateNavFoot = (chapterId) => {
+    if (!isProse) return;
+    navFootBookEl.textContent = totalShowWords().toLocaleString();
+    navFootChapEl.textContent = chapterId != null ? chapterWordCount(chapterId).toLocaleString() : '—';
+  };
 
   let navOpen = (() => { try { return localStorage.getItem('md-ms-nav') !== 'closed'; } catch (_) { return true; } })();
   const applyNav = () => {
@@ -4872,9 +4909,15 @@ function buildManuscriptPage(sceneId) {
     const TRIGGER_FRAC = 0.15; // 15% down from the top of the scroll container
     const passed = new Map(); // card id -> has its divider scrolled above the trigger line
     const applyActive = () => {
-      let activeId = null;
-      for (const idx of order) { const c = state.cards[idx]; if (c && passed.get(c.id)) activeId = c.id; }
+      let activeId = null, chapterId = null, activeChapterId = null;
+      for (const idx of order) {
+        const c = state.cards[idx];
+        if (!c) continue;
+        if (c.type === 'scene') chapterId = c.id; // the nearest preceding chapter header
+        if (passed.get(c.id)) { activeId = c.id; activeChapterId = chapterId; }
+      }
       navRows.forEach((r, id) => r.classList.toggle('active', id === activeId));
+      if (isProse) updateNavFoot(activeChapterId);
     };
     navObserver = new IntersectionObserver((entries) => {
       entries.forEach((e) => {

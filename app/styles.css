@@ -1109,6 +1109,11 @@ body.dark .ms-body { background: var(--bg); }
 }
 .ms-nav-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--faint); }
 .ms-nav-list { flex: 1; overflow-y: auto; padding: 6px; }
+.ms-nav-foot { flex-shrink: 0; display: flex; border-top: 1px solid var(--line); }
+.ms-nav-foot-stat { flex: 1; padding: 8px 10px; }
+.ms-nav-foot-stat:first-child { border-right: 1px solid var(--line); }
+.ms-nav-foot-stat .k { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.ms-nav-foot-stat .v { font-size: 15px; font-weight: 600; margin-top: 1px; font-variant-numeric: tabular-nums; }
 .ms-nav-act {
   font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em;
   color: var(--faint); padding: 11px 8px 4px;
