@@ -1249,7 +1249,10 @@ mark.note-mark:hover { text-decoration-style: solid; }
 
 /* Inline chord: an empty, zero-width marker anchored at one exact character —
    the chord name floats above via ::after so the lyric text below never
-   shifts. Auto-converted from typed [C] shorthand (see CHORD_TOKEN in app.js). */
+   shifts. Auto-converted from typed [C] shorthand (see CHORD_TOKEN in app.js).
+   A line that contains one gets extra top clearance so the label doesn't sit
+   on top of the row above (manuscript body uses line-height: 1). */
+.ms-el:has(mark.chord-tag) { padding-top: 1.15em; }
 mark.chord-tag {
   position: relative; display: inline-block; width: 0; height: 1em;
   background: transparent; padding: 0; border-radius: 0; vertical-align: baseline;
@@ -1260,6 +1263,9 @@ mark.chord-tag::after {
   position: absolute; left: 1px; bottom: 100%;
   font-size: 0.72em; font-weight: 700; line-height: 1; white-space: nowrap;
   color: var(--azure); font-family: inherit;
+  /* Lyric lines (.lw-sung) render upper-case for the manuscript look — the
+     chord name itself must stay exactly as typed, or Bb and B# both read "BB". */
+  text-transform: none;
   pointer-events: none;
 }
 
