@@ -725,7 +725,8 @@ body.dark.app-prose .pill.beat-fn:focus { background: #3a2620; color: #f3d3c5; }
 body.app-prose .ms-nav-btn.active, body.app-prose .ms-settings-btn.active, body.app-prose .ms-title-btn.active { background: var(--energy); border-color: var(--energy); }
 body.dark.app-prose .ms-nav-btn.active, body.dark.app-prose .ms-settings-btn.active, body.dark.app-prose .ms-title-btn.active { background: var(--energy); border-color: var(--energy); }
 
-/* Manuscript — Edit/Print segment container (dark) */
+/* Manuscript — Edit/Print segment container */
+body.app-prose .ms-mode-seg, body.app-prose .ribbon .seg { background: #f2ded4; }
 body.dark.app-prose .ms-mode-seg, body.dark.app-prose .ribbon .seg { background: #33221d; }
 
 /* Manuscript — style dropdown + Dual + Bold/Italic/Underline toolbar */
