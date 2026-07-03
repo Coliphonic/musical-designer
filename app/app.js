@@ -119,6 +119,7 @@ function countWords(text) {
   const cleaned = (text || '')
     .replace(/\[\[note:[a-z0-9]+:[A-Za-z0-9+/=]*\]\]/g, '')
     .replace(/\[\[\/note\]\]/g, '')
+    .replace(CHORD_RE, '')
     .replace(/[*_~=]/g, ' ');
   const m = cleaned.match(/\S+/g);
   return m ? m.length : 0;
@@ -1581,6 +1582,14 @@ const RICH_EL_LABELS = { cue: 'Character', sung: 'Lyrics', dialogue: 'Dialogue',
 const RICH_EL_CLASS  = { cue: 'lw-char', sung: 'lw-sung', dialogue: 'lw-dialogue', paren: 'lw-paren', action: 'lw-action', section: 'lw-section-row' };
 const RICH_EL_CYCLE  = ['cue', 'dialogue', 'sung', 'paren', 'action', 'section'];
 
+// ---- inline chords (typed [C] shorthand, auto-converted while typing) -----
+// Anchored per-token so only chord-shaped brackets ever convert or render —
+// never section headers, stage directions, or the [[note:...]] marker (a
+// colon isn't in this character set, so it can't collide with that pattern).
+const CHORD_TOKEN = '[A-G][#b]?(?:maj9|maj7|maj|min9|min7|min|m7b5|m9|m7|m6|m11|m13|madd9|m|sus2|sus4|sus|dim7|dim|aug|add9|add11|add|6\\/9|6|7sus4|7b9|7#9|7b5|7#5|7|9|11|13)?(?:\\/[A-G][#b]?)?';
+const CHORD_INNER_RE = new RegExp('^(?:' + CHORD_TOKEN + ')$');
+const CHORD_RE = new RegExp('\\[(' + CHORD_TOKEN + ')\\]', 'g');
+
 // ---- inline emphasis (Fountain ↔ HTML) -----------------------------------
 // Bold/italic/underline ride in the line text as Fountain markup (**bold**,
 // *italic*, _underline_) so they round-trip through the plain-text body blob and
@@ -1593,6 +1602,9 @@ function emphToHtml(text) {
        .replace(/\*([^*]+?)\*/g, '<i>$1</i>')
        .replace(/_([^_]+?)_/g, '<u>$1</u>')
        .replace(/~~([^~]+?)~~/g, '<s>$1</s>')     // strikethrough
+       // Inline chord: a zero-width marker anchored at this exact character —
+       // renders as a small label floating above via CSS, doesn't shift the lyric.
+       .replace(CHORD_RE, (_m, chord) => '<mark class="chord-tag" data-chord="' + chord + '" contenteditable="false"></mark>')
        // Inline note: an id + base64 note text ride in the marker, invisible in
        // the rendered phrase — see buildRichEditor's note popup / toggleHighlight sibling.
        .replace(/\[\[note:([a-z0-9]+):([A-Za-z0-9+/=]*)\]\]([\s\S]*?)\[\[\/note\]\]/g,
@@ -1608,6 +1620,9 @@ function emphFromNode(node) {
     if (n.nodeType === 3) { out += n.nodeValue; return; }
     if (n.nodeType !== 1) return;
     const tag = n.nodeName.toLowerCase();
+    // Chord tags are empty markers (no child text) — resolve before the
+    // empty-inner bail-out below, or they'd vanish on serialize.
+    if (tag === 'mark' && n.dataset && n.dataset.chord) { out += '[' + n.dataset.chord + ']'; return; }
     const inner = emphFromNode(n);
     if (!inner) return;
     if (tag === 'b' || tag === 'strong') out += '**' + inner + '**';
@@ -1799,6 +1814,53 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   };
   const caretAtStart = (line) => { const s = window.getSelection(); return s.isCollapsed && caretOffsetIn(line) === 0; };
   const caretAtEnd   = (line) => { const s = window.getSelection(); return s.isCollapsed && caretOffsetIn(line) === (line.textContent || '').length; };
+  // Like placeCaretAtOffset, but returns the {node, offset} point instead of
+  // moving the selection — lets a Range span two offsets within the same line.
+  const pointAtOffset = (div, off) => {
+    let result = null, rem = off;
+    const walk = (n) => {
+      for (const c of n.childNodes) {
+        if (c.nodeType === 3) { if (rem <= c.length) { result = { node: c, offset: rem }; return true; } rem -= c.length; }
+        else if (walk(c)) return true;
+      }
+      return false;
+    };
+    walk(div);
+    return result || { node: div, offset: 0 };
+  };
+  // Typed "[C]" shorthand auto-converts to an atomic chord tag the instant the
+  // closing "]" lands — mirrors ChordPro notation, but only when the bracketed
+  // text is chord-shaped (CHORD_INNER_RE), so stage directions like "[laughs]"
+  // or a mid-line "[Bridge]" never trigger it.
+  const tryAutoConvertChord = () => {
+    const line = getFocusedLine(lineEd);
+    if (!line) return;
+    const sel = window.getSelection();
+    if (!sel || !sel.isCollapsed) return;
+    const offset = caretOffsetIn(line);
+    const text = line.textContent || '';
+    if (text[offset - 1] !== ']') return;
+    const open = text.lastIndexOf('[', offset - 2);
+    if (open === -1) return;
+    const inner = text.slice(open + 1, offset - 1);
+    if (!CHORD_INNER_RE.test(inner)) return;
+    const start = pointAtOffset(line, open);
+    const end = pointAtOffset(line, offset);
+    const range = document.createRange();
+    range.setStart(start.node, start.offset);
+    range.setEnd(end.node, end.offset);
+    range.deleteContents();
+    const tag = document.createElement('mark');
+    tag.className = 'chord-tag';
+    tag.dataset.chord = inner;
+    tag.contentEditable = 'false';
+    range.insertNode(tag);
+    const r2 = document.createRange();
+    r2.setStartAfter(tag);
+    r2.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r2);
+  };
   // Bookmark the caret by line-id + offset so it survives a normalize pass.
   const caretBookmark = () => { const line = getFocusedLine(lineEd); return line ? { id: line.dataset.id, off: caretOffsetIn(line) } : null; };
   const restoreBookmark = (bm) => {
@@ -2190,7 +2252,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   };
   lineEd.addEventListener('keyup', syncPicker);
   lineEd.addEventListener('click', syncPicker);
-  lineEd.addEventListener('input', () => { if (needsNormalize()) normalize(true); refreshAc(getFocusedLine(lineEd)); queueHistory(); });
+  lineEd.addEventListener('input', () => { tryAutoConvertChord(); if (needsNormalize()) normalize(true); refreshAc(getFocusedLine(lineEd)); queueHistory(); });
   // Paste as plain text, splitting on newlines into typed rows (strip rich markup).
   lineEd.addEventListener('paste', (e) => {
     e.preventDefault();
