@@ -36,6 +36,12 @@ body.dark {
   --hl: #5c5536; --hl-ink: #ece5d2; /* editorial highlight — muted olive, light ink */
 }
 
+/* Prose Plot skin — same substrate, coral accent instead of Song Plot's purple.
+   Higher-specificity dark+prose rule wins over plain body.dark regardless of
+   source order, so it holds whichever theme (light/dark) is active. */
+body.app-prose { --energy: #dd6349; }
+body.dark.app-prose { --energy: #f0937a; }
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -67,6 +73,8 @@ body.dark .lwtoggle.active { background: #4a453e; color: #f3eee3; box-shadow: 0 
 
 .stats { display: flex; gap: 8px; margin-left: auto; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; min-width: 58px; }
+.stat.stat-editable { cursor: pointer; }
+.stat.stat-editable:hover { border-color: var(--energy); }
 .stat .k { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
 .stat .v { font-size: 17px; font-weight: 600; margin-top: 1px; }
 
@@ -105,6 +113,14 @@ body.dark .lwtoggle.active { background: #4a453e; color: #f3eee3; box-shadow: 0 
 body.dark .bcard.scene { background: #211d33; border-color: #5a5080; border-width: 1.5px; }
 body.dark .bcard.scene .scene-title { color: #b8aef0; }
 body.dark .scene-read-btn { color: #b8aef0; }
+/* Prose Plot recontextualizes scenes as chapters — same thin vertical-text
+   rectangle, coral instead of purple. */
+body.app-prose .bcard.scene { background: #fdece7; border-color: #f0c4b3; }
+body.app-prose .bcard.scene .scene-title { color: #9a4a34; }
+body.app-prose .scene-read-btn { color: #9a4a34; }
+body.dark.app-prose .bcard.scene { background: #2a1f1c; border-color: #6b4a3c; }
+body.dark.app-prose .bcard.scene .scene-title { color: #f0937a; }
+body.dark.app-prose .scene-read-btn { color: #f0937a; }
 .bcard.dragging { opacity: 0.4; }
 .bcard.drop-before { box-shadow: inset 3px 0 0 var(--ink); }
 .bcard.drop-after { box-shadow: inset -3px 0 0 var(--ink); }
@@ -223,6 +239,7 @@ body.dark .lyricwin-overlay { background: rgba(0,0,0,0.62); }
 body.dark .lyricwin { border-color: #4a443a; box-shadow: 0 28px 80px rgba(0,0,0,0.6); }
 
 .fld { display: flex; flex-direction: column; gap: 5px; }
+.fld[hidden] { display: none !important; }
 .fld.row2 { flex-direction: row; gap: 12px; }
 .fld.row2 > .fld { flex: 1; }
 .fl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); font-weight: 600; }
@@ -271,7 +288,12 @@ body.dark .sing.empty { background: var(--panel); border-color: #8b82e8; }
 .lwrich-wrap { flex: 1; min-height: 0; overflow-y: auto; background: var(--panel); display: flex; flex-direction: column; }
 .lwrich-wrap .ms-card-rich-editor { flex: 1; min-height: 0; }
 .lwrich-wrap .ms-style-bar { position: sticky; top: 0; z-index: 2; }
-.lwrich-wrap .ms-line-editor { padding: 20px 24px 60px; max-width: 720px; margin: 0 auto; }
+/* .ms-card-rich-editor is a column flexbox, so ms-line-editor is a flex item —
+   auto margins on a flex item's cross axis absorb free space directly and
+   override align-items:stretch, which shrank this to its content width (a
+   near-empty line) instead of centering a 720px column. An explicit width
+   makes it a definite size again, so margin:auto centers it normally. */
+.lwrich-wrap .ms-line-editor { width: 100%; padding: 20px 24px 60px; max-width: 720px; margin: 0 auto; }
 .lwzoom-bar { display: flex; align-items: center; gap: 6px; justify-content: center; padding: 6px 0; background: var(--panel); border-bottom: 1px solid var(--line); flex-shrink: 0; position: sticky; top: 0; z-index: 2; }
 .lw-preview {
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
@@ -309,6 +331,8 @@ body.dark .sing.empty { background: var(--panel); border-color: #8b82e8; }
    even in dark mode (the dark sage-bg is unreadable on a white sheet). */
 .ms-viewport .lw-section-tag,
 #pdf-print-root .lw-section-tag { background: #eef3e7; color: #5f7d57; }
+/* Prose Plot's scene break — a centered ⁂ divider, not a text line. */
+.lw-scenebreak { text-align: center; color: var(--muted); letter-spacing: 0.3em; margin: 0.6em 0; }
 
 /* Manuscript page */
 .ms-zoom-wrap { display: flex; align-items: center; gap: 4px; }
@@ -326,10 +350,12 @@ body.dark .ms-body { background: var(--bg); }
 /* "Section tags" toggle hides section pills in the Edit/Rich view too. */
 .ms-edit-doc.hide-sections .lw-section-row,
 .ms-edit-doc.hide-sections .ms-el.lw-section-row { display: none; }
-/* Beat loglines ride the same Section-tags toggle in the edit document. */
-.ms-edit-doc.hide-sections .lw-note-ms { display: none; }
+/* Beatlines have their own toggle (independent of Section tags — Song Plot's
+   chord/section markup has nothing to do with a beat's outline reference). */
+.ms-edit-doc.hide-beatlines .lw-note-ms,
+.ms-edit-doc.hide-beatlines .ms-edit-logline { display: none; }
 .ms-card-content > .lw-note-ms:first-child { margin-top: 0; }
-/* Logline pinned above the rich editor while editing — keep the sheet column
+/* Beatline pinned above the rich editor while editing — keep the sheet column
    padding for wrapping, but hug the editor (no big bottom gap). */
 .ms-edit-doc .ms-edit-logline { padding: 12px 120px 0; }
 .ms-edit-logline .lw-note-ms { margin-top: 0; }
@@ -662,6 +688,98 @@ body.dark .topnav {
   --tn-pill-bg: #2a2640; --tn-pill-ink: #b3abe0; --tn-active-bg: #6a61d0; --tn-active-ink: #ffffff;
   --tn-hover: #2a2738; --tn-brand: #8b82e8;
 }
+/* Prose Plot skin — the header bar itself goes coral (not just accent chips),
+   so the app reads as a different room, not a re-tinted Song Plot. Combined
+   dark+prose selector out-specifies plain body.dark so it wins regardless of
+   which theme is active. */
+body.app-prose .topnav {
+  --tn-bg: #9a4a34; --tn-border: #7c3c2a; --tn-ink: #fdf1ec; --tn-muted: #ecc3b3;
+  --tn-pill-bg: #b8674a; --tn-pill-ink: #fbe2d8; --tn-active-bg: #ffffff; --tn-active-ink: #9a4a34;
+  --tn-hover: #b8674a; --tn-brand: #ffffff;
+}
+body.dark.app-prose .topnav {
+  --tn-bg: #241a17; --tn-border: #3a2620; --tn-ink: #f3e4dc; --tn-muted: #cf9c89;
+  --tn-pill-bg: #3a2620; --tn-pill-ink: #edc2ae; --tn-active-bg: #f0937a; --tn-active-ink: #241a17;
+  --tn-hover: #33221d; --tn-brand: #f0937a;
+}
+
+/* ===== Prose Plot accent overrides =====
+   Song Plot's purple leaks in wherever a rule hard-codes a hex instead of
+   var(--energy). Rather than refactor every rule to the variable (and risk
+   shifting Song Plot), we re-point just the surfaces Prose Plot can actually
+   reach — Board beat pills, the manuscript editor toolbar, Characters, the
+   save dot, and the snapshots drawer — to a matching coral. Song-only surfaces
+   (song function pills, "Why does this sing?", the reference banner) never
+   render in Prose Plot, so they're deliberately left alone. */
+
+/* Save-dot pulse (header, both apps) */
+body.app-prose .sb-save-dot.saving { background: #f0937a; }
+
+/* Board — editable beat-function pill */
+body.app-prose .pill.beat-fn:not(.empty) { background: #fbe3db; color: #8a4230; }
+body.dark.app-prose .pill.beat-fn:not(.empty) { background: #3a2620; color: #edc2ae; }
+body.app-prose .pill.beat-fn:focus { background: #fbe3db; color: #9a4a34; box-shadow: inset 0 0 0 1px #dd8a72; }
+body.dark.app-prose .pill.beat-fn:focus { background: #3a2620; color: #f3d3c5; }
+
+/* Manuscript — nav / settings / title toggle buttons */
+body.app-prose .ms-nav-btn.active, body.app-prose .ms-settings-btn.active, body.app-prose .ms-title-btn.active { background: var(--energy); border-color: var(--energy); }
+body.dark.app-prose .ms-nav-btn.active, body.dark.app-prose .ms-settings-btn.active, body.dark.app-prose .ms-title-btn.active { background: var(--energy); border-color: var(--energy); }
+
+/* Manuscript — Edit/Print segment container (dark) */
+body.dark.app-prose .ms-mode-seg, body.dark.app-prose .ribbon .seg { background: #33221d; }
+
+/* Manuscript — style dropdown + Dual + Bold/Italic/Underline toolbar */
+body.app-prose .ms-style-sel, body.app-prose .ms-dual-btn, body.app-prose .ms-fmt-btn { border-color: #f0c4b3; color: #9a4a34; }
+body.app-prose .ms-style-sel:focus { border-color: #dd8a72; }
+body.app-prose .ms-fmt-btn:hover { background: #fbede8; }
+body.app-prose .ms-fmt-divider { background: #f0d2c8; }
+body.dark.app-prose .ms-style-sel, body.dark.app-prose .ms-dual-btn, body.dark.app-prose .ms-fmt-btn { background: #33221d; border-color: #5a3d33; color: #edc2ae; }
+body.dark.app-prose .ms-fmt-divider { background: #5a3d33; }
+
+/* Characters — character/group toggle (dark active) */
+body.dark.app-prose .ch-kind-btn.active { background: var(--energy); }
+
+/* Snapshots drawer — reassurance banner */
+body.app-prose .snap-reassure { background: #fdece7; color: #9a4a34; }
+body.dark.app-prose .snap-reassure { background: #2a1f1c; color: #edc2ae; }
+
+/* Primary buttons (New novel, Create novel, Add character, Sync, etc.) */
+body.app-prose .pbtn.primary { background: #cb5237; border-color: #cb5237; color: #fdf1ec; }
+body.app-prose .pbtn.primary:hover { background: #b8482f; border-color: #b8482f; }
+body.dark.app-prose .pbtn.primary { background: #b04a34; border-color: #b04a34; color: #fce8df; }
+body.dark.app-prose .pbtn.primary:hover { background: #c85a40; border-color: #c85a40; }
+
+/* Toolbar / ribbon backgrounds (Board ribbon, Manuscript toolbar, Characters bar) */
+body.app-prose .ribbon, body.app-prose .ms-toolbar { background: #fbeee9; }
+body.dark.app-prose .ribbon, body.dark.app-prose .ms-toolbar { background: #221a17; }
+
+/* Manuscript format bar (the sticky Element/Bold/Italic strip) */
+body.app-prose .ms-style-bar { background: #fbe9e3; border-bottom-color: #f2d5cb; }
+body.dark.app-prose .ms-style-bar { background: #1f1613; border-bottom-color: #3a2620; }
+
+/* "Body" (a screenplay Action line, reused as Prose Plot's default paragraph)
+   carries a deep script-convention right-indent — wrong for a novel, which
+   wants a plain full-width paragraph in both Edit and Print View. */
+body.app-prose .lw-action { padding-left: 0; }
+/* Paragraph convention (Prose Plot, Page setup drawer). Default: Indent — a
+   first-line indent with paragraphs flowing tight, no gap (print-novel
+   convention). "Block" swaps to no indent + a visible gap between paragraphs
+   (manuscript/web-serial convention). Applies in both Edit and Print View. */
+body.app-prose .ms-sheet-content .lw-action { margin-left: 0; margin-top: 0; text-indent: 1.5em; }
+body.app-prose .lw-action { margin-top: 0; }
+body.app-prose.ms-para-block .ms-sheet-content .lw-action { text-indent: 0; margin-top: 0.5em; }
+body.app-prose.ms-para-block .lw-action { margin-top: 0.4em; }
+/* Standard manuscript format is double-spaced (Shunn convention) — Song Plot's
+   screenplay sheet is single-spaced (line-height: 1, §5), so Prose Plot needs
+   its own override. Wraps within a paragraph get the full double gap; a
+   first-line indent (not a blank line) is what separates paragraphs, so no
+   extra margin is layered on top in the default Indent style. */
+body.app-prose .ms-sheet-content .lw-action { line-height: 2; }
+body.app-prose .lw-action { line-height: 2; }
+/* Scene break — tint the ⁂ divider to match the coral accent instead of the
+   neutral --muted grey used elsewhere (Song Plot has no scene-break element). */
+body.app-prose .lw-scenebreak { color: #c07a63; }
+body.dark.app-prose .lw-scenebreak { color: #cf9c89; }
 .tn-bar { position: relative; display: flex; align-items: center; gap: 10px; padding: 8px 14px; min-height: 50px; }
 .tn-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .tn-right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
@@ -698,6 +816,35 @@ body.dark .topnav {
 .tn-bar .sb-save-dot { display: block; }
 .tn-bar .sb-show-name { display: block; font-size: 13px; font-weight: 500; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tn-caret { color: var(--tn-muted); flex-shrink: 0; display: inline-flex; align-items: center; }
+
+/* Plot Suite waffle launcher — occupies the show-title slot, but only while
+   browsing the Library (no show open yet to switch between). */
+.tn-show-slot { position: relative; display: flex; align-items: center; }
+.tn-show-slot [hidden] { display: none !important; }
+.tn-waffle-icon { color: var(--tn-muted); display: inline-flex; flex-shrink: 0; }
+.waffle-menu {
+  position: fixed;
+  top: calc(52px + env(safe-area-inset-top));
+  left: 12px;
+  width: 200px;
+  background: #2c2a26;
+  border: 1px solid #555;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px #00000055;
+  z-index: 50;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.waffle-item {
+  display: flex; align-items: center; gap: 8px;
+  border: none; background: none; border-radius: 7px; padding: 8px 10px;
+  color: #e0dbd0; font-family: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.waffle-item:hover { background: #3a3830; color: #f8f3e8; }
+.waffle-item.active { color: #f5f0e4; font-weight: 600; }
+.waffle-item-check { width: 14px; flex-shrink: 0; color: var(--energy); }
 
 @media (max-width: 880px) {
   .tn-nav { position: static; transform: none; left: auto; top: auto; margin: 0 auto; }
@@ -1020,8 +1167,8 @@ body.dark .ms-mode-seg, body.dark .ribbon .seg { background: #2a2640; }
   border: none; background: transparent; font-size: 12px; font-weight: 500; color: var(--muted);
 }
 .ms-mode-seg button:hover, .ribbon .seg button:hover { color: var(--ink); }
-.ms-mode-seg button.active, .ribbon .seg button.active { background: #534ab7; color: #fff; box-shadow: none; }
-body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { background: #6a61d0; color: #fff; }
+.ms-mode-seg button.active, .ribbon .seg button.active { background: var(--energy); color: #fff; box-shadow: none; }
+body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { background: var(--energy); color: #fff; }
 /* Outer manuscript container: a non-scrolling flex column so .ms-wrap fills it
    and only the inner sheet body scrolls — keeps the side drawer pinned. */
 #ms-body { display: flex; flex-direction: column; overflow: hidden; }

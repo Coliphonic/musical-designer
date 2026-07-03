@@ -154,6 +154,7 @@ function handleApi(req, res, parts, user) {
           list.push({
             id: f.replace(/\.json$/, ''), title: d.title || 'Untitled', updated: d.updated || 0,
             mode: d.mode || 'full', status: d.status || 'active', folder: d.folder || '', owner: d.owner || null,
+            format: d.format || 'song',
             collaborators: d.collaborators || [], shared: !!(d.owner && d.owner !== user.id),
           });
         } catch (_) { /* skip */ }

@@ -41,6 +41,9 @@ const CHANGE_OPTS = [
 const state = {
   showKey: 'fiddler',
   title: '',
+  format: 'song',      // 'song' | 'prose' — which Plot Suite app this show belongs to
+  currentApp: 'song',  // which app's Library you're currently browsing (waffle launcher)
+  wordTarget: 0,       // Prose Plot only — the ribbon's "words / target" progress stat
   projectId: null,
   readonly: true,
   loading: false,
@@ -155,6 +158,9 @@ function openReference(key) {
   state.readonly = true;
   state.folder = '';
   state.mode = show.form === 'one-act-90' ? 'oneact' : 'full';
+  state.format = 'song'; // the reference library is Song Plot-only for now
+  state.currentApp = 'song';
+  state.wordTarget = 0;
   state.loading = false;
   render();
   setSaveInd('ref');
@@ -202,6 +208,9 @@ function applyShowData(d) {
   state.mode = d.mode || 'full';
   state.status = d.status || 'active';
   state.folder = d.folder || '';
+  state.format = d.format || 'song';
+  state.currentApp = state.format;
+  state.wordTarget = d.wordTarget || 0;
 }
 
 function openProject(id, afterOpen) {
@@ -222,6 +231,8 @@ function openProject(id, afterOpen) {
 function serialize() {
   return JSON.stringify({
     title: state.title, mode: state.mode, status: state.status || 'active', folder: state.folder || '', updated: Date.now(),
+    format: state.format || 'song',
+    wordTarget: state.wordTarget || 0,
     cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
     revisions: state.revisions,
     currentRev: state.currentRev,
@@ -250,7 +261,7 @@ function loadProjects() {
 }
 function newProject() { openNewShowModal(); }
 function duplicateProject() {
-  const body = JSON.stringify({ title: state.title + ' (copy)', mode: state.mode, updated: Date.now(), cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }) });
+  const body = JSON.stringify({ title: state.title + ' (copy)', mode: state.mode, format: state.format || 'song', updated: Date.now(), cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }) });
   fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).then((r) => r.json()).then((d) => loadProjects().then(() => openProject(d.id)));
 }
 function renameProject() {
@@ -306,10 +317,18 @@ function libSection(name, builders) {
 function buildLibraryPage() {
   const host = document.getElementById('lib-grid');
   if (!host) return;
+  const isProseLib = state.currentApp === 'prose';
+  const titleEl = document.getElementById('lib-title');
+  if (titleEl) titleEl.textContent = (isProseLib ? 'Prose Plot' : 'Song Plot') + ' Library';
+  const newBtn = document.getElementById('lib-new');
+  if (newBtn) newBtn.textContent = isProseLib ? '+ New novel' : '+ New show';
   const archChk = document.getElementById('lib-show-archived');
   const showArchived = archChk && archChk.checked;
   host.innerHTML = '';
   let items = (state.projects || []).slice();
+  // Song Plot and Prose Plot keep fully separate libraries (per-app, not a
+  // filter) — a show only ever appears in the app it was created under.
+  items = items.filter((p) => (p.format || 'song') === state.currentApp);
   if (!showArchived) items = items.filter((p) => (p.status || 'active') !== 'archived');
 
   const ungrouped = items.filter((p) => !(p.folder || '').trim());
@@ -323,8 +342,9 @@ function buildLibraryPage() {
     Object.keys(folders).sort((a, b) => a.localeCompare(b)).forEach((f) => host.appendChild(libSection(f, folders[f].map((p) => () => libCard(p)))));
   }
 
-  // Reference shows — read-only examples, always in their own folder.
-  const refKeys = Object.keys(SHOWS);
+  // Reference shows — read-only examples, always in their own folder. Song
+  // Plot-only for now (Prose Plot has no reference library yet).
+  const refKeys = state.currentApp === 'song' ? Object.keys(SHOWS) : [];
   if (refKeys.length) host.appendChild(libSection('Reference', refKeys.map((k) => () => libRefCard(k))));
 }
 
@@ -500,7 +520,7 @@ let findMode = 'find';
 let _findIdx = -1; // current position within the live match list (Find mode only)
 function updateFindStatus() {
   const q = document.getElementById('find-q').value;
-  if (!q) { setFindStatus('Searches song & scene text and notes.'); return; }
+  if (!q) { setFindStatus(state.format === 'prose' ? 'Searches chapter text and notes.' : 'Searches song & scene text and notes.'); return; }
   const re = buildFindRegex(q, findOpts());
   const n = re ? findMatchCount(re) : 0;
   if (findMode === 'find' && n) {
@@ -607,7 +627,7 @@ function doReplaceAll() {
 
 function duplicateShowById(id) {
   fetch('/api/shows/' + id).then((r) => r.json()).then((d) => {
-    const body = JSON.stringify({ title: (d.title || 'Untitled') + ' (copy)', mode: d.mode, status: 'draft', updated: Date.now(), cards: d.cards || [], characters: d.characters || {}, titlePage: d.titlePage, scriptHeader: d.scriptHeader });
+    const body = JSON.stringify({ title: (d.title || 'Untitled') + ' (copy)', mode: d.mode, format: d.format || 'song', status: 'draft', updated: Date.now(), cards: d.cards || [], characters: d.characters || {}, titlePage: d.titlePage, scriptHeader: d.scriptHeader });
     return fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
   }).then(() => loadProjects().then(buildLibraryPage));
 }
@@ -651,6 +671,59 @@ function saveSharing() {
   fetch('/api/shows/' + id + '/share', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collaborators: ids }) })
     .then((r) => r.json()).then(() => { closeShareModal(); loadProjects().then(() => { if (state.page === 'library') buildLibraryPage(); }); })
     .catch(() => { closeShareModal(); });
+}
+
+// ---- Plot Suite: app theme + waffle launcher ------------------------------
+// Prose Plot re-skins Song Plot's shared substrate with a coral accent —
+// active whenever you're editing/reading a prose-format show, or browsing the
+// Prose Plot library (state.currentApp), even with no show open yet.
+function applyAppTheme() {
+  const prose = state.page === 'library' ? state.currentApp === 'prose' : state.format === 'prose';
+  document.body.classList.toggle('app-prose', prose);
+}
+function updateWaffleLabel() {
+  const nameEl = document.getElementById('tn-waffle-name');
+  if (nameEl) nameEl.textContent = state.currentApp === 'prose' ? 'Prose Plot' : 'Song Plot';
+}
+// The waffle launcher only replaces the show-title/save-dot slot while
+// browsing the Library (there's no "show" open to switch between yet); once
+// a show is opened, the normal show-switcher slots back into the same place.
+function applyTopbarSlot() {
+  const showBtn = document.getElementById('sb-show-btn');
+  const waffleBtn = document.getElementById('tn-waffle-btn');
+  if (!showBtn || !waffleBtn) return;
+  const onLibrary = state.page === 'library';
+  showBtn.hidden = onLibrary;
+  waffleBtn.hidden = !onLibrary;
+}
+function closeWaffleMenu() {
+  const m = document.getElementById('waffle-menu');
+  if (m) m.remove();
+  const btn = document.getElementById('tn-waffle-btn');
+  if (btn) btn.classList.remove('pop-open');
+}
+function toggleWaffleMenu() {
+  if (document.getElementById('waffle-menu')) { closeWaffleMenu(); return; }
+  const btn = document.getElementById('tn-waffle-btn');
+  if (!btn) return;
+  btn.classList.add('pop-open');
+  const menu = el('div', { class: 'waffle-menu', id: 'waffle-menu' });
+  [['song', 'Song Plot'], ['prose', 'Prose Plot']].forEach(([app, label]) => {
+    const item = el('button', { class: 'waffle-item' + (state.currentApp === app ? ' active' : '') }, [
+      el('span', { class: 'waffle-item-check', html: state.currentApp === app ? '✓' : '' }),
+      el('span', { class: 'waffle-item-label', text: label }),
+    ]);
+    item.addEventListener('click', (e) => { e.stopPropagation(); closeWaffleMenu(); setCurrentApp(app); });
+    menu.appendChild(item);
+  });
+  document.body.appendChild(menu);
+}
+function setCurrentApp(app) {
+  if (state.currentApp === app) return;
+  state.currentApp = app;
+  updateWaffleLabel();
+  applyAppTheme();
+  if (state.page === 'library') buildLibraryPage();
 }
 
 function setSaveInd(s) {
@@ -906,9 +979,16 @@ function saveShowSettings() {
 
 let _nsmMode = 'full';
 function openNewShowModal() {
-  _nsmMode = 'full';
+  const isProse = state.currentApp === 'prose';
+  // Novels have no intermission to speak of, so Prose Plot skips the length
+  // choice entirely and just defaults to the one-act (no-intermission) model.
+  _nsmMode = isProse ? 'oneact' : 'full';
   document.getElementById('nsm-title').value = '';
-  document.querySelectorAll('#nsm-mode-seg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === 'full'));
+  document.getElementById('nsm-title').placeholder = isProse ? 'My Novel' : 'My Musical';
+  document.getElementById('nsm-mode-row').hidden = isProse;
+  document.getElementById('nsm-modal-title').textContent = isProse ? 'New novel' : 'New show';
+  document.getElementById('nsm-create').textContent = isProse ? 'Create novel' : 'Create show';
+  document.querySelectorAll('#nsm-mode-seg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === _nsmMode));
   document.getElementById('new-show-modal').style.display = '';
   setTimeout(() => document.getElementById('nsm-title').focus(), 50);
 }
@@ -916,7 +996,9 @@ function closeNewShowModal() {
   document.getElementById('new-show-modal').style.display = 'none';
 }
 function createProject(title, mode) {
-  const body = JSON.stringify({ title, mode, cards: DEFAULT_TEMPLATE.map((c) => Object.assign({}, c)), updated: Date.now() });
+  const isProse = state.currentApp === 'prose';
+  const template = isProse ? PROSE_TEMPLATE : DEFAULT_TEMPLATE;
+  const body = JSON.stringify({ title, mode, format: state.currentApp, wordTarget: isProse ? 75000 : 0, cards: template.map((c) => Object.assign({}, c)), updated: Date.now() });
   fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
     .then((r) => r.json()).then((d) => loadProjects().then(() => openProject(d.id)));
 }
@@ -935,10 +1017,15 @@ function lastIndexOfAct(act) {
   return -1;
 }
 function insertCard(act, type) {
+  // In Prose Plot a "scene" card is a chapter — title it "Chapter N" (one past
+  // the current highest chapter number) rather than "Scene 1".
+  const sceneTitle = state.format === 'prose'
+    ? 'Chapter ' + (state.cards.filter((c) => c.type === 'scene').length + 1)
+    : 'Scene 1';
   const card = type === 'song'
     ? { id: uid(), type: 'song', act, title: 'New song', fn: 'ballad', voicing: '', min: 3, status: 'idea', purpose: '', change: null }
     : type === 'scene'
-    ? { id: uid(), type: 'scene', act, title: 'Scene 1', note: '', min: 0 }
+    ? { id: uid(), type: 'scene', act, title: sceneTitle, note: '', min: 0 }
     : { id: uid(), type: 'beat', act, title: 'New beat', note: '', lyrics: '', min: 1.5, change: null };
   state.cards.splice(lastIndexOfAct(act) + 1, 0, card);
   state.openAct = null;
@@ -1193,11 +1280,22 @@ function wireLaneDrop(lane, act) {
 
 function addTile(act) {
   const btn = el('button', { class: 'addbtn', text: '+', title: 'Add to this act' });
-  const menu = el('div', { class: 'addmenu' + (state.openAct === act ? ' open' : '') }, [
+  // Prose Plot has no songs — offer Chapter (a scene card) + Beat instead.
+  const isProse = state.format === 'prose';
+  const menu = el('div', { class: 'addmenu' + (state.openAct === act ? ' open' : '') }, isProse ? [
+    el('button', { text: '◆  Chapter' }),
+    el('button', { text: '▸  Beat' }),
+  ] : [
     el('button', { text: '♪  Song' }),
     el('button', { text: '▸  Beat' }),
     el('button', { text: '≡  Scene' }),
   ]);
+  if (isProse) {
+    menu.children[0].addEventListener('click', (e) => { e.stopPropagation(); insertCard(act, 'scene'); });
+    menu.children[1].addEventListener('click', (e) => { e.stopPropagation(); insertCard(act, 'beat'); });
+    btn.addEventListener('click', (e) => { e.stopPropagation(); state.openAct = state.openAct === act ? null : act; render(); });
+    return el('div', { class: 'addtile' }, [btn, menu]);
+  }
   menu.children[0].addEventListener('click', (e) => { e.stopPropagation(); insertCard(act, 'song'); });
   menu.children[1].addEventListener('click', (e) => { e.stopPropagation(); insertCard(act, 'beat'); });
   menu.children[2].addEventListener('click', (e) => { e.stopPropagation(); insertCard(act, 'scene'); });
@@ -1219,7 +1317,9 @@ function buildBoard() {
     order.forEach((i) => {
       const c = state.cards[i];
       if (c.act !== L.key) return;
-      if (state.view === 'songs' && c.type !== 'song') return;
+      // "Songs only" is Song Plot's filter; Prose Plot has no songs, so the
+      // same toggle repurposes to "Chapters only" (scene cards) instead.
+      if (state.view === 'songs' && c.type !== (state.format === 'prose' ? 'scene' : 'song')) return;
       lane.appendChild(buildCard(c, i, pct[i]));
     });
     lane.appendChild(addTile(L.key));
@@ -1349,6 +1449,7 @@ function parseLyricLines(text, defaultSung) {
   for (const ln of (text || '').split('\n')) {
     const t = ln.trim();
     if (!t) { inCharBlock = false; out.push({ type: 'blank', text: '' }); continue; }
+    if (/^\*{3,}$/.test(t)) { inCharBlock = false; out.push({ type: 'scenebreak', text: t }); continue; }
     if (/^\[.+\]$/.test(t)) {
       inCharBlock = false;
       const inner = t.slice(1, -1);
@@ -1416,6 +1517,7 @@ function serializeRows(rows, isSong) {
   let blockSung = !!isSong;
   rows.forEach((row, i) => {
     const type = row.type, text = (row.text || '').trim();
+    if (type === 'scenebreak') { parts.push('***'); blockSung = !!isSong; return; }
     if (!text) { parts.push(''); blockSung = !!isSong; return; }
     if (type === 'cue') {
       blockSung = blockModeFrom(i);
@@ -1431,6 +1533,8 @@ function serializeRows(rows, isSong) {
       parts.push('(' + text.replace(/^\(/, '').replace(/\)$/, '') + ')');
     } else if (type === 'section') {
       parts.push('[' + text.replace(/^\[/, '').replace(/\]$/, '') + ']');
+    } else if (type === 'scenebreak') {
+      parts.push('***');
     } else {
       parts.push(text);
     }
@@ -1526,7 +1630,15 @@ function setCardLines(c, lines) {
 function setCardBody(c, field, text) {
   if ((c[field] || '') === (text || '')) return false;
   c[field] = text;
-  if (field === cardBodyField(c)) {
+  // A beat's manuscript body is always `lyrics` — never `note` (its Beatline
+  // annotation) — full stop. cardBodyField's generic fallback (lyrics, else
+  // note) is right for scenes/songs but wrong here: it re-evaluates *after*
+  // the write above, so clearing lyrics to '' on a beat that still has a
+  // Beatline would make cardBodyField report 'note', the `field === ...`
+  // check would fail, and the stale `c.lines` sidecar would survive to
+  // resurrect the "deleted" text next time the card is opened.
+  const bodyField = c.type === 'beat' ? 'lyrics' : cardBodyField(c);
+  if (field === bodyField) {
     c.lines = stampRevisions(c.lines, mergeLineIds(c.lines, seamlessToLines(text, c.type === 'song')));
   }
   return true;
@@ -1579,8 +1691,12 @@ function collectCharacterNames() {
 // and on blur serializes back to the seamless lyric format via onSave(value).
 // Used by both the Manuscript Edit mode and the lyric window's Rich tab.
 const RICH_EL_LABELS = { cue: 'Character', sung: 'Lyrics', dialogue: 'Dialogue', paren: 'Parenthetical', action: 'Action', section: 'Section', blank: 'Blank line' };
-const RICH_EL_CLASS  = { cue: 'lw-char', sung: 'lw-sung', dialogue: 'lw-dialogue', paren: 'lw-paren', action: 'lw-action', section: 'lw-section-row' };
+const RICH_EL_CLASS  = { cue: 'lw-char', sung: 'lw-sung', dialogue: 'lw-dialogue', paren: 'lw-paren', action: 'lw-action', section: 'lw-section-row', scenebreak: 'lw-scenebreak' };
 const RICH_EL_CYCLE  = ['cue', 'dialogue', 'sung', 'paren', 'action', 'section'];
+// Prose Plot's element set is deliberately narrow — no cue/dialogue/lyric/paren,
+// since a novel is one flowing stream of paragraphs, not typed script lines.
+const RICH_EL_LABELS_PROSE = { action: 'Body', scenebreak: 'Scene break', blank: 'Blank line' };
+const RICH_EL_CYCLE_PROSE  = ['action', 'scenebreak'];
 
 // ---- inline chords (typed [C] shorthand, auto-converted while typing) -----
 // Anchored per-token so only chord-shaped brackets ever convert or render —
@@ -1717,13 +1833,19 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   // Final Draft "ReturnKey" map: hitting Enter advances to the element that
   // usually follows. Character/Parenthetical → the dialogue element (Lyrics in a
   // song, Dialogue otherwise); Dialogue/Lyrics → Character; Action stays Action.
+  // Prose Plot writes in one flowing paragraph stream, not typed script lines —
+  // it gets its own narrow element set (Body / Scene break) and cycle.
+  const isProse = state.format === 'prose';
+  const elCycle  = isProse ? RICH_EL_CYCLE_PROSE  : RICH_EL_CYCLE;
+  const elLabels = isProse ? RICH_EL_LABELS_PROSE : RICH_EL_LABELS;
   const smartNext = (type) => {
+    if (type === 'scenebreak') return 'action';
     if (type === 'cue' || type === 'paren') return isSong ? 'sung' : 'dialogue';
     if (type === 'dialogue' || type === 'sung') return 'cue';
     if (type === 'section') return isSong ? 'cue' : 'action';
     return type; // action → action
   };
-  const tabNext   = (type) => { const i = RICH_EL_CYCLE.indexOf(type); return RICH_EL_CYCLE[(i + 1) % RICH_EL_CYCLE.length]; };
+  const tabNext   = (type) => { const i = elCycle.indexOf(type); return elCycle[(i + 1) % elCycle.length]; };
   // Each row carries data-id so an edited line keeps its identity across saves
   // (the line-identity model). New rows mint a fresh id.
   const mkLine = (type, t, dual, id, subtype) => {
@@ -1738,6 +1860,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     let display = (t || '');
     if (type === 'paren')   display = display.replace(/^\(/, '').replace(/\)$/, '');
     if (type === 'section') display = display.replace(/^\[/, '').replace(/\]$/, '');
+    if (type === 'scenebreak') display = '⁂'; // the *** markup is a divider, not text to edit
     div.innerHTML = emphToHtml(display); // render **bold** / *italic* / _underline_
     return div;
   };
@@ -1745,6 +1868,10 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     div.dataset.type = type;
     div.className = 'ms-el ' + (RICH_EL_CLASS[type] || 'lw-blank ms-el-blank');
     if (type !== 'cue') delete div.dataset.dual; // dual only applies to cues
+    // Scene break is a divider, not text — converting a line into one discards
+    // whatever it held (serializeRows would anyway; ***  round-trips regardless
+    // of displayed text) and shows the glyph instead.
+    if (type === 'scenebreak') div.innerHTML = emphToHtml('⁂');
   };
   // Read the DOM rows back as identified lines — text re-wrapped so each row's
   // text matches parseLyricLines output (so the blob round-trips exactly).
@@ -1860,6 +1987,37 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     r2.collapse(true);
     sel.removeAllRanges();
     sel.addRange(r2);
+  };
+  // Smart typography (Prose Plot only) — curly quotes, em dash, ellipsis,
+  // auto-substituted as you type (iA Writer / Ulysses convention). Screenplay
+  // convention doesn't want this, so it's gated to isProse; Song Plot is
+  // untouched. Operates directly on the text node at the caret, same
+  // post-hoc-replace pattern as tryAutoConvertChord above.
+  const trySmartTypography = () => {
+    if (!isProse) return;
+    const sel = window.getSelection();
+    if (!sel || !sel.isCollapsed || !sel.anchorNode || sel.anchorNode.nodeType !== 3) return;
+    const node = sel.anchorNode;
+    const offset = sel.anchorOffset;
+    const text = node.nodeValue || '';
+    if (offset >= 2 && text.slice(offset - 2, offset) === '--') {
+      node.replaceData(offset - 2, 2, '—'); // em dash
+      sel.collapse(node, offset - 1);
+      return;
+    }
+    if (offset >= 3 && text.slice(offset - 3, offset) === '...') {
+      node.replaceData(offset - 3, 3, '…'); // ellipsis
+      sel.collapse(node, offset - 2);
+      return;
+    }
+    const ch = text[offset - 1];
+    if (ch === '"' || ch === "'") {
+      const before = offset >= 2 ? text[offset - 2] : null;
+      const isOpen = before == null || /[\s([{]/.test(before); // an em/en dash before a quote usually closes a line, not opens
+      const curly = ch === '"' ? (isOpen ? '“' : '”') : (isOpen ? '‘' : '’');
+      node.replaceData(offset - 1, 1, curly);
+      sel.collapse(node, offset);
+    }
   };
   // Bookmark the caret by line-id + offset so it survives a normalize pass.
   const caretBookmark = () => { const line = getFocusedLine(lineEd); return line ? { id: line.dataset.id, off: caretOffsetIn(line) } : null; };
@@ -2109,8 +2267,8 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const styleBar = el('div', { class: 'ms-style-bar' });
   const styleSel = el('select', { class: 'ms-style-sel' });
   const modKey = navigator.platform.toUpperCase().includes('MAC') ? '⌘' : 'Ctrl+';
-  Object.entries(RICH_EL_LABELS).forEach(([val, label]) => {
-    const n = val === 'blank' ? 7 : RICH_EL_CYCLE.indexOf(val) + 1;
+  Object.entries(elLabels).forEach(([val, label]) => {
+    const n = val === 'blank' ? 7 : elCycle.indexOf(val) + 1;
     styleSel.appendChild(el('option', { value: val, text: n ? label + '  (' + modKey + n + ')' : label }));
   });
   // A button that runs an arbitrary action (undo/redo/highlight) while keeping the
@@ -2124,12 +2282,10 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const undoBtn = actBtn('↶', 'Undo (' + modKey + 'Z)', undo);
   const redoBtn = actBtn('↷', 'Redo (' + modKey + '⇧Z)', redo);
   syncUndoButtons = () => { undoBtn.disabled = histIndex <= 0; redoBtn.disabled = histIndex >= history.length - 1; };
-  styleBar.appendChild(undoBtn);
-  styleBar.appendChild(redoBtn);
-  styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
-  styleBar.appendChild(styleSel);
   // Dual-dialogue toggle: marks the focused character cue as simultaneous with
-  // the cue before it (renders side by side in Print View).
+  // the cue before it (renders side by side in Print View). No prose analog —
+  // a novel has no simultaneous-speech column layout — so it's built but never
+  // mounted in Prose Plot.
   const dualBtn = el('button', { class: 'ms-dual-btn', type: 'button', text: 'Dual ⇄', title: 'Mark this character as speaking with the one above (' + modKey + 'D)' });
   const toggleDual = (line) => {
     if (!line || line.dataset.type !== 'cue') return false;
@@ -2139,7 +2295,6 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     return true;
   };
   dualBtn.addEventListener('mousedown', (e) => { e.preventDefault(); toggleDual(getFocusedLine(lineEd)); });
-  styleBar.appendChild(dualBtn);
 
   // Bold / Italic / Underline — operate on the current selection in the focused
   // editor. preventDefault keeps focus (and the selection) in the editor; the
@@ -2163,13 +2318,36 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   // Highlight as an editorial note — the button previews its own color.
   const highlightBtn = actBtn('<mark>H</mark>', 'Highlight as note (' + modKey + '⇧H)', toggleHighlight);
   highlightBtn.classList.add('ms-fmt-hl');
+
+  styleBar.appendChild(undoBtn);
+  styleBar.appendChild(redoBtn);
   styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
-  styleBar.appendChild(boldBtn);
-  styleBar.appendChild(italicBtn);
-  styleBar.appendChild(underlineBtn);
-  styleBar.appendChild(strikeBtn);
-  styleBar.appendChild(highlightBtn);
-  styleBar.appendChild(el('span', { class: 'ms-style-hint', text: 'Enter · next element   ⇧Enter · same   Tab · cycle   ' + modKey + '1–7 · jump' }));
+  if (isProse) {
+    // Prose promotes italic/bold to primary controls (a novel leans on inline
+    // emphasis constantly; it has no cue/dialogue/dual-column concerns), ahead
+    // of the now-two-option Element select.
+    styleBar.appendChild(boldBtn);
+    styleBar.appendChild(italicBtn);
+    styleBar.appendChild(underlineBtn);
+    styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
+    styleBar.appendChild(styleSel);
+    styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
+    styleBar.appendChild(strikeBtn);
+    styleBar.appendChild(highlightBtn);
+  } else {
+    styleBar.appendChild(styleSel);
+    styleBar.appendChild(dualBtn);
+    styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
+    styleBar.appendChild(boldBtn);
+    styleBar.appendChild(italicBtn);
+    styleBar.appendChild(underlineBtn);
+    styleBar.appendChild(strikeBtn);
+    styleBar.appendChild(highlightBtn);
+  }
+  const hint = isProse
+    ? 'Enter · next line   Tab · cycle   ' + modKey + '1–2 · jump'
+    : 'Enter · next element   ⇧Enter · same   Tab · cycle   ' + modKey + '1–7 · jump';
+  styleBar.appendChild(el('span', { class: 'ms-style-hint', text: hint }));
 
   const lineEd = el('div', { class: 'ms-line-editor ms-sheet-content' });
   lineEd.contentEditable = 'true'; // single editable host for the whole document
@@ -2185,7 +2363,9 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     const mark = e.target.closest && e.target.closest('mark.note-mark');
     if (mark) openNoteEdit(mark);
   });
-  if (!seed.some((t) => t.type !== 'blank')) lineEd.appendChild(mkLine('cue', ''));
+  // A brand-new empty document seeds one line of the cycle's first type — cue
+  // (Character) in the screenplay set, Body in Prose Plot's (there is no cue).
+  if (!seed.some((t) => t.type !== 'blank')) lineEd.appendChild(mkLine(elCycle[0], ''));
   else seed.forEach((l) => lineEd.appendChild(mkLine(l.type, l.text, l.dual, l.id, l.subtype)));
 
   // ---- FD-style character-name autocomplete (cue lines only) ----
@@ -2252,7 +2432,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   };
   lineEd.addEventListener('keyup', syncPicker);
   lineEd.addEventListener('click', syncPicker);
-  lineEd.addEventListener('input', () => { tryAutoConvertChord(); if (needsNormalize()) normalize(true); refreshAc(getFocusedLine(lineEd)); queueHistory(); });
+  lineEd.addEventListener('input', () => { tryAutoConvertChord(); trySmartTypography(); if (needsNormalize()) normalize(true); refreshAc(getFocusedLine(lineEd)); queueHistory(); });
   // Paste as plain text, splitting on newlines into typed rows (strip rich markup).
   lineEd.addEventListener('paste', (e) => {
     e.preventDefault();
@@ -2342,8 +2522,9 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       return;
     }
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key >= '1' && e.key <= '7') {
+      const newType = e.key === '7' ? 'blank' : elCycle[parseInt(e.key, 10) - 1];
+      if (!newType) return; // e.g. ⌘3–6 are unused in Prose Plot's 2-item cycle
       e.preventDefault();
-      const newType = e.key === '7' ? 'blank' : RICH_EL_CYCLE[parseInt(e.key, 10) - 1];
       setOrInsertType(line, newType);
       refreshAc(getFocusedLine(lineEd) || line);
       pushHistory();
@@ -2499,11 +2680,18 @@ function buildContentTokens(sceneId) {
   const emitCard = (c) => {
     if (c.type === 'scene') {
       toks.push({ type: 'scene-header', text: c.title || 'Scene', key: 'sc:' + c.id });
-      if (c.note && c.note.trim()) { toks.push({ type: 'blank' }); toks.push({ type: 'action', text: c.note, lastRev: noteRev(c), key: 'note:' + c.id }); toks.push({ type: 'blank' }); }
+      // Tokenize the same way beats/songs do (cardBodyTokens), not one flat
+      // block — a scene's note supports the full rich element set (action,
+      // cue/dialogue, and in Prose Plot, Body/Scene break), and a chapter in
+      // Prose Plot IS a scene card, so it needs real paragraph-by-paragraph
+      // rendering here, not a single glob of text.
+      if (c.note && c.note.trim()) { toks.push({ type: 'blank' }); cardBodyTokens(c).forEach(pushLyric); toks.push({ type: 'blank' }); }
     } else if (c.type === 'beat') {
-      // The beat logline ("what it's about") is an outline reference, not script —
-      // render it as a distinct note (sage) and tie its visibility to Section tags.
-      if (c.note && c.note.trim() && state.msOptions.showSectionTags !== false) { toks.push({ type: 'note', text: c.note, lastRev: noteRev(c), key: 'note:' + c.id }); toks.push({ type: 'blank' }); }
+      // The beat's Beatline ("what it's about") is an outline reference, not
+      // script — render it as a distinct note (sage), gated by its own
+      // Beatlines toggle (independent of Section tags — a Song Plot-only
+      // markup feature that has nothing to do with this).
+      if (c.note && c.note.trim() && state.msOptions.showBeatlines !== false) { toks.push({ type: 'note', text: c.note, lastRev: noteRev(c), key: 'note:' + c.id }); toks.push({ type: 'blank' }); }
       if (c.lyrics && c.lyrics.trim()) { cardBodyTokens(c).forEach(pushLyric); toks.push({ type: 'blank' }); }
     } else if (c.type === 'song') {
       songNum++;
@@ -2837,6 +3025,7 @@ function renderPageToken(tok, container) {
   } else if (tok.type === 'paren')    { container.appendChild(el('div', { class: 'lw-paren', html: emphToHtml(tok.text) }));
   } else if (tok.type === 'dialogue') { container.appendChild(el('div', { class: 'lw-dialogue', html: emphToHtml(tok.text) }));
   } else if (tok.type === 'action')   { container.appendChild(el('div', { class: 'lw-action', html: emphToHtml(tok.text) }));
+  } else if (tok.type === 'scenebreak') { container.appendChild(el('div', { class: 'lw-scenebreak', text: '⁂' })); // ⁂ divider, centered — text itself isn't meaningful
   } else if (tok.type === 'note')     { container.appendChild(el('div', { class: 'lw-note-ms', html: emphToHtml(tok.text) }));
   } else if (tok.type === 'dual') {
     // Side-by-side columns. Each column renders its own token list; the row's
@@ -2925,8 +3114,9 @@ function buildCharactersPage() {
   const { merged, appearances } = extractCharacters();
   const names = Object.keys(merged).sort();
 
+  const isProse = state.format === 'prose';
   const toolbar = el('div', { class: 'ch-toolbar ribbon' });
-  const syncBtn = el('button', { class: 'pbtn', text: '⟳ Sync from lyrics' });
+  const syncBtn = el('button', { class: 'pbtn', text: isProse ? '⟳ Sync from manuscript' : '⟳ Sync from lyrics' });
   syncBtn.addEventListener('click', () => {
     state.characters = extractCharacters().merged;
     scheduleSave();
@@ -2950,7 +3140,7 @@ function buildCharactersPage() {
   if (!names.length) {
     const empty = el('div', { class: 'ch-empty' });
     empty.appendChild(el('div', { class: 'ch-empty-icon', text: '◎' }));
-    empty.appendChild(el('p', { text: 'No characters yet. Add character cues — any ALL-CAPS line in your lyrics or dialogue — then click Sync.' }));
+    empty.appendChild(el('p', { text: isProse ? 'No characters yet. Add character cues — any ALL-CAPS line in your manuscript — then click Sync.' : 'No characters yet. Add character cues — any ALL-CAPS line in your lyrics or dialogue — then click Sync.' }));
     host.appendChild(empty);
     return;
   }
@@ -2970,7 +3160,7 @@ function buildCharactersPage() {
     const headText = el('div', { class: 'ch-head-text' });
     headText.appendChild(el('span', { class: 'ch-name', text: name }));
     if (data.manual && !apps.length && !state.readonly) headText.appendChild(el('span', { class: 'ch-tag ch-tag-manual', text: 'manual' }));
-    else headText.appendChild(el('span', { class: 'ch-count', text: apps.length + ' song' + (apps.length !== 1 ? 's' : '') }));
+    else { const unit = isProse ? 'chapter' : 'song'; headText.appendChild(el('span', { class: 'ch-count', text: apps.length + ' ' + unit + (apps.length !== 1 ? 's' : '') })); }
     cardHead.appendChild(headText);
     card.appendChild(cardHead);
 
@@ -3583,6 +3773,8 @@ function navigateTo(page, sceneId) {
   document.querySelectorAll('.tn-tab').forEach((b) => {
     b.classList.toggle('active', b.dataset.page === page);
   });
+  applyTopbarSlot();
+  applyAppTheme();
   if (page === 'library') buildLibraryPage();
   if (page === 'manuscript') { buildManuscriptPage(sceneId); restoreMsAnchor(msSavedAnchor); }
   if (page === 'notes') {
@@ -4121,6 +4313,12 @@ function buildManuscriptPage(sceneId) {
   // markup, so toggling back on needs no reparse — mirrors Section tags below.
   const applyChordVisibility = () => { document.body.classList.toggle('ms-hide-chords', state.msOptions.showChords === false); };
   applyChordVisibility();
+  // Paragraph convention (Prose Plot only) — Indent (default, tight/first-line
+  // indent) vs Block (no indent, gap between paragraphs). A body class, so
+  // Edit and Print View both pick it up via the CSS in the app-prose block —
+  // no reflow/reparse needed, just like chord/section visibility above.
+  const applyParaStyle = () => { document.body.classList.toggle('ms-para-block', state.msOptions.paraStyle === 'block'); };
+  applyParaStyle();
 
   toolbar.appendChild(navBtn); // leftmost — the outline opens on the left
   toolbar.appendChild(wcLbl);
@@ -4222,18 +4420,25 @@ function buildManuscriptPage(sceneId) {
 
   const renderCardSection = (sec, c) => {
     sec.innerHTML = '';
-    const text = (c[cardField(c)] || '').trim();
+    // A beat's body is specifically `lyrics` — its `note` is the sage outline
+    // Beatline, not written content. cardBodyField's generic fallback (lyrics,
+    // else note) exists for scenes/songs and would otherwise treat a beat's
+    // Beatline as body text too, duplicating it as a plain action line right
+    // under its own sage rendering (matches Print view's emitCard, which
+    // already keeps these separate for beats — see buildContentTokens above).
+    const text = (c.type === 'beat' ? (c.lyrics || '') : (c[cardField(c)] || '')).trim();
     const isEmpty = !text;
-    // Beat logline shown as a sage outline reference — consistent with Print view.
-    // Read-only here (edited via the card / Details); hidden with the Section-tags
-    // toggle (CSS, under .hide-sections) so it round-trips like section pills.
-    const hasLogline = c.type === 'beat' && (c.note || '').trim();
-    const inner = el('div', { class: 'ms-card-content ms-sheet-content' + (isEmpty && !hasLogline ? ' ms-card-section-empty' : '') });
-    if (hasLogline) inner.appendChild(el('div', { class: 'lw-note-ms', text: c.note }));
+    // Beatline shown as a sage outline reference — consistent with Print view.
+    // Read-only here (edited via the card / Details); hidden with its own
+    // Beatlines toggle (CSS, under .hide-beatlines) so it round-trips cleanly.
+    const hasBeatline = c.type === 'beat' && (c.note || '').trim();
+    const inner = el('div', { class: 'ms-card-content ms-sheet-content' + (isEmpty && !hasBeatline ? ' ms-card-section-empty' : '') });
+    if (hasBeatline) inner.appendChild(el('div', { class: 'lw-note-ms', text: c.note }));
     if (isEmpty) {
+      const sceneWord = state.format === 'prose' ? 'chapter heading' : 'scene heading';
       const phText = state.readonly
-        ? (c.type === 'scene' ? '(scene heading)' : c.type === 'beat' ? '' : '(lyrics not reproduced)')
-        : (c.type === 'scene' ? '(scene heading — click to write)' : c.type === 'beat' ? '(new beat — click to write)' : '(no lyrics yet — click to write)');
+        ? (c.type === 'scene' ? '(' + sceneWord + ')' : c.type === 'beat' ? '' : '(lyrics not reproduced)')
+        : (c.type === 'scene' ? '(' + sceneWord + ' — click to write)' : c.type === 'beat' ? '(new beat — click to write)' : '(no lyrics yet — click to write)');
       inner.appendChild(el('div', { class: 'ms-card-placeholder', text: phText }));
     } else {
       // Render with the same .ms-el markup the editor uses, so clicking in swaps
@@ -4258,12 +4463,12 @@ function buildManuscriptPage(sceneId) {
     const docEl = sec.closest('.ms-edit-doc');
     if (docEl) docEl.querySelectorAll('.ms-card-rich-editor').forEach((rw) => { if (rw._commit) rw._commit(); });
     sec.innerHTML = '';
-    // Keep the sage logline pinned above the editor while editing (it's edited via
+    // Keep the sage Beatline pinned above the editor while editing (it's edited via
     // the card/Details, not here) so it doesn't vanish when you click in. Wrapped in
     // .ms-sheet-content so it inherits the script column width and wraps like static.
-    const hasLogline = c.type === 'beat' && (c.note || '').trim();
-    sec.classList.toggle('ms-has-logline', !!hasLogline);
-    if (hasLogline) {
+    const hasBeatline = c.type === 'beat' && (c.note || '').trim() && state.msOptions.showBeatlines !== false;
+    sec.classList.toggle('ms-has-logline', !!hasBeatline);
+    if (hasBeatline) {
       sec.appendChild(el('div', { class: 'ms-sheet-content ms-edit-logline' }, [el('div', { class: 'lw-note-ms', text: c.note })]));
     }
     const rich = buildRichEditor({
@@ -4325,13 +4530,22 @@ function buildManuscriptPage(sceneId) {
     // Idle state: the same control layout, disabled — so the bar reads consistently
     // and never changes height between idle and active.
     const idleBar = (() => {
+      const isProse = state.format === 'prose';
       const bar = el('div', { class: 'ms-style-bar ms-style-bar-idle' });
       ['↶', '↷'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
       bar.appendChild(el('span', { class: 'ms-fmt-divider' }));
-      bar.appendChild(el('select', { class: 'ms-style-sel', disabled: 'disabled' }, [el('option', { text: 'Element' })]));
-      bar.appendChild(el('button', { class: 'ms-dual-btn', type: 'button', disabled: 'disabled', text: 'Dual ⇄' }));
-      bar.appendChild(el('span', { class: 'ms-fmt-divider' }));
-      ['<b>B</b>', '<i>I</i>', '<u>U</u>', '<s>S</s>'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
+      if (isProse) {
+        ['<b>B</b>', '<i>I</i>', '<u>U</u>'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
+        bar.appendChild(el('span', { class: 'ms-fmt-divider' }));
+        bar.appendChild(el('select', { class: 'ms-style-sel', disabled: 'disabled' }, [el('option', { text: 'Body' })]));
+        bar.appendChild(el('span', { class: 'ms-fmt-divider' }));
+        bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: '<s>S</s>' }));
+      } else {
+        bar.appendChild(el('select', { class: 'ms-style-sel', disabled: 'disabled' }, [el('option', { text: 'Element' })]));
+        bar.appendChild(el('button', { class: 'ms-dual-btn', type: 'button', disabled: 'disabled', text: 'Dual ⇄' }));
+        bar.appendChild(el('span', { class: 'ms-fmt-divider' }));
+        ['<b>B</b>', '<i>I</i>', '<u>U</u>', '<s>S</s>'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
+      }
       bar.appendChild(el('button', { class: 'ms-fmt-btn ms-fmt-hl', type: 'button', disabled: 'disabled', html: '<mark>H</mark>' }));
       bar.appendChild(el('span', { class: 'ms-style-hint', text: 'Click any line to edit' }));
       return bar;
@@ -4342,10 +4556,13 @@ function buildManuscriptPage(sceneId) {
       formatBar.appendChild(styleBarEl || idleBar);
     };
     if (!state.readonly) { setActiveFormatBar(null); newBody.appendChild(formatBar); }
-    // Mirror the Print view's "Section tags" toggle here: hide section pills in
-    // both the static render and the rich editor when the option is off. CSS
-    // hides them (lines stay in the DOM, so they round-trip and reappear on).
-    const doc = el('div', { class: 'ms-edit-doc' + (state.msOptions.showSectionTags === false ? ' hide-sections' : '') });
+    // Mirror the Print view's "Section tags" and "Beatlines" toggles here: hide
+    // section pills / Beatlines in both the static render and the rich editor
+    // when their option is off. CSS hides them (lines stay in the DOM, so they
+    // round-trip and reappear when toggled back on).
+    const doc = el('div', { class: 'ms-edit-doc'
+      + (state.msOptions.showSectionTags === false ? ' hide-sections' : '')
+      + (state.msOptions.showBeatlines === false ? ' hide-beatlines' : '') });
 
     editOrder().forEach((idx) => {
       const c = state.cards[idx];
@@ -4446,9 +4663,36 @@ function buildManuscriptPage(sceneId) {
     return r;
   };
   drawerInner.appendChild(mkDrawerToggle('Show title', 'showTitle', false));
-  drawerInner.appendChild(mkDrawerToggle('Act headers', 'showActHeaders', true));
-  drawerInner.appendChild(mkDrawerToggle('Section tags', 'showSectionTags', false));
-  drawerInner.appendChild(mkDrawerToggle('Chords', 'showChords', true));
+  drawerInner.appendChild(mkDrawerToggle('Beatlines', 'showBeatlines', true));
+  if (state.format === 'prose') {
+    // Paragraph convention — a segmented choice, not a boolean, so it doesn't
+    // fit mkDrawerToggle's checkbox shape. Novel-writing convention: Indent
+    // (tight, first-line indent) or Block (no indent, gap between paragraphs).
+    const row = el('div', { class: 'ms-hd-toggle' });
+    row.appendChild(el('span', { class: 'ms-hd-toggle-label', text: 'Paragraph style' }));
+    const seg = el('div', { class: 'seg ms-para-seg' });
+    const indentBtn = el('button', { type: 'button', text: 'Indent' });
+    const blockBtn = el('button', { type: 'button', text: 'Block' });
+    const sync = () => {
+      const isBlock = state.msOptions.paraStyle === 'block';
+      indentBtn.classList.toggle('active', !isBlock);
+      blockBtn.classList.toggle('active', isBlock);
+    };
+    indentBtn.addEventListener('click', () => { state.msOptions.paraStyle = 'indent'; saveMsOpts(); applyParaStyle(); sync(); });
+    blockBtn.addEventListener('click', () => { state.msOptions.paraStyle = 'block'; saveMsOpts(); applyParaStyle(); sync(); });
+    sync();
+    seg.appendChild(indentBtn);
+    seg.appendChild(blockBtn);
+    row.appendChild(seg);
+    drawerInner.appendChild(row);
+  } else {
+    // Act headers/Section tags/Chords are all Song Plot-only concepts — a
+    // novel has no intermission-split acts (Prose Plot's default is always
+    // one-act) and no chord or section markup.
+    drawerInner.appendChild(mkDrawerToggle('Act headers', 'showActHeaders', true));
+    drawerInner.appendChild(mkDrawerToggle('Section tags', 'showSectionTags', false));
+    drawerInner.appendChild(mkDrawerToggle('Chords', 'showChords', true));
+  }
 
   // ── Revisions (Final Draft-style) ─────────────────────────────────
   if (!state.readonly) {
@@ -4682,6 +4926,12 @@ function updateSummary(c, node) {
   const scheme = rhymeLetters(tokens).filter(Boolean).join('');
   node.textContent = `${sung.length} sung lines · ${syl} syllables` + (scheme ? ` · ${scheme.length > 20 ? scheme.slice(0, 20) + '…' : scheme}` : '');
 }
+// Prose Plot's equivalent of updateSummary — word count is the metric that
+// matters, not sung lines/syllables/rhyme scheme.
+function updateProseSummary(text, node) {
+  const n = countWords(text || '');
+  node.textContent = n === 1 ? '1 word' : `${n.toLocaleString()} words`;
+}
 function updateVerseNote(c, node) {
   const n = verseCheck(c.lyrics || '', c.type === 'song');
   node.textContent = n || 'No verse-length mismatches.';
@@ -4715,6 +4965,18 @@ function renderNearRhymes(word, container, editor, refresh) {
   const r = LYRIC.nearSuggest(word);
   if (!r.near.length) { container.appendChild(el('span', { class: 'rhint', text: 'no near rhymes for "' + word + '"' })); return; }
   renderRhymeChips(r.near, container, editor, refresh);
+}
+
+// Prose Plot's equivalent of the rhyme lookup — synonyms for the word under
+// the cursor, from a packed word->synonym list (see thesaurus.js).
+function renderSynonymsInsertable(word, container, editor, refresh) {
+  container.innerHTML = '';
+  word = (word || '').toLowerCase().replace(/[^a-z']/g, '');
+  if (!word) { container.appendChild(el('span', { class: 'rhint', text: 'Type a word to find synonyms.' })); return; }
+  if (!THES.ready()) { container.appendChild(el('span', { class: 'rhint', text: 'loading thesaurus…' })); return; }
+  const list = THES.lookup(word);
+  if (!list.length) { container.appendChild(el('span', { class: 'rhint', text: 'no synonyms for "' + word + '"' })); return; }
+  renderRhymeChips(list, container, editor, refresh);
 }
 // The card's metadata fields as a collapsible panel inside the editor sidebar —
 // the former right-side detail drawer, folded in. onChange syncs the editor header.
@@ -4755,7 +5017,7 @@ function buildDetailsPanel(c, onChange) {
     // Scene metadata lives in its title + board position; nothing else to tune here.
   } else { // beat — the editor body is its script; the note is its one-line logline
     body.appendChild(field('Duration (min)', numInput(c.min, (v) => { c.min = v; commit(); })));
-    body.appendChild(field('Logline / what happens', textareaInput(c.note, (v) => { setCardBody(c, 'note', v); commit(); }, 'The book scene — what happens here?')));
+    body.appendChild(field('Beatline / what happens', textareaInput(c.note, (v) => { setCardBody(c, 'note', v); commit(); }, 'The book scene — what happens here?')));
   }
 
   const del = el('button', { class: 'lwdelete', text: 'Delete card' });
@@ -4796,6 +5058,13 @@ function buildLyricWindow(c) {
   // body; scenes edit their prose note (no syllable gutter or rhyme tools — "plain").
   const bodyField = c.type === 'scene' ? 'note' : 'lyrics';
   const plain = c.type === 'scene';
+  const isProse = state.format === 'prose';
+  // Prose Plot has no rhyme/syllable/song-section concept at all — hide that
+  // tooling for beats too (not just scenes), and swap in a word count + a
+  // scene-break shortcut instead. The Rich tab already picks up Prose Plot's
+  // Body/Scene-break element set automatically (buildRichEditor reads
+  // state.format itself), so it stays available for beats.
+  const richTools = !plain && !isProse;
   if (plain) toggleWrap.style.display = 'none';
 
   // Keep the editor header in sync when a basic is changed in the Details panel.
@@ -4807,10 +5076,14 @@ function buildLyricWindow(c) {
 
   // ---- editor ----
   const gutter = el('div', { class: 'lwgutter' });
-  const editorPlaceholder = c.type === 'beat'
+  const editorPlaceholder = isProse
+    ? (c.type === 'scene'
+        ? 'Write the chapter here…\n\nJust write — paragraphs flow one after another.\n*italic* / **bold** — inline emphasis\n***  — a scene break (on its own line)'
+        : 'Write the scene here…\n\nJust write — paragraphs flow one after another.\n*italic* / **bold** — inline emphasis\n***  — a scene break (on its own line)\nCHARACTER — a CAPS line still works for dialogue cues, if you want them')
+    : c.type === 'beat'
     ? 'Write the scene here…\n\nCHARACTER — a CAPS line is who speaks\nDialogue — plain text below the name\n(Parenthetical) — tone / action mid-line\nAction — plain line outside a character\nCHARACTER (sings) — mark a sung outburst\n[Scene] — section heading'
     : 'Write here…\n\nCHARACTER — a CAPS line is who sings\nLyrics — just type below the name (rhyme-tracked)\nCHARACTER (spoken) — mark a spoken aside\n(Parenthetical) — inline note\n[Chorus] — section chip (resets rhyme)\n[Scene 1: Title] — scene heading\n[#01 Title] — song number header';
-  const editor = el('textarea', { class: 'lweditor', wrap: plain ? 'soft' : 'off', spellcheck: 'true', placeholder: plain ? 'Write the scene here — the book prose for this moment.' : editorPlaceholder });
+  const editor = el('textarea', { class: 'lweditor', wrap: (plain || isProse) ? 'soft' : 'off', spellcheck: 'true', placeholder: (plain && !isProse) ? 'Write the scene here — the book prose for this moment.' : editorPlaceholder });
   editor.value = c[bodyField] || '';
 
   // ---- sidebar ----
@@ -4820,49 +5093,54 @@ function buildLyricWindow(c) {
   const vnote = el('div', { class: 'lwnote' });
 
   const secBtns = el('div', { class: 'lwsection-btns' });
-  ['Verse', 'Pre-Chorus', 'Chorus', 'Bridge', 'Intro', 'Outro'].forEach((name) => {
-    const btn = el('span', { class: 'rchip click', text: name, title: 'Insert section header' });
-    btn.addEventListener('click', () => {
-      const alwaysNum = name === 'Verse' || name === 'Bridge';
-      const re = new RegExp('\\[' + name + '(?:\\s+\\d+)?\\]', 'gi');
-      const count = (editor.value.match(re) || []).length;
-      const label = (count === 0 && !alwaysNum) ? '[' + name + ']' : '[' + name + ' ' + (count + 1) + ']';
-      const s = editor.selectionStart != null ? editor.selectionStart : editor.value.length;
-      const before = editor.value.slice(0, s), after = editor.value.slice(s);
-      const pre = before.length && !before.endsWith('\n') ? '\n' : '';
-      const post = after.length && !after.startsWith('\n') ? '\n' : '';
-      insertAtCursor(editor, pre + label + post);
-      refresh();
-    });
-    secBtns.appendChild(btn);
-  });
-  // Rhyme tabs
-  let rhymeMode = 'perfect';
+  let showRhymes = () => {};
   const rhymeTabWrap = el('div', { class: 'rhyme-tab-wrap' });
-  const tabPerfect = el('button', { class: 'rhyme-tab active', text: 'Perfect' });
-  const tabNear    = el('button', { class: 'rhyme-tab', text: 'Near' });
-  rhymeTabWrap.appendChild(tabPerfect);
-  rhymeTabWrap.appendChild(tabNear);
+  if (richTools) {
+    ['Verse', 'Pre-Chorus', 'Chorus', 'Bridge', 'Intro', 'Outro'].forEach((name) => {
+      const btn = el('span', { class: 'rchip click', text: name, title: 'Insert section header' });
+      btn.addEventListener('click', () => {
+        const alwaysNum = name === 'Verse' || name === 'Bridge';
+        const re = new RegExp('\\[' + name + '(?:\\s+\\d+)?\\]', 'gi');
+        const count = (editor.value.match(re) || []).length;
+        const label = (count === 0 && !alwaysNum) ? '[' + name + ']' : '[' + name + ' ' + (count + 1) + ']';
+        const s = editor.selectionStart != null ? editor.selectionStart : editor.value.length;
+        const before = editor.value.slice(0, s), after = editor.value.slice(s);
+        const pre = before.length && !before.endsWith('\n') ? '\n' : '';
+        const post = after.length && !after.startsWith('\n') ? '\n' : '';
+        insertAtCursor(editor, pre + label + post);
+        refresh();
+      });
+      secBtns.appendChild(btn);
+    });
+    // Rhyme tabs
+    let rhymeMode = 'perfect';
+    const tabPerfect = el('button', { class: 'rhyme-tab active', text: 'Perfect' });
+    const tabNear    = el('button', { class: 'rhyme-tab', text: 'Near' });
+    rhymeTabWrap.appendChild(tabPerfect);
+    rhymeTabWrap.appendChild(tabNear);
 
-  const showRhymes = (word) => {
-    if (rhymeMode === 'perfect') renderRhymesInsertable(word, res, editor, refresh);
-    else renderNearRhymes(word, res, editor, refresh);
-  };
+    showRhymes = (word) => {
+      if (rhymeMode === 'perfect') renderRhymesInsertable(word, res, editor, refresh);
+      else renderNearRhymes(word, res, editor, refresh);
+    };
 
-  tabPerfect.addEventListener('click', () => {
-    rhymeMode = 'perfect';
-    tabPerfect.classList.add('active'); tabNear.classList.remove('active');
-    showRhymes(rin.value);
-  });
-  tabNear.addEventListener('click', () => {
-    rhymeMode = 'near';
-    tabNear.classList.add('active'); tabPerfect.classList.remove('active');
-    showRhymes(rin.value);
-  });
+    tabPerfect.addEventListener('click', () => {
+      rhymeMode = 'perfect';
+      tabPerfect.classList.add('active'); tabNear.classList.remove('active');
+      showRhymes(rin.value);
+    });
+    tabNear.addEventListener('click', () => {
+      rhymeMode = 'near';
+      tabNear.classList.add('active'); tabPerfect.classList.remove('active');
+      showRhymes(rin.value);
+    });
+  }
 
   // Group the lyric-writing tools into accented zones so each function reads
-  // distinctly: Sections (sage, matches loglines) and Rhymes (rose).
-  if (!plain) {
+  // distinctly: Sections (sage, matches loglines) and Rhymes (rose). None of
+  // this applies in Prose Plot — no rhyme scheme, no song sections — so it's
+  // gated on richTools (musical beats only) instead of just `!plain`.
+  if (richTools) {
     side.appendChild(el('div', { class: 'lwzone lwzone-sections' }, [
       el('span', { class: 'fl', text: 'Sections' }),
       secBtns,
@@ -4874,23 +5152,62 @@ function buildLyricWindow(c) {
     side.appendChild(el('span', { class: 'fl muted', text: 'Notes', style: 'margin-top:2px' }));
     side.appendChild(vnote);
   }
+  // Prose Plot's equivalent of the Sections zone — a single Scene break
+  // insert, since that's the only structural marker prose writing needs here.
+  const tin = el('input', { class: 'fi', type: 'text', placeholder: 'word to look up' });
+  const tres = el('div', { class: 'rhymeresults' });
+  if (isProse) {
+    const breakBtn = el('span', { class: 'rchip click', text: '⁂ Scene break', title: 'Insert a scene break' });
+    breakBtn.addEventListener('click', () => {
+      const s = editor.selectionStart != null ? editor.selectionStart : editor.value.length;
+      const before = editor.value.slice(0, s), after = editor.value.slice(s);
+      const pre = before.length && !before.endsWith('\n') ? '\n\n' : '';
+      const post = after.length && !after.startsWith('\n') ? '\n\n' : '';
+      insertAtCursor(editor, pre + '***' + post);
+      refresh();
+    });
+    side.appendChild(el('div', { class: 'lwzone lwzone-sections' }, [
+      el('span', { class: 'fl', text: 'Structure' }),
+      el('div', { class: 'lwsection-btns' }, [breakBtn]),
+    ]));
+    side.appendChild(el('div', { class: 'lwzone lwzone-rhymes' }, [
+      el('span', { class: 'fl', text: 'Thesaurus' }),
+      tin, tres,
+    ]));
+    ensureThesaurusLoaded();
+  }
+  const showSynonyms = (word) => renderSynonymsInsertable(word, tres, editor, refresh);
+  tin.addEventListener('input', () => { tin._touched = true; showSynonyms(tin.value); });
 
   // The card's metadata — formerly the right-side detail drawer — now lives here so
   // one window covers everything: write the content, tune the basics, all in place.
   side.appendChild(buildDetailsPanel(c, syncHead));
 
   // ---- panes ----
-  const editPane = el('div', { class: 'lwbody' + (plain ? ' lwbody-plain' : '') }, plain ? [editor, side] : [gutter, editor, side]);
+  // The 2-column layout (no gutter) has its own grid — .lwbody-plain — so it
+  // must be applied whenever the gutter is omitted, not just for scenes: a
+  // Prose Plot beat also skips the gutter (no syllable/rhyme column) but was
+  // falling through to the 3-column grid (58px | 1fr | 264px) with only 2
+  // children, which squeezed the editor into the narrow 58px gutter track.
+  const noGutter = plain || isProse;
+  const editPane = el('div', { class: 'lwbody' + (noGutter ? ' lwbody-plain' : '') }, noGutter ? [editor, side] : [gutter, editor, side]);
   const richPane = el('div', { class: 'lwrich-wrap', style: 'display:none' });
 
-  const refresh = () => {
-    setCardBody(c, bodyField, editor.value); // keep the lines identity sidecar aligned
-    if (!plain) {
+  const refreshTools = () => {
+    if (richTools) {
       updateGutter(c, gutter);
       updateSummary(c, summary);
       updateVerseNote(c, vnote);
       if (!rin._touched) { rin.value = LYRIC.lastWord(lastNonEmptyLine(editor.value)); showRhymes(rin.value); }
+    } else if (isProse) {
+      updateProseSummary(editor.value, summary);
+      if (!tin._touched) { tin.value = LYRIC.lastWord(lastNonEmptyLine(editor.value)); showSynonyms(tin.value); }
     }
+  };
+
+  const refresh = () => {
+    setCardBody(c, bodyField, editor.value); // keep the lines identity sidecar aligned
+    refreshTools();
     scheduleSave();
   };
 
@@ -4904,7 +5221,7 @@ function buildLyricWindow(c) {
     richPane.style.display = 'none';
     editBtn.classList.add('active');
     richBtn.classList.remove('active');
-    if (!plain) { updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote); }
+    refreshTools();
     setTimeout(() => editor.focus(), 0);
   };
 
@@ -4918,7 +5235,8 @@ function buildLyricWindow(c) {
       onSave: (val, lines) => {
         if (val === (c[bodyField] || '')) return;  // nothing changed (e.g. just viewing)
         setCardLines(c, lines);                // lines canonical; keeps the Fountain source in sync
-        updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
+        if (richTools) { updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote); }
+        else if (isProse) { updateProseSummary(val, summary); }
         scheduleSave();
       },
     }));
@@ -4934,10 +5252,14 @@ function buildLyricWindow(c) {
   win.appendChild(editPane);
   win.appendChild(richPane);
 
-  if (!plain) {
+  if (richTools) {
     updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
     rin.value = LYRIC.lastWord(lastNonEmptyLine(c[bodyField] || ''));
     renderRhymesInsertable(rin.value, res, editor, refresh);
+  } else if (isProse) {
+    updateProseSummary(c[bodyField] || '', summary);
+    tin.value = LYRIC.lastWord(lastNonEmptyLine(c[bodyField] || ''));
+    renderSynonymsInsertable(tin.value, tres, editor, refresh);
   }
   setTimeout(() => editor.focus(), 0);
   return win;
@@ -4964,11 +5286,40 @@ function refreshLyricWindow() { if (state.lyricWinId) openLyricWindow(state.lyri
 function buildStats() {
   const wrap = document.getElementById('stats');
   wrap.innerHTML = '';
+  const stat = (k, v) => el('div', { class: 'stat' }, [el('div', { class: 'k', text: k }), el('div', { class: 'v', text: v })]);
+  if (state.format === 'prose') {
+    // Runtime/minutes don't mean anything for a novel — chapters replace
+    // songs, the pre/post split counts chapters instead of minutes either
+    // side of the midpoint, and the words stat becomes a target/progress
+    // readout (click to set the target) instead of a bare count.
+    const chapters = state.cards.filter((c) => c.type === 'scene').length;
+    const beats = state.cards.filter((c) => c.type === 'beat').length;
+    const preChapters = state.cards.filter((c) => c.type === 'scene' && PRE_INT.includes(c.act)).length;
+    wrap.appendChild(stat('Chapters', chapters));
+    wrap.appendChild(stat('Beats', beats));
+    wrap.appendChild(stat('Pre / post mid', `${preChapters} / ${chapters - preChapters}`));
+    const words = totalShowWords();
+    const target = state.wordTarget || 0;
+    const wordsStat = stat('Words', target ? `${words.toLocaleString()} / ${target.toLocaleString()}` : words.toLocaleString());
+    if (!state.readonly) {
+      wordsStat.classList.add('stat-editable');
+      wordsStat.title = 'Click to set a word target';
+      wordsStat.addEventListener('click', () => {
+        const raw = prompt('Word target for this novel:', target || 75000);
+        if (raw == null) return;
+        const n = parseInt(raw.replace(/[^0-9]/g, ''), 10);
+        state.wordTarget = Number.isFinite(n) ? n : 0;
+        scheduleSave();
+        buildStats();
+      });
+    }
+    wrap.appendChild(wordsStat);
+    return;
+  }
   const songs = state.cards.filter((c) => c.type === 'song').length;
   const beats = state.cards.length - songs;
   const total = state.cards.reduce((s, c) => s + (c.min || 0), 0);
   const pre = state.cards.filter((c) => PRE_INT.includes(c.act)).reduce((s, c) => s + (c.min || 0), 0);
-  const stat = (k, v) => el('div', { class: 'stat' }, [el('div', { class: 'k', text: k }), el('div', { class: 'v', text: v })]);
   wrap.appendChild(stat('Songs', songs));
   wrap.appendChild(stat('Beats', beats));
   wrap.appendChild(stat('Runtime', '~' + Math.round(total) + 'm'));
@@ -4978,6 +5329,8 @@ function buildStats() {
 
 // ---- render ----
 function syncControls() {
+  const songsBtn = document.querySelector('#view-seg button[data-view="songs"]');
+  if (songsBtn) songsBtn.textContent = state.format === 'prose' ? 'Chapters only' : 'Songs only';
   document.querySelectorAll('#view-seg button').forEach((b) => b.classList.toggle('active', b.dataset.view === state.view));
 }
 function render() {
@@ -4996,6 +5349,8 @@ function render() {
   buildStats();
   syncControls();
   renderShowBtn();
+  updateWaffleLabel();
+  applyAppTheme();
   scheduleSave();
 }
 
@@ -5019,6 +5374,7 @@ function initControls() {
 
   // show switcher popover
   document.getElementById('sb-show-btn').addEventListener('click', (e) => { e.stopPropagation(); showShowPopover(); });
+  document.getElementById('tn-waffle-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleWaffleMenu(); });
   document.getElementById('sb-snapshots').addEventListener('click', (e) => { e.stopPropagation(); openSnapshotsDrawer(); });
   const exBtn = document.getElementById('sb-export');
   if (exBtn) exBtn.addEventListener('click', (e) => { e.stopPropagation(); openExportDrawer(); });
@@ -5120,6 +5476,7 @@ function initControls() {
       const shm = document.getElementById('share-modal');
       if (shm && shm.style.display !== 'none') { closeShareModal(); return; }
       closeCardMenu();
+      closeWaffleMenu();
       const ssm = document.getElementById('show-settings-modal');
       if (ssm && ssm.style.display !== 'none') { closeShowSettingsModal(); return; }
       const modal = document.getElementById('new-show-modal');
@@ -5133,6 +5490,10 @@ function initControls() {
     const pop = document.getElementById('show-popover');
     if (pop && !pop.contains(e.target) && !document.getElementById('sb-show-btn').contains(e.target)) {
       closeShowPopover();
+    }
+    const wm = document.getElementById('waffle-menu');
+    if (wm && !wm.contains(e.target) && !document.getElementById('tn-waffle-btn').contains(e.target)) {
+      closeWaffleMenu();
     }
     const mp = document.getElementById('mini-pop');
     if (mp && !mp.contains(e.target)) closeMiniPopover();
@@ -5173,3 +5534,16 @@ fetch('cmudict.txt').then((r) => r.text()).then((t) => {
   LYRIC.load(t);
   if (state.lyricWinId) refreshLyricWindow();
 }).catch(() => {});
+
+// The thesaurus (9MB) is only relevant to Prose Plot, so unlike cmudict it's
+// fetched on demand the first time a Prose Plot lyric window opens rather
+// than unconditionally at boot.
+let _thesLoading = false;
+function ensureThesaurusLoaded() {
+  if (THES.ready() || _thesLoading) return;
+  _thesLoading = true;
+  fetch('thesaurus.txt').then((r) => r.text()).then((t) => {
+    THES.load(t);
+    if (state.lyricWinId) refreshLyricWindow();
+  }).catch(() => { _thesLoading = false; });
+}

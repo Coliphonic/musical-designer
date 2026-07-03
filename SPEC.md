@@ -195,14 +195,42 @@ an off-screen sheet sized exactly like the page, measures their true height, and
   parts side by side. An editor **Dual ⇄** button (Ctrl/⌘ + D) toggles it without typing markup;
   the pairing round-trips losslessly through the seamless format.
 
+### Inline chords (song lyrics)
+
+Chord symbols type directly into the lyric text, ChordPro-style — no separate chord-line or
+column alignment to keep in sync as text reflows: `[C]`, `[Gm7]`, `[Bb/D]`. Typing the closing `]`
+auto-converts a chord-shaped bracket into an atomic, zero-width `<mark class="chord-tag">` anchored
+at that exact character; the chord name renders as a small sage-green label floating above the
+lyric line via CSS (`::after { content: attr(data-chord) }`), so the underlying text never shifts
+and flats/sharps stay in their typed case (not swept up by the manuscript's uppercase lyric style).
+A strict token grammar (root A–G, optional `#`/`b`, optional quality — `maj7`, `m7b5`, `sus4`,
+`add9`, `dim7`, slash-bass, etc.) keeps it from firing on non-chord brackets like `[Bridge]` or
+`[laughs]`. Chords round-trip through `emphToHtml`/`emphFromNode` exactly like bold/italic/notes, so
+they persist in the seamless text and print. A **Chords** toggle in the Page setup drawer ("Show in
+document") hides the labels non-destructively (CSS only, markup stays intact), matching the
+Section-tags pattern.
+
+### Inline notes (highlight-as-note)
+
+A lightweight, shipped v1 of an editorial-annotation layer (distinct from the richer §13 model
+below, which remains a future upgrade path): select any text in the rich editor and click **+ Note**
+(or use the floating selection toolbar) to wrap it in a `<mark class="note-mark">` carrying a
+base64-encoded comment (`data-note-text`), rendered as a sage-green highlight. Clicking a note-mark
+reopens an editable popup (in the live editor) or a read-only popover (in static Print/Manuscript
+views) showing the comment. Notes round-trip through the same `emphToHtml`/`emphFromNode` markup
+pipeline (`[[note:id:b64]]...[[/note]]`) as chords and other inline emphasis, so they persist and
+print. The **Outline navigator** lists every note as a sub-row (✎ icon) under its parent card —
+clicking one scrolls to the card, flashes the anchored highlight, and opens its popover.
+
 ### Supporting chrome
 
 - **Outline navigator** (Edit) — a left panel listing every card grouped by act lane; click a row
   to smooth-scroll to it; the card nearest the viewport top highlights via an `IntersectionObserver`.
-  Toggled from a **☰ Navigation** button.
+  Toggled from a **☰ Navigation** button. Inline notes appear as sub-rows beneath their card (see above).
 - **Contextual ribbon** — Navigation · Edit/Print toggle · centered zoom · Print · Settings. The
-  settings drawer (right) toggles document elements: show title, act headers, and **section tags**
-  (which now hide/show in both Print View and the Edit editor).
+  Page setup drawer ("Show in document") toggles document elements: show title, act headers,
+  **section tags**, and **chords** — all hide/show in both Print View and the Edit editor without
+  stripping the underlying markup.
 
 ---
 
@@ -347,20 +375,17 @@ What's built and working:
 | Snapshots — version history with non-destructive restore | ✅ |
 | Reference library — 10 enriched study shows, read-only board + manuscript | ✅ |
 | Structured line model — persisted `card.lines` with stable ids (lazy migration) | ✅ |
+| Revisions — margin asterisks, named revision sets, Lock Pages, revised-pages-only PDF | ✅ |
+| Inline chords — typed `[C]` shorthand, sage floating labels, Page setup toggle | ✅ |
+| Inline notes (v1) — highlight-as-note, popup/popover, Navigator sub-rows | ✅ |
 | Platform — accounts, Library, sharing, PWA, deploy | ✅ |
 
-What's next (in dependency order):
+What's next (in dependency order — Revisions, inline chords, and inline notes v1 all shipped, see
+the table above):
 
-1. **Revisions (Final Draft-style). ✅ Done.** Both foundations were in place (snapshots + the
-   persisted line model). *Half A:* margin asterisks + named revision sets — when a line's text
-   changes, its stable id stays and `lastRev` bumps; snapshots serve as the baseline. *Half B:*
-   page-stable production revisions — **Lock Pages** freezes boundaries (each layout token carries a
-   stable `key`; `paginateBlocks(blocks, lock)` force-breaks at locked anchors), grown content spills
-   to **A-pages** (`assignLabels`), and **print revised pages only** (`exportPDF(_, revisedOnly)` →
-   `pageIsRevised`) emits just the changed pages with their locked labels.
-3. **Variants.** Per-scene alternate takes on the line model, with "only the active variant counts
+1. **Variants.** Per-scene alternate takes on the line model, with "only the active variant counts
    toward board / runtime / manuscript / export" as the guardrail. No full branch/merge model.
-4. **Diagnostics engine ("lint for musicals").** Once cards carry richer data, flag craft problems:
+2. **Diagnostics engine ("lint for musicals").** Once cards carry richer data, flag craft problems:
    no I Want in Act 1, protagonist silent for N minutes, three ballads in a row, antagonist with no
    number, Act 2 song-starved, orphaned reprise, act runtime imbalance. **Form-aware** (a one-act-90
    show suppresses the Act 1 finale / intermission checks). The reference library can then offer
@@ -368,6 +393,14 @@ What's next (in dependency order):
    handle that beat." A prompt to think, never a slot to fill.
 
 ## 13. Editorial notes — the review punch-list
+
+**Status: a v1 has shipped** as the highlight-as-note feature (§5, "Inline notes"): select text →
+`==mark==`-style highlight with a comment, popup/popover, Navigator sub-rows. What follows below is
+the originally-envisioned **richer model** — `card.notes` as a first-class object array with author,
+status, tags, and orphan handling — which the shipped v1 does not yet implement (today's note is
+just an inline highlight + freeform text, anchored by being embedded in the markup itself rather
+than by a stable `lineId`, so it has no author/status/tag fields and no orphan tracking). Treat this
+section as the upgrade path for v1, not a from-scratch description of unbuilt work.
 
 A third annotation layer in Manuscript mode, distinct from the two that exist today:
 
@@ -560,6 +593,115 @@ comedy/tragedy fork.
 optional side tool — lean optional, never a forced gate; whether character placement is free-text cells
 or stored on real character records so the grid is a projection (leaning the latter — B-lite — once the
 Characters model is touched); how far the validator goes before it becomes noise.
+
+## 16. Plot Suite — Song Plot + Prose Plot
+
+The platform is no longer one app; it's a **suite of format-specific writing apps sharing one
+backend** — the Microsoft 365 model (Word vs Excel: distinct branded apps over one account, one
+file store, one OneDrive). **Song Plot** is this app under its original name. **Prose Plot** is a
+sibling app for long-form prose (novels), living in the same codebase and deploy. The umbrella
+brand is unnamed for now — "Plot Suite" is the working label.
+
+A novelist must never feel like they're "in the musical app, in prose mode." That constraint is
+why this is a skin-per-app model, not a format dropdown.
+
+### Two-layer architecture
+
+- **Shared substrate** (built once, identical across apps): accounts/auth, sessions, storage,
+  per-app-partitioned Library, folders, sharing, Snapshots, the Navigator/outline engine, inline
+  notes, and the **Story DNA** planning framework (§15 — already format-agnostic by design).
+- **Per-app skin** (name, palette, chrome, editor, vocabulary): Song Plot = purple, song/beat/scene,
+  the libretto Manuscript, the lyric bench. Prose Plot = coral, chapter/beat, and (not yet built) a
+  prose-native editor — see below.
+
+### What's shared vs. partitioned
+
+- **`Show.format`** (`'song' | 'prose'`) is first-class on every show, set at creation and never
+  changed. It drives which skin renders and which Library a show appears in.
+- **Library is fully partitioned per app**, not a filtered view of one list — Song Plot's reference
+  shelf (§8) must never appear next to novels, and a novelist's Library should never show musical
+  scaffolding. `state.currentApp` tracks which app's Library is open; opening a show sets
+  `state.format` from the file and the whole UI (theme, vocabulary, template) follows it.
+- **The waffle launcher** — top-left, replacing the show-name slot, but **only on the Library
+  page** (`#tn-waffle-btn` vs `#sb-show-btn`, toggled by `applyTopbarSlot()`). A dropdown lists
+  Song Plot / Prose Plot; picking one re-renders the Library for that app. Inside an open show, the
+  slot reverts to the show name — the waffle is a Library-level "which filing cabinet" switch, not
+  a persistent chrome element.
+- **Theme.** `applyAppTheme()` toggles `body.app-prose`, which overrides `--energy` (purple → coral,
+  `#dd6349` light / `#f0937a` dark) and cascades through every themed control. Because a long tail
+  of Song Plot surfaces hardcode purple hex rather than reading `--energy`, a second, explicit
+  `body.app-prose` / `body.dark.app-prose` override block in `styles.css` re-points those specific
+  rules (toolbars, ribbon, primary buttons, chapter cards, active-state pills) — scoped so Song Plot
+  is structurally guaranteed to be unaffected.
+- **Vocabulary swap, not a new data model.** A "scene" card *is* a "chapter" in Prose Plot — same
+  `type: 'scene'` field, recolored coral and rendered as a thin vertical-text rectangle. Copy is
+  swapped conditionally on `state.format === 'prose'` throughout (button labels, empty states,
+  placeholders, the Characters page, Find & Replace status line) without changing the underlying
+  type strings, so shows round-trip identically regardless of which app opens them.
+- **Default template.** A new novel seeds **30 chapters** (`Chapter 1`…`Chapter 30`, one
+  `type: 'scene'` card each) with **two beats following each chapter**, distributed across the same
+  four-lane spine as Song Plot's acts. No `Length` choice — novels default to the one-act spine
+  since intermissions have no prose analog; the modal skips straight from Title to Create.
+- **Ribbon stats.** Song Plot's ribbon shows Songs / Beats / Runtime / Words. Prose Plot's shows
+  **Chapters / Beats / Pre-post-mid split / Words**, where Words is `current / target` (default
+  75,000, click-to-edit) instead of a runtime clock — word count, not runtime, is the metric a
+  novelist tracks.
+
+### Status
+
+| Area | Status |
+|---|---|
+| `format` field, per-app Library partition, waffle launcher | ✅ |
+| Coral theme (`body.app-prose`), incl. toolbars/ribbon/buttons/chapter cards | ✅ |
+| Chapter/beat vocabulary, 30-chapter default template | ✅ |
+| Word-target ribbon stat (click-to-edit) | ✅ |
+| Prose-ified copy — Board, Characters, Find, New-novel modal, Manuscript placeholders | ✅ |
+| **Prose-native Manuscript editor** (see below) | ⬜ still Song Plot's libretto editor, unmodified |
+| Prose-tuned Story DNA labels | ⬜ |
+| Prose Export (EPUB/DOCX compile, front matter) | ⬜ |
+
+### The prose-native editor — what's needed (not yet built)
+
+Prose Plot currently reuses the libretto Manuscript verbatim as a stand-in. That's the right call
+for standing the app up fast, but it's a screenplay tool wearing coral, not a prose editor. A real
+novel-writing surface needs a genuinely different model, not a reskin, because **screenplay
+formatting is element-typed and rule-driven** (every line has a type — cue, action, lyric — and
+the type dictates layout) while **prose is one flowing stream of paragraphs**, with formatting left
+to the author's discretion. Concretely, in priority order:
+
+1. **Collapse the Element dropdown.** Cue / Dialogue / Parenthetical / Action / Lyric has no prose
+   analog. Prose's paragraph-style choices are just **Body · Chapter heading · Scene break**
+   (a centered `* * *` / `⁂` divider) — most text never needs to leave "Body."
+2. **Promote inline character styling — italics above all.** Screenplay text barely uses inline
+   emphasis; prose leans on *italics* constantly (internal thought, emphasis, titles, foreign
+   words), occasional **bold**, and rarely small caps. ⌘I needs to be as central as Tab-cycle-element
+   is in the libretto editor. (Bold/italic/notes already round-trip through `emphToHtml` /
+   `emphFromNode` — the plumbing exists; it just needs to be the star instead of a footnote.)
+3. **Smart typography, applied live.** Curly quotes, em-dash for interruption, en-dash for ranges,
+   a real ellipsis character — auto-substituted as you type (iA Writer / Ulysses convention), not
+   left to the author to type correctly. Screenplay convention doesn't care about this; prose readers
+   notice straight quotes immediately.
+4. **Paragraph convention as a per-show or per-app setting**, not per-line markup: first-line
+   indent / no blank line (print-novel default) vs. block paragraph / blank line between (manuscript
+   / web-serial default). Dialogue is a new paragraph per speaker — no character-cue margin at all.
+5. **Word count is the primary metric**, already threaded into the ribbon (§ above) — the natural
+   next layer is a **live per-chapter count** in the Navigator/outline rows, alongside the
+   whole-manuscript target.
+6. **Long-form writing affordances**, once the base editor exists: a focus/typewriter mode (current
+   line or paragraph centered, everything else dimmed), and full-screen distraction-free view —
+   novels are drafted in long sessions, unlike a song's short lyric bursts.
+7. **Deferred, no analog needed yet:** POV/tense/location scene metadata (an inspector panel, à la
+   Scrivener); prose-craft feedback — filter words, adverbs, repeated-word/echo detection, passive
+   voice, sentence-length variance — as the prose equivalent of the lyric bench's rhyme tools
+   (§9); and a prose **Export** branch (EPUB/DOCX compile, title/dedication/epigraph front matter)
+   distinct from Fountain/PDF, since a novel's deliverable format has nothing in common with a
+   script's.
+
+**Phasing (UI-first, mirroring how every other Plot Suite piece shipped):** (1) Collapse the
+Element dropdown to Body/Chapter/Scene-break + promote italic/bold — the editor stops looking like
+a screenplay tool. (2) Smart-typography auto-substitution. (3) Paragraph-convention toggle
+(indent vs. block). (4) Per-chapter word counts in the Navigator. (5) Focus mode. (6) Metadata
+inspector, prose-craft feedback, and EPUB/DOCX export — each a later, independent phase.
 
 ### Design lessons we're keeping
 

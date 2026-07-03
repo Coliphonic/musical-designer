@@ -29,6 +29,27 @@ const DEFAULT_TEMPLATE = [
   { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: '', min: 3   },
 ];
 
+// Default template applied to every new Prose Plot novel. Chapters take the
+// place of scenes (same card type, recontextualized — a thin vertical-text
+// rectangle, coral instead of purple in this app). 30 chapters, spread across
+// the same 4-lane spine Song Plot uses (bookend acts thinner, middle acts
+// carrying the bulk of the plot), each opening with two blank beat cards to
+// sketch before drafting prose.
+const PROSE_CHAPTER_COUNTS = { '1': 6, '2A': 9, '2B': 9, '3': 6 };
+const PROSE_TEMPLATE = (() => {
+  const cards = [];
+  let n = 0;
+  ['1', '2A', '2B', '3'].forEach((act) => {
+    for (let i = 0; i < PROSE_CHAPTER_COUNTS[act]; i++) {
+      n++;
+      cards.push({ act, type: 'scene', title: 'Chapter ' + n });
+      cards.push({ act, type: 'beat', title: '', note: '', min: 1.5 });
+      cards.push({ act, type: 'beat', title: '', note: '', min: 1.5 });
+    }
+  });
+  return cards;
+})();
+
 const FN = {
   opening:      { fam: 'blue',   label: 'Opening' },
   iwant:        { fam: 'teal',   label: 'I Want' },

@@ -1,0 +1,133 @@
+{
+  "title": "The Tide Keeper's Daughter",
+  "mode": "oneact",
+  "status": "active",
+  "folder": "",
+  "updated": 1783097557591,
+  "format": "prose",
+  "wordTarget": 60000,
+  "characters": {
+    "MARA": {
+      "voiceType": "",
+      "desc": "The lighthouse keeper's daughter, learning the job before she's asked to.",
+      "note": "",
+      "manual": true
+    },
+    "THE KEEPER": {
+      "voiceType": "",
+      "desc": "Mara's father. Reads weather and people the same slow, careful way.",
+      "note": "",
+      "manual": true
+    },
+    "THE STRANGER": {
+      "voiceType": "",
+      "desc": "Sent by the Board to oversee the automation. Not unkind, just official.",
+      "note": "",
+      "manual": true
+    }
+  },
+  "titlePage": {
+    "subtitle": "A novel",
+    "authors": "",
+    "draftLine1": "",
+    "draftLine2": "",
+    "contactName": "",
+    "contactAddress": "",
+    "contactPhone": "",
+    "contactEmail": "",
+    "representedBy": "",
+    "settings": [
+      "The Lighthouse — Lamp Room",
+      "The Point — The Rocks",
+      "The Lighthouse — Keeper's Quarters"
+    ],
+    "productionNotes": "",
+    "acknowledgements": "",
+    "include": {
+      "contact": false,
+      "cast": false,
+      "settings": false,
+      "songs": false,
+      "productionNotes": false,
+      "acknowledgements": false,
+      "rule": false,
+      "subtitle": false,
+      "draft": false
+    }
+  },
+  "scriptHeader": {
+    "enabled": true,
+    "format": "{title} – {date} – {page}.",
+    "revisionDate": "2026",
+    "alignment": "right",
+    "firstPage": true
+  },
+  "owner": "colin",
+  "cards": [
+    {
+      "type": "scene",
+      "act": "1",
+      "title": "Chapter 1: The Lamp",
+      "note": "Mara climbed the spiral stairs before dawn, counting them the way she always did—one hundred and twelve, then the cold brass door. The lamp room smelled of oil and salt, and today, faintly, of rain that hadn’t fallen yet.\n“You’re up early” her father said, without turning from the lens.\n“Couldn’t sleep” she said. “The light talked to me.”\nHe almost smiled. “It does that.”\n***\nBy noon the fog had rolled in thick as wool, and the foghorn began its long, patient argument with the sea. Mara liked to imagine it was calling something home.\n*Someday*, she thought, *I’ll be the one who decides when it speaks.*"
+    },
+    {
+      "type": "beat",
+      "act": "1",
+      "title": "The morning climb",
+      "note": "Mara's morning ritual at the lamp; her father's quiet certainty. Establishes the keeper's rhythm before anything disturbs it.",
+      "min": 1.0
+    },
+    {
+      "type": "scene",
+      "act": "1",
+      "title": "Chapter 2: What the Tide Gave Back",
+      "note": "**Low tide.** That was the note pinned to the door, in her father’s hand, and nothing else.\nShe found him on the rocks, sleeves rolled, staring at something half—buried in the sand. A ship’s bell, green with age, its clapper long gone.\n“Where do you think it came from” she asked.\n“Somewhere that isn’t here anymore” he said—then, quieter, almost to himself: “Everything that sinks eventually asks to be found.”\n***\nThat night she polished the bell until her arms ached, and it rang once, soft and true, when she finally set it down. Neither of them said anything. Neither of them had to."
+    },
+    {
+      "type": "beat",
+      "act": "1",
+      "title": "The ship's bell",
+      "note": "A found object washes up. First hint that the sea gives things back, and that not everything wants to stay lost.",
+      "min": 1.0
+    },
+    {
+      "type": "scene",
+      "act": "2A",
+      "title": "Chapter 3: The Board",
+      "note": "The stranger arrived on the supply boat with a single trunk and no explanation. “I’m here about the light” was all he offered, and it was not, Mara noticed, an answer to anything she’d asked.\nHer father studied him the way he studied weather—long, wordless, waiting for the pattern to show itself.\n“The Board sent you” he said finally. Not a question.\n“The Board sent someone” the stranger said. “It happened to be me.”\n***\nMara watched from the tower window as the two men walked the length of the point without speaking, and understood—the way she understood weather too—that something was already changing."
+    },
+    {
+      "type": "beat",
+      "act": "2A",
+      "title": "A man with a trunk",
+      "note": "The stranger's arrival. The Board is named for the first time — an outside force with its own agenda.",
+      "min": 1.0
+    },
+    {
+      "type": "scene",
+      "act": "2B",
+      "title": "Chapter 4: A Modernization",
+      "note": "The letter said the lamp would be automated by spring. *A modernization*, it called itself, in a font that had never once climbed a hundred and twelve stairs before dawn.\n“They can’t just…” Mara started.\n“They can” her father said. “They’re the Board. It’s what boards do.”\n***\nShe sat with him that night in the lamp room, the two of them saying nothing, the light turning and turning over the water like it hadn’t heard the news yet and wasn’t in any hurry to."
+    },
+    {
+      "type": "beat",
+      "act": "2B",
+      "title": "The letter",
+      "note": "The automation notice lands. The quiet ritual is now explicitly timed to end.",
+      "min": 1.0
+    },
+    {
+      "type": "scene",
+      "act": "3",
+      "title": "Chapter 5: The Switch",
+      "note": "In the end it was Mara who threw the switch—her father’s hand over hers, steadying, not stopping.\nThe old lamp dimmed. Somewhere below the point, a small electric beacon blinked on, bright and indifferent, and did its job exactly as well as the Board had promised.\n“Well” her father said, after a while. “That’s that.”\n“Is it?” Mara asked.\n***\nBut she was already climbing—not the tower stairs this time, but the ones down to the rocks, to the bell, to the water. *Someday*, she thought again, and this time it felt less like a wish and more like a plan."
+    },
+    {
+      "type": "beat",
+      "act": "3",
+      "title": "The climb down",
+      "note": "The switch is thrown. Ending mirrors the opening image (the climb) but redirects it toward the sea instead of the tower.",
+      "min": 1.0
+    }
+  ]
+}
