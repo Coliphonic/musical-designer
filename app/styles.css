@@ -1253,6 +1253,11 @@ mark.note-mark:hover { text-decoration-style: solid; }
    A line that contains one gets extra top clearance so the label doesn't sit
    on top of the row above (manuscript body uses line-height: 1). */
 .ms-el:has(mark.chord-tag) { padding-top: 1.15em; }
+/* Page setup → "Show in document" → Chords toggle: hides the label without
+   dropping the underlying [C] markup, matching the Section tags convention.
+   Collapse the reserved clearance too, or hidden chords still leave a gap. */
+body.ms-hide-chords mark.chord-tag { display: none; }
+body.ms-hide-chords .ms-el:has(mark.chord-tag) { padding-top: 0; }
 mark.chord-tag {
   position: relative; display: inline-block; width: 0; height: 1em;
   background: transparent; padding: 0; border-radius: 0; vertical-align: baseline;
@@ -1262,7 +1267,7 @@ mark.chord-tag::after {
   content: attr(data-chord);
   position: absolute; left: 1px; bottom: 100%;
   font-size: 0.72em; font-weight: 700; line-height: 1; white-space: nowrap;
-  color: var(--azure); font-family: inherit;
+  color: var(--sage); font-family: inherit;
   /* Lyric lines (.lw-sung) render upper-case for the manuscript look — the
      chord name itself must stay exactly as typed, or Bb and B# both read "BB". */
   text-transform: none;

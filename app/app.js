@@ -4117,6 +4117,10 @@ function buildManuscriptPage(sceneId) {
   updateWordCount();
 
   const saveMsOpts = () => { try { localStorage.setItem('md-ms-opts', JSON.stringify(state.msOptions)); } catch (_) {} };
+  // Chords hide via a body class (CSS only) rather than stripping the [C]
+  // markup, so toggling back on needs no reparse — mirrors Section tags below.
+  const applyChordVisibility = () => { document.body.classList.toggle('ms-hide-chords', state.msOptions.showChords === false); };
+  applyChordVisibility();
 
   toolbar.appendChild(navBtn); // leftmost — the outline opens on the left
   toolbar.appendChild(wcLbl);
@@ -4433,6 +4437,7 @@ function buildManuscriptPage(sceneId) {
     cb.addEventListener('change', () => {
       state.msOptions[key] = cb.checked;
       saveMsOpts();
+      applyChordVisibility();
       if (msMode === 'layout') rebuildSheets(); else rebuildEdit();
     });
     const r = el('label', { class: 'ms-hd-toggle' });
@@ -4443,6 +4448,7 @@ function buildManuscriptPage(sceneId) {
   drawerInner.appendChild(mkDrawerToggle('Show title', 'showTitle', false));
   drawerInner.appendChild(mkDrawerToggle('Act headers', 'showActHeaders', true));
   drawerInner.appendChild(mkDrawerToggle('Section tags', 'showSectionTags', false));
+  drawerInner.appendChild(mkDrawerToggle('Chords', 'showChords', true));
 
   // ── Revisions (Final Draft-style) ─────────────────────────────────
   if (!state.readonly) {
