@@ -3795,6 +3795,7 @@ function navigateTo(page, sceneId) {
     if (sc) notesScrollTop = sc.scrollTop;
   }
   state.page = page;
+  document.body.classList.toggle('on-library', page === 'library');
   document.querySelectorAll('.page').forEach((p) => { p.style.display = 'none'; });
   const target = document.getElementById('page-' + page);
   if (target) target.style.display = '';

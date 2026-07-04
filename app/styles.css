@@ -790,6 +790,9 @@ body.dark.app-prose .lw-scenebreak { color: #cf9c89; }
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
   display: inline-flex; background: var(--tn-pill-bg); border-radius: 11px; padding: 3px; gap: 2px;
 }
+/* Library is "choose a file," not "a page of the current show" — hide the
+   page tabs there so a stray click can't jump into the wrong show's app. */
+body.on-library .tn-nav { display: none; }
 .tn-tab {
   font-family: inherit; font-size: 12.5px; padding: 5px 13px; border-radius: 8px;
   border: none; background: none; color: var(--tn-pill-ink); cursor: pointer; white-space: nowrap;
