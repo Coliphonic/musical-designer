@@ -108,10 +108,14 @@ function assignLanes(numbers) {
 function cardFromStored(o) { return Object.assign({}, o, { id: uid() }); }
 
 // Which field holds a card's *manuscript body* (the text the editor + Print view
-// read). Songs write lyrics; scenes write note; a beat may carry both a board
-// synopsis (note) and written lines (lyrics) — lyrics wins when present. This is
-// also the field the structured `card.lines` identity sidecar mirrors.
+// read). Songs write lyrics; scenes write note; a beat's body is always lyrics —
+// its note is the Beatline synopsis, never manuscript content, so it must never
+// be picked up here even when lyrics is empty (a blank new beat, or one whose
+// lyrics were cleared, must read/write lyrics — not fall through to the
+// Beatline and start amending it). This is also the field the structured
+// `card.lines` identity sidecar mirrors.
 function cardBodyField(c) {
+  if (c.type === 'beat') return 'lyrics';
   if ((c.lyrics || '').trim()) return 'lyrics';
   if ((c.note || '').trim()) return 'note';
   return c.type === 'scene' ? 'note' : 'lyrics';
@@ -1663,15 +1667,7 @@ function setCardLines(c, lines) {
 function setCardBody(c, field, text) {
   if ((c[field] || '') === (text || '')) return false;
   c[field] = text;
-  // A beat's manuscript body is always `lyrics` — never `note` (its Beatline
-  // annotation) — full stop. cardBodyField's generic fallback (lyrics, else
-  // note) is right for scenes/songs but wrong here: it re-evaluates *after*
-  // the write above, so clearing lyrics to '' on a beat that still has a
-  // Beatline would make cardBodyField report 'note', the `field === ...`
-  // check would fail, and the stale `c.lines` sidecar would survive to
-  // resurrect the "deleted" text next time the card is opened.
-  const bodyField = c.type === 'beat' ? 'lyrics' : cardBodyField(c);
-  if (field === bodyField) {
+  if (field === cardBodyField(c)) {
     c.lines = stampRevisions(c.lines, mergeLineIds(c.lines, seamlessToLines(text, c.type === 'song')));
   }
   return true;
