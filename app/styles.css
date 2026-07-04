@@ -793,6 +793,9 @@ body.dark.app-prose .lw-scenebreak { color: #cf9c89; }
 /* Library is "choose a file," not "a page of the current show" — hide the
    page tabs there so a stray click can't jump into the wrong show's app. */
 body.on-library .tn-nav { display: none; }
+/* Same reasoning for Find/Export/Snapshots — they act on the open show, and
+   there isn't one while you're picking. */
+body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapshots { display: none; }
 .tn-tab {
   font-family: inherit; font-size: 12.5px; padding: 5px 13px; border-radius: 8px;
   border: none; background: none; color: var(--tn-pill-ink); cursor: pointer; white-space: nowrap;

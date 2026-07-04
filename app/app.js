@@ -405,8 +405,14 @@ function libCard(p) {
   card.appendChild(top);
 
   const meta = el('div', { class: 'lib-card-meta' });
-  meta.appendChild(el('span', { class: 'lib-fmt', text: p.mode === 'oneact' ? 'One-act' : 'Full length' }));
-  meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
+  // `mode` (one-act/full-length) is a musical act-structure concept — Prose
+  // Plot always stores 'oneact' under the hood (see createProject) since a
+  // novel has no intermission to speak of, so surfacing it here would just
+  // be a meaningless label for novelists.
+  if ((p.format || 'song') !== 'prose') {
+    meta.appendChild(el('span', { class: 'lib-fmt', text: p.mode === 'oneact' ? 'One-act' : 'Full length' }));
+    meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
+  }
   meta.appendChild(el('span', { class: 'lib-updated', text: relTime(p.updated) }));
   card.appendChild(meta);
 
