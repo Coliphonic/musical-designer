@@ -84,6 +84,34 @@ function verifyPassword(user, password) {
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+// Song Plot and Prose Plot are served from sibling subdomains of the same
+// registrable domain (e.g. songplot.X / proseplot.X); COOKIE_DOMAIN widens
+// md_session to that shared parent so logging in on one keeps you logged
+// into the other. Empty (host-only cookie) unless set, so local/single-host
+// deploys are unaffected.
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN || '';
+
+// ---- Per-subdomain app branding -------------------------------------------
+// Which app a request is for is derived purely from the Host header — no new
+// data model, same shared SHOWS_DIR/API either way (shows are already
+// partitioned by their own `format` field).
+const BRANDS = {
+  song: {
+    title: 'Song Plot — Musical Designer', shortName: 'Song Plot',
+    description: 'Plot songs and beats for your musical.',
+    themeColor: '#3a3475', bg: '#3a3475',
+  },
+  prose: {
+    title: 'Prose Plot — Novel Designer', shortName: 'Prose Plot',
+    description: 'Plot chapters and scenes for your novel.',
+    themeColor: '#dd6349', bg: '#dd6349',
+  },
+};
+function brandFor(req) {
+  const host = String((req.headers.host || '')).split(':')[0].toLowerCase();
+  return host.startsWith('proseplot.') ? BRANDS.prose : BRANDS.song;
+}
+
 function sign(val) { return crypto.createHmac('sha256', SECRET).update(val).digest('hex'); }
 function makeToken(userId) { return userId + '.' + sign(userId); }
 function parseToken(tok) {
@@ -129,13 +157,15 @@ function handleAuth(req, res, parts) {
       const name = String(data.name || '').trim().toLowerCase();
       const user = loadUsers().find((u) => u.id === name || (u.name || '').toLowerCase() === name);
       if (!user || !verifyPassword(user, data.password)) return sendJSON(res, 401, { error: 'bad credentials' });
-      const cookie = 'md_session=' + makeToken(user.id) + '; HttpOnly; SameSite=Lax; Path=/; Max-Age=' + (60 * 60 * 24 * 90);
+      const domainAttr = COOKIE_DOMAIN ? '; Domain=' + COOKIE_DOMAIN : '';
+      const cookie = 'md_session=' + makeToken(user.id) + '; HttpOnly; SameSite=Lax; Path=/' + domainAttr + '; Max-Age=' + (60 * 60 * 24 * 90);
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'Set-Cookie': cookie });
       res.end(JSON.stringify({ id: user.id, name: user.name }));
     });
   }
   if (action === 'logout' && req.method === 'POST') {
-    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'Set-Cookie': 'md_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0' });
+    const domainAttr = COOKIE_DOMAIN ? '; Domain=' + COOKIE_DOMAIN : '';
+    res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'Set-Cookie': 'md_session=; HttpOnly; SameSite=Lax; Path=/' + domainAttr + '; Max-Age=0' });
     return res.end(JSON.stringify({ ok: true }));
   }
   return sendJSON(res, 404, { error: 'not found' });
@@ -327,6 +357,20 @@ http
       return;
     }
 
+    // Per-subdomain PWA identity: manifest is generated, not a static file.
+    if (p === '/manifest.webmanifest') {
+      const b = brandFor(req);
+      return sendJSON(res, 200, {
+        name: b.title, short_name: b.shortName, description: b.description,
+        start_url: '/', scope: '/', display: 'standalone', orientation: 'any',
+        background_color: b.bg, theme_color: b.themeColor,
+        icons: [
+          { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+        ],
+      });
+    }
+
     // Gate the app itself: unauthenticated visitors get the login page.
     if (p === '/' || p === '' || p === '/index.html') {
       if (!currentUser(req)) { res.writeHead(302, { Location: '/login.html' }); res.end(); return; }
@@ -339,6 +383,17 @@ http
     if (fp === USERS_FILE || fp === SECRET_FILE) { res.writeHead(403); res.end('forbidden'); return; }
     fs.readFile(fp, (err, data) => {
       if (err) { res.writeHead(404); res.end('not found'); return; }
+      // index.html carries per-subdomain title/theme-color; patch on the way out.
+      if (fp === path.join(ROOT, 'index.html')) {
+        const b = brandFor(req);
+        const html = data.toString('utf8')
+          .replace(/<title>.*?<\/title>/, '<title>' + b.shortName + '<\/title>')
+          .replace(/name="theme-color" content="[^"]*"/, 'name="theme-color" content="' + b.themeColor + '"')
+          .replace(/name="apple-mobile-web-app-title" content="[^"]*"/, 'name="apple-mobile-web-app-title" content="' + b.shortName + '"');
+        res.writeHead(200, { 'content-type': TYPES['.html'] });
+        res.end(html);
+        return;
+      }
       res.writeHead(200, { 'content-type': TYPES[path.extname(fp)] || 'application/octet-stream' });
       res.end(data);
     });
