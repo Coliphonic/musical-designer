@@ -348,12 +348,38 @@ database).
 - **Data storage.** Shows are user *data*, not code — not git-tracked. `serve.js` reads `SHOWS_DIR`
   from env (an external dir on the server) so `git pull` never collides with live data; demo seeds
   copy in only if absent. An optional `USE_REMOTE_DATA` proxy lets local dev read prod data.
-- **Deployment.** Live at `https://musicaldesigner.colincreates.com` (DreamCompute VPS, Ubuntu +
-  Node 20, pm2; Caddy reverse-proxies :443→:8090 with auto Let's Encrypt). PWA: manifest + service
+- **Deployment.** Live at `https://musicaldesigner.colincreates.com` **and**
+  `https://proseplot.colincreates.com` (2026-07-04: split onto sibling subdomains — see below), on
+  a DreamCompute VPS (Ubuntu 24.04, **458MB RAM / 2.9GB disk — small, watch usage**; Node 20, pm2;
+  Caddy reverse-proxies both hostnames' :443→:8090 with auto Let's Encrypt). PWA: manifest + service
   worker (`sw.js`, `CACHE` bumped each deploy) + icons; installable, with iPad safe-area handling.
 - **Stack.** Vanilla JS SPA, no build step. `app/app.js` (client), `app/data.js` (reference shows +
   taxonomy), `app/lyric.js` (rhyme engine), `app/serve.js` (Node HTTP server), `app/styles.css`.
   Deploy: `git pull && pm2 restart musical-designer`.
+- **Subdomain split (2026-07-04).** Song Plot and Prose Plot are one Node process/one `SHOWS_DIR`
+  behind two hostnames, not two deployments. `serve.js` branches purely on the `Host` header
+  (`brandFor()`) to serve a per-app `manifest.webmanifest` and to patch `index.html`'s
+  `<title>`/theme-color/apple-web-app-title on the way out — no per-app build. Session cookie
+  (`md_session`) is widened via `COOKIE_DOMAIN=.colincreates.com` (set in pm2's saved env, see
+  `pm2 env 0`) so logging into one subdomain logs you into both. Client-side, `app.js`'s
+  `appFromHost()` maps `{musicaldesigner.colincreates.com: 'song', proseplot.colincreates.com:
+  'prose'}`: it sets the default `state.currentApp` on load, makes the waffle "switch app" button
+  navigate cross-domain (`location.href`) instead of flipping in-page state, and — important
+  fix — filters the boot-time "auto-open most recent show" logic to the current app, so visiting
+  one subdomain never silently opens the other app's most-recently-edited show. Caddy config lives
+  server-side only (`/etc/caddy/Caddyfile`, not in this repo): one block per hostname, same
+  `reverse_proxy localhost:8090` target.
+- **Backups & monitoring (2026-07-04).** Triggered by a full-disk outage (2.9GB disk hit 92% →
+  OOM-killed processes → box unresponsive to SSH/HTTPS/ping; fixed by clearing a 604MB
+  `~/.vscode-server` cache + apt cache + old journal logs, then a soft reboot). Two cron jobs now
+  run on the VPS (not in this repo — server-side only, see `crontab -l`):
+  - `~/backup-musical-designer.sh`, nightly at 3am: tars `SHOWS_DIR`, `snapshots/`, and
+    `users.json`, pushes to Dropbox via `rclone` (`dropbox:MusicalDesignerBackups/`), prunes
+    anything older than 30 days both locally and in Dropbox. rclone's Dropbox token lives only in
+    `~/.config/rclone/rclone.conf` on the server.
+  - `~/disk-alert.sh`, daily at 9am: pushes an [ntfy.sh](https://ntfy.sh) notification (topic
+    `md-disk-3e91d232bd3a`, private/unlisted — subscribe via the ntfy app or that URL) if `/` usage
+    is ≥85%, so a filling disk gives warning instead of another silent outage.
 
 ---
 
@@ -643,9 +669,9 @@ why this is a skin-per-app model, not a format dropdown.
   four-lane spine as Song Plot's acts. No `Length` choice — novels default to the one-act spine
   since intermissions have no prose analog; the modal skips straight from Title to Create.
 - **Ribbon stats.** Song Plot's ribbon shows Songs / Beats / Runtime / Words. Prose Plot's shows
-  **Chapters / Beats / Pre-post-mid split / Words**, where Words is `current / target` (default
-  75,000, click-to-edit) instead of a runtime clock — word count, not runtime, is the metric a
-  novelist tracks.
+  **Chapters / Beats / Words**, where Words is `current / target` (default 75,000, click-to-edit)
+  instead of a runtime clock — word count, not runtime, is the metric a novelist tracks. (Both
+  ribbons dropped their "Pre / post mid" stat 2026-07-03 — not useful to either app.)
 
 ### Status
 
@@ -656,6 +682,7 @@ why this is a skin-per-app model, not a format dropdown.
 | Chapter/beat vocabulary, 30-chapter default template | ✅ |
 | Word-target ribbon stat (click-to-edit) | ✅ |
 | Prose-ified copy — Board, Characters, Find, New-novel modal, Manuscript placeholders | ✅ |
+| Separate subdomains (`musicaldesigner.` / `proseplot.colincreates.com`), shared login, per-app PWA branding | ✅ (2026-07-04) |
 | **Prose-native Manuscript editor** (see below) | ⬜ still Song Plot's libretto editor, unmodified |
 | Prose-tuned Story DNA labels | ⬜ |
 | Prose Export (EPUB/DOCX compile, front matter) | ⬜ |
