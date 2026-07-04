@@ -5373,10 +5373,8 @@ function buildStats() {
     // readout (click to set the target) instead of a bare count.
     const chapters = state.cards.filter((c) => c.type === 'scene').length;
     const beats = state.cards.filter((c) => c.type === 'beat').length;
-    const preChapters = state.cards.filter((c) => c.type === 'scene' && PRE_INT.includes(c.act)).length;
     wrap.appendChild(stat('Chapters', chapters));
     wrap.appendChild(stat('Beats', beats));
-    wrap.appendChild(stat('Pre / post mid', `${preChapters} / ${chapters - preChapters}`));
     const words = totalShowWords();
     const target = state.wordTarget || 0;
     const wordsStat = stat('Words', target ? `${words.toLocaleString()} / ${target.toLocaleString()}` : words.toLocaleString());
