@@ -20,7 +20,6 @@ const LANES = [
   { key: '3', label: 'Act 3' },
 ];
 const LANE_KEYS = LANES.map((l) => l.key);
-const PRE_INT = ['1', '2A'];
 const STATUS = {
   idea: { label: 'Idea', c: '#b4b2a9' },
   lyric: { label: 'Lyric draft', c: '#EF9F27' },
@@ -5398,11 +5397,9 @@ function buildStats() {
   const songs = state.cards.filter((c) => c.type === 'song').length;
   const beats = state.cards.length - songs;
   const total = state.cards.reduce((s, c) => s + (c.min || 0), 0);
-  const pre = state.cards.filter((c) => PRE_INT.includes(c.act)).reduce((s, c) => s + (c.min || 0), 0);
   wrap.appendChild(stat('Songs', songs));
   wrap.appendChild(stat('Beats', beats));
   wrap.appendChild(stat('Runtime', '~' + Math.round(total) + 'm'));
-  wrap.appendChild(stat(state.mode === 'full' ? 'Pre / post int' : 'Pre / post mid', `${Math.round(pre)} / ${Math.round(total - pre)}`));
   wrap.appendChild(stat('Words', totalShowWords().toLocaleString()));
   const delta = todayWordDelta();
   wrap.appendChild(stat('Today', (delta >= 0 ? '+' : '') + delta.toLocaleString()));
