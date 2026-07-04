@@ -1711,83 +1711,70 @@ body.dark .ch-kind-btn.active { background: #6a61d0; }
 .ch-section-title { font-size: 14px; font-weight: 600; color: var(--ink); }
 .ch-section-sub { font-size: 12px; color: var(--muted); line-height: 1.5; max-width: 620px; }
 
-/* ---- Story DNA: paper-ledger treatment — hairline grid, square corners ---- */
-.dna-note { font-size: 12px; color: var(--muted); }
+/* ---- Story DNA ----
+   One deliberately small type system: section titles (15/700 ink), field
+   labels (12/600 muted, sentence case), and typed content (13.5 ink). The
+   typed-in text is the most prominent voice on the page — labels recede. */
 .dna-wrap { max-width: 720px; margin: 16px auto 60px; padding: 0 16px; }
 
 .dna-ledger { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
 
-.dna-field { display: flex; flex-direction: column; gap: 5px; margin: 4px 0 20px; }
-.dna-field-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; }
-.dna-field-in { width: 100%; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); font-family: inherit; line-height: 1.4; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); padding: 10px 12px; resize: none; overflow: hidden; }
+.dna-field { display: flex; flex-direction: column; gap: 5px; margin: 4px 0 24px; }
+.dna-field-lbl { font-size: 12px; font-weight: 600; color: var(--muted); }
+.dna-field-in { width: 100%; font-size: 15px; font-weight: 500; color: var(--ink); font-family: inherit; line-height: 1.4; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); padding: 10px 12px; resize: none; overflow: hidden; }
 .dna-field-in:focus { outline: none; border-color: var(--energy); }
 
-.dna-in { width: 100%; border: none; background: transparent; resize: none; overflow: hidden; padding: 0; color: var(--ink); font-family: inherit; }
+.dna-in { width: 100%; border: none; background: transparent; resize: none; overflow: hidden; padding: 0; color: var(--ink); font-family: inherit; font-size: 13.5px; line-height: 1.5; min-height: 21px; }
 .dna-in:focus, .dna-field-in:focus, .dna-pole:focus, .dna-tray-sel:focus { outline: none; }
-
-.dna-grid-row { display: grid; grid-template-columns: minmax(0,1fr) 96px minmax(0,1fr); align-items: stretch; }
-.dna-grid-row:not(:last-child) { border-bottom: 1px solid var(--line); }
-.dna-grid-row > *:not(:last-child) { border-right: 1px solid var(--line); }
-.dna-beat { padding: 13px 15px; }
-.dna-role { font-size: 10px; letter-spacing: 0.04em; margin-bottom: 3px; color: var(--muted); }
-.dna-truth .dna-role { color: var(--sage); }
-.dna-want .dna-role { color: var(--azure); }
-.dna-beat-name { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 5px; }
-.dna-in { font-size: 13px; color: var(--note); line-height: 1.5; min-height: 22px; }
 .dna-in::placeholder, .dna-field-in::placeholder, .dna-pole::placeholder { color: var(--faint); }
+
+/* The 7 beats, chronological. Mirrored pairs share an indent level, stepping
+   in toward the Midpoint hinge and back out — the shape shows the chiasmus. */
+.dna-chiasmus { display: flex; flex-direction: column; gap: 7px; }
+.dna-beat { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 10px 14px; }
+.dna-depth-1 { margin: 0 30px; }
+.dna-depth-2 { margin: 0 60px; }
+.dna-depth-3 { margin: 0 90px; }
+.dna-beat-name { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
 .dna-catch { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
-.dna-catch-lbl { font-size: 10px; letter-spacing: 0.04em; color: var(--tension); margin-bottom: 2px; }
-
-.dna-conn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 8px 4px; }
-.dna-conn-arrow { font-size: 15px; color: var(--muted); line-height: 1; }
-.dna-rel { font-size: 10px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
-.dna-rel-inverts { background: var(--sage-bg); color: var(--sage); }
-.dna-rel-escalates { background: var(--hl); color: var(--hl-ink); }
-
-.dna-mid-row { grid-template-columns: 1fr; }
-.dna-beat.dna-mid { text-align: center; }
-.dna-mid .dna-role, .dna-mid .dna-beat-name, .dna-mid .dna-in { text-align: center; }
 
 .dna-divider { border-top: 1px solid var(--line); margin: 28px 0 18px; }
-.dna-sec-head { margin-bottom: 14px; }
-.dna-sec-title { font-size: 19px; font-weight: 800; letter-spacing: -0.015em; color: var(--ink); margin: 0 0 3px; }
+.dna-sec-head { margin-bottom: 12px; }
+.dna-sec-title { font-size: 15px; font-weight: 700; color: var(--ink); margin: 0; }
 .dna-sec-sub { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.5; }
 
 .dna-stakes { display: block; }
 .dna-stake-row { display: grid; grid-template-columns: 140px minmax(0,1fr) 22px minmax(0,1fr); align-items: center; }
 .dna-stake-row:not(:last-child) { border-bottom: 1px solid var(--line); }
 .dna-stake-lbl { display: flex; flex-direction: column; padding: 10px 12px; border-right: 1px solid var(--line); align-self: stretch; justify-content: center; }
-.dna-stake-name { font-size: 13px; font-weight: 600; color: var(--ink); }
-.dna-stake-hint { font-size: 10px; color: var(--muted); }
-.dna-pole { font-size: 13px; padding: 10px 12px; border: none; border-radius: 0; background: transparent; color: var(--ink); width: 100%; }
+.dna-stake-name { font-size: 12px; font-weight: 600; color: var(--muted); }
+.dna-pole { font-size: 13.5px; padding: 10px 12px; border: none; border-radius: 0; background: transparent; color: var(--ink); width: 100%; }
 .dna-pole-truth { border-right: 1px solid var(--line); }
 .dna-vs { text-align: center; color: var(--muted); font-size: 13px; }
 
 .dna-web { display: grid; grid-template-columns: 132px minmax(0,1fr) minmax(0,1fr); align-items: stretch; }
 .dna-web > *:not(:nth-child(3n)) { border-right: 1px solid var(--line); }
 .dna-web > *:nth-child(-n+6) { border-bottom: 1px solid var(--line); }
-.dna-web-corner { display: flex; align-items: flex-end; font-size: 10px; color: var(--muted); padding: 8px 10px; }
-.dna-web-colhead { text-align: center; font-size: 13px; font-weight: 600; padding: 8px 10px; }
-.dna-web-rowhead { display: flex; align-items: center; font-size: 13px; font-weight: 600; padding: 8px 10px; }
+.dna-web-corner { padding: 8px 10px; }
+.dna-web-colhead { text-align: center; font-size: 12px; font-weight: 600; padding: 8px 10px; }
+.dna-web-rowhead { display: flex; align-items: center; font-size: 12px; font-weight: 600; padding: 8px 10px; }
 .dna-truth-ink { color: var(--sage); }
 .dna-flaw-ink { color: var(--tension); }
-.dna-web-ph { font-weight: 400; font-style: italic; color: var(--muted); }
+.dna-web-ph { color: var(--muted); }
 .dna-web-cell { padding: 9px 10px; min-height: 54px; display: flex; flex-wrap: wrap; gap: 5px; align-content: flex-start; }
 .dna-web-chip { font-size: 12.5px; padding: 3px 10px; border-radius: 999px; background: var(--btn); border: 1px solid var(--line); color: var(--ink); }
 .dna-web-hole { font-size: 13px; color: var(--muted); }
 
 .dna-tray { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 14px; }
-.dna-tray-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; margin-bottom: 8px; }
+.dna-tray-lbl { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 8px; }
 .dna-tray-row { display: flex; align-items: center; gap: 12px; padding: 5px 0; flex-wrap: wrap; }
 .dna-tray-name { flex: 1 1 120px; font-size: 13.5px; color: var(--ink); font-weight: 500; min-width: 0; }
 .dna-tray-field { display: flex; align-items: center; gap: 5px; }
-.dna-tray-field-lbl { font-size: 10px; color: var(--muted); }
+.dna-tray-field-lbl { font-size: 12px; color: var(--muted); }
 .dna-tray-sel { font-size: 12.5px; padding: 5px 8px; border-radius: 4px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); }
 
 @media (max-width: 640px) {
-  .dna-grid-row { grid-template-columns: 1fr; }
-  .dna-grid-row > *:not(:last-child) { border-right: none; border-bottom: 1px solid var(--line); }
-  .dna-conn { flex-direction: row; gap: 8px; padding: 8px 0; }
+  .dna-depth-1, .dna-depth-2, .dna-depth-3 { margin: 0; }
   .dna-stake-row { grid-template-columns: 1fr; }
   .dna-stake-lbl { border-right: none; border-bottom: 1px solid var(--line); }
   .dna-pole-truth { border-right: none; border-bottom: 1px solid var(--line); }

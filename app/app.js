@@ -3595,8 +3595,6 @@ function buildStoryDnaPage() {
 
   const toolbar = el('div', { class: 'ribbon dna-toolbar' });
   toolbar.appendChild(el('span', { class: 'ch-toolbar-title', text: 'Story DNA' }));
-  toolbar.appendChild(el('span', { style: 'flex:1' }));
-  toolbar.appendChild(el('span', { class: 'dna-note', text: 'Broad strokes — analysis only, kept separate from the board.' }));
   host.appendChild(toolbar);
 
   const wrap = el('div', { class: 'dna-wrap' });
@@ -3609,53 +3607,46 @@ function buildStoryDnaPage() {
   wi.appendChild(bindArea(wiTA, () => dna.whatIf, (v) => { dna.whatIf = v; }));
   wrap.appendChild(wi);
 
-  // 2 — the mirrored 7-beat chiasmus. Placeholders after Jill Chamberlain's
-  // Nutshell Technique turning points (A-ha here = her Climactic Choice).
+  // 2 — the 7-beat chiasmus, laid out chronologically. Mirrored pairs share
+  // an indent level, stepping inward to the Midpoint hinge and back out —
+  // the diamond shape carries the mirror structure, so the old line labels
+  // ("truth line · beat 7") and connector pills aren't needed.
   const BEAT_PH = {
-    setUpWant: 'What she wants, and why she can’t have it yet',
+    setUpWant: 'What she wants — and why she can’t have it yet',
     threshold: 'The event that pulls her into the story',
-    pinch: 'A setback that raises the cost of pursuing the want',
-    crisis: 'Want vs. flaw comes to a head — an impossible choice',
-    aha: 'The decisive action that resolves the crisis (Climactic Choice)',
-    resolution: 'The new equilibrium her choice creates',
+    pinch: 'A setback that raises the cost',
+    midpoint: 'The point of no return',
+    crisis: 'Want vs. flaw — an impossible choice',
+    aha: 'The decisive action that resolves it',
+    resolution: 'The new equilibrium',
   };
-  const beatCard = (side, role, name, key) => {
-    const card = el('div', { class: 'dna-beat dna-' + side });
-    card.appendChild(el('div', { class: 'dna-role', text: role }));
+  const beatRow = (key, name, depth) => {
+    const card = el('div', { class: 'dna-beat dna-depth-' + depth });
     card.appendChild(el('div', { class: 'dna-beat-name', text: name }));
-    const ta = el('textarea', { class: 'dna-in', rows: '2', placeholder: BEAT_PH[key] || 'the beat, in a line' });
+    const ta = el('textarea', { class: 'dna-in', rows: '1', placeholder: BEAT_PH[key] });
     card.appendChild(bindArea(ta, () => dna.beats[key], (v) => { dna.beats[key] = v; }));
     if (key === 'threshold') {
       const cw = el('div', { class: 'dna-catch' });
-      cw.appendChild(el('div', { class: 'dna-catch-lbl', text: 'the catch' }));
-      const cta = el('textarea', { class: 'dna-in dna-catch-in', rows: '2', placeholder: '…but getting the want exposes the flaw' });
+      cw.appendChild(el('div', { class: 'dna-beat-name', text: 'The catch' }));
+      const cta = el('textarea', { class: 'dna-in', rows: '1', placeholder: '…but getting the want exposes the flaw' });
       cw.appendChild(bindArea(cta, () => dna.beats.catch, (v) => { dna.beats.catch = v; }));
       card.appendChild(cw);
     }
     return card;
   };
-  const conn = (rel) => {
-    const c = el('div', { class: 'dna-conn' });
-    c.appendChild(el('span', { class: 'dna-conn-arrow', text: '↔' }));
-    c.appendChild(el('span', { class: 'dna-rel dna-rel-' + rel, text: rel }));
-    return c;
-  };
-  const gridRow = (...cells) => { const r = el('div', { class: 'dna-grid-row' }); cells.forEach((c) => r.appendChild(c)); return r; };
-  const grid = el('div', { class: 'dna-grid dna-ledger' });
-  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 7', 'Resolution', 'resolution'), conn('inverts'), beatCard('want', 'want line · beat 1', 'Set up want', 'setUpWant')));
-  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 6', 'A-ha', 'aha'), conn('inverts'), beatCard('want', 'want line · beat 2', 'Threshold', 'threshold')));
-  grid.appendChild(gridRow(beatCard('truth', 'truth line · beat 3', 'Pinch', 'pinch'), conn('escalates'), beatCard('want', 'want line · beat 5', 'Crisis', 'crisis')));
-
-  // Midpoint is the nucleus everything else mirrors around — an attached
-  // row in the same ledger, not a separate box floating below it.
-  const midRow = el('div', { class: 'dna-grid-row dna-mid-row' });
-  const mid = el('div', { class: 'dna-beat dna-mid' });
-  mid.appendChild(el('div', { class: 'dna-role', text: 'nucleus · beat 4' }));
-  mid.appendChild(el('div', { class: 'dna-beat-name', text: 'Midpoint' }));
-  const mta = el('textarea', { class: 'dna-in', rows: '2', placeholder: 'the point of no return — often discovered last' });
-  mid.appendChild(bindArea(mta, () => dna.beats.midpoint, (v) => { dna.beats.midpoint = v; }));
-  midRow.appendChild(mid);
-  grid.appendChild(midRow);
+  const bHead = el('div', { class: 'dna-sec-head' });
+  bHead.appendChild(el('h3', { class: 'dna-sec-title', text: 'Beats' }));
+  wrap.appendChild(bHead);
+  const grid = el('div', { class: 'dna-chiasmus' });
+  [
+    ['setUpWant', 'Set up want', 0],
+    ['threshold', 'Threshold', 1],
+    ['pinch', 'Pinch', 2],
+    ['midpoint', 'Midpoint', 3],
+    ['crisis', 'Crisis', 2],
+    ['aha', 'A-ha', 1],
+    ['resolution', 'Resolution', 0],
+  ].forEach(([key, name, depth]) => grid.appendChild(beatRow(key, name, depth)));
   wrap.appendChild(grid);
 
   // 3 — the theme, three levels of stakes
@@ -3664,16 +3655,15 @@ function buildStoryDnaPage() {
   stHead.appendChild(el('h3', { class: 'dna-sec-title', text: 'Theme' }));
   wrap.appendChild(stHead);
   const stakes = el('div', { class: 'dna-stakes dna-ledger' });
-  [['external', 'External', 'the plot’s stake'], ['internal', 'Internal', 'the relational self'], ['philosophical', 'Philosophical', 'the worldview']].forEach(([k, label, hint]) => {
+  [['external', 'External'], ['internal', 'Internal'], ['philosophical', 'Philosophical']].forEach(([k, label]) => {
     const row = el('div', { class: 'dna-stake-row' });
     const lab = el('div', { class: 'dna-stake-lbl' });
     lab.appendChild(el('span', { class: 'dna-stake-name', text: label }));
-    lab.appendChild(el('span', { class: 'dna-stake-hint', text: hint }));
     row.appendChild(lab);
-    const tIn = el('input', { class: 'dna-pole dna-pole-truth', type: 'text', placeholder: 'truth pole' });
+    const tIn = el('input', { class: 'dna-pole dna-pole-truth', type: 'text', placeholder: 'Truth' });
     row.appendChild(bindInput(tIn, () => dna.stakes[k].truth, (v) => { dna.stakes[k].truth = v; }));
     row.appendChild(el('span', { class: 'dna-vs', text: '↔' }));
-    const fIn = el('input', { class: 'dna-pole dna-pole-flaw', type: 'text', placeholder: 'flaw pole' });
+    const fIn = el('input', { class: 'dna-pole dna-pole-flaw', type: 'text', placeholder: 'Flaw' });
     row.appendChild(bindInput(fIn, () => dna.stakes[k].flaw, (v) => { dna.stakes[k].flaw = v; }));
     stakes.appendChild(row);
   });
@@ -3705,13 +3695,13 @@ function buildDnaWeb(wrap, dna, ro) {
   };
 
   const web = el('div', { class: 'dna-web dna-ledger' });
-  web.appendChild(el('div', { class: 'dna-web-corner', text: 'philos. ↓ · internal →' }));
-  web.appendChild(head(iT, 'internal truth', 'dna-web-colhead dna-truth-ink'));
-  web.appendChild(head(iF, 'internal flaw', 'dna-web-colhead dna-flaw-ink'));
-  web.appendChild(head(pT, 'philosophical truth', 'dna-web-rowhead dna-truth-ink'));
+  web.appendChild(el('div', { class: 'dna-web-corner' }));
+  web.appendChild(head(iT, 'Internal truth', 'dna-web-colhead dna-truth-ink'));
+  web.appendChild(head(iF, 'Internal flaw', 'dna-web-colhead dna-flaw-ink'));
+  web.appendChild(head(pT, 'Philosophical truth', 'dna-web-rowhead dna-truth-ink'));
   web.appendChild(cell('truth', 'truth'));
   web.appendChild(cell('truth', 'flaw'));
-  web.appendChild(head(pF, 'philosophical flaw', 'dna-web-rowhead dna-flaw-ink'));
+  web.appendChild(head(pF, 'Philosophical flaw', 'dna-web-rowhead dna-flaw-ink'));
   web.appendChild(cell('flaw', 'truth'));
   web.appendChild(cell('flaw', 'flaw'));
   wrap.appendChild(web);
@@ -3752,8 +3742,8 @@ function buildDnaWeb(wrap, dna, ro) {
   cast.forEach((name) => {
     const row = el('div', { class: 'dna-tray-row' });
     row.appendChild(el('span', { class: 'dna-tray-name', text: name }));
-    row.appendChild(field('internal', poleSelect(name, 'i', iT, iF)));
-    row.appendChild(field('philosophical', poleSelect(name, 'p', pT, pF)));
+    row.appendChild(field('Internal', poleSelect(name, 'i', iT, iF)));
+    row.appendChild(field('Philosophical', poleSelect(name, 'p', pT, pF)));
     tray.appendChild(row);
   });
   wrap.appendChild(tray);
