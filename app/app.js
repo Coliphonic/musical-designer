@@ -5608,20 +5608,26 @@ fetch('/api/users').then((r) => (r.ok ? r.json() : [])).then((list) => { state.u
 document.body.classList.toggle('sb-open', state.sidebarOpen);
 navigateTo('board');
 loadProjects().then(() => {
+  // Never auto-open a show belonging to the other app — on the split
+  // subdomains especially, that would silently pull you from Prose Plot's
+  // Library into a Song Plot show (or vice versa).
+  const ownApp = (p) => (p.format || 'song') === state.currentApp;
   try {
     const last = JSON.parse(localStorage.getItem('md-last') || 'null');
     if (last && last.type === 'project') {
-      const exists = state.projects.find((p) => p.id === last.val);
+      const exists = state.projects.find((p) => p.id === last.val && ownApp(p));
       if (exists) { openProject(last.val); return; }
     }
   } catch (_) {}
-  // No restorable last project — open the most recently edited one, and only
-  // fall back to a reference example if the user has no projects of their own.
-  if (state.projects.length) {
-    const recent = state.projects.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0))[0];
+  // No restorable last project — open the most recently edited one for this
+  // app, and only fall back to a reference example if there are none.
+  const ownProjects = state.projects.filter(ownApp);
+  if (ownProjects.length) {
+    const recent = ownProjects.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0))[0];
     openProject(recent.id);
     return;
   }
+  if (state.currentApp === 'prose') { buildLibraryPage(); navigateTo('library'); return; }
   openReference('fiddler');
 });
 
