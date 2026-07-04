@@ -37,11 +37,24 @@ const CHANGE_OPTS = [
   { key: 'negative', label: 'Negative', sym: '−' },
 ];
 
+// Song Plot and Prose Plot are served from their own subdomains in production;
+// when running there, the hostname IS the app choice, so the Library should
+// default to it and the waffle switch should navigate instead of just
+// flipping in-page state. Single-domain deploys (local dev, or if the split
+// is ever undone) fall back to the old in-page toggle untouched.
+const APP_HOSTS = { song: 'musicaldesigner.colincreates.com', prose: 'proseplot.colincreates.com' };
+function appFromHost() {
+  const h = (typeof location !== 'undefined' && location.hostname || '').toLowerCase();
+  if (h === APP_HOSTS.prose) return 'prose';
+  if (h === APP_HOSTS.song) return 'song';
+  return null;
+}
+
 const state = {
   showKey: 'fiddler',
   title: '',
   format: 'song',      // 'song' | 'prose' — which Plot Suite app this show belongs to
-  currentApp: 'song',  // which app's Library you're currently browsing (waffle launcher)
+  currentApp: appFromHost() || 'song',  // which app's Library you're currently browsing (waffle launcher)
   wordTarget: 0,       // Prose Plot only — the ribbon's "words / target" progress stat
   wordCountBaseline: 0,     // total word count as of the start of wordCountBaselineDate
   wordCountBaselineDate: '', // 'YYYY-MM-DD', local time — rolls forward in buildStats
@@ -753,6 +766,10 @@ function toggleWaffleMenu() {
 }
 function setCurrentApp(app) {
   if (state.currentApp === app) return;
+  // On the production split, the two apps live on separate subdomains — the
+  // in-page state flip alone would leave the URL (and PWA identity) pointing
+  // at the wrong app, so send the browser there instead.
+  if (appFromHost() && APP_HOSTS[app]) { location.href = 'https://' + APP_HOSTS[app] + '/'; return; }
   state.currentApp = app;
   updateWaffleLabel();
   applyAppTheme();
