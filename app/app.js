@@ -3603,7 +3603,7 @@ function buildStoryDnaPage() {
   // 1 — the "what if"
   const wi = el('div', { class: 'dna-field' });
   wi.appendChild(el('label', { class: 'dna-field-lbl', text: 'What if…' }));
-  const wiTA = el('textarea', { class: 'dna-field-in', rows: '2', placeholder: 'The premise in a sentence — the “what if” at the heart of the show.' });
+  const wiTA = el('textarea', { class: 'dna-field-in', rows: '2', placeholder: 'The premise in a sentence — the “what if” at the heart of the story' });
   wi.appendChild(bindArea(wiTA, () => dna.whatIf, (v) => { dna.whatIf = v; }));
   wrap.appendChild(wi);
 
@@ -3611,14 +3611,18 @@ function buildStoryDnaPage() {
   // an indent level, stepping inward to the Midpoint hinge and back out —
   // the diamond shape carries the mirror structure, so the old line labels
   // ("truth line · beat 7") and connector pills aren't needed.
+  // Placeholders synthesize Chamberlain (Nutshell), McKee, Wells (7-point),
+  // and Snyder — each names what the beat is and why it's load-bearing,
+  // without pronouns or any one method's jargon.
   const BEAT_PH = {
-    setUpWant: 'What she wants — and why she can’t have it yet',
-    threshold: 'The event that pulls her into the story',
-    pinch: 'A setback that raises the cost',
-    midpoint: 'The point of no return',
-    crisis: 'Want vs. flaw — an impossible choice',
-    aha: 'The decisive action that resolves it',
-    resolution: 'The new equilibrium',
+    setUpWant: 'The want that drives the story — specific, urgent, and out of reach',
+    threshold: 'The event that breaks normal life and sets the story in motion',
+    catch: 'The trap inside the goal — getting the want will mean facing the flaw',
+    pinch: 'The opposition strikes; the easy way forward disappears',
+    midpoint: 'The shift from reacting to acting — after this there is no way back',
+    crisis: 'The impossible choice between the want and the truth',
+    aha: 'The climactic choice that answers the crisis and proves the change',
+    resolution: 'The new normal — the opening image, transformed',
   };
   const beatRow = (key, name, depth) => {
     const card = el('div', { class: 'dna-beat dna-depth-' + depth });
@@ -3628,7 +3632,7 @@ function buildStoryDnaPage() {
     if (key === 'threshold') {
       const cw = el('div', { class: 'dna-catch' });
       cw.appendChild(el('div', { class: 'dna-beat-name', text: 'The catch' }));
-      const cta = el('textarea', { class: 'dna-in', rows: '1', placeholder: '…but getting the want exposes the flaw' });
+      const cta = el('textarea', { class: 'dna-in', rows: '1', placeholder: BEAT_PH.catch });
       cw.appendChild(bindArea(cta, () => dna.beats.catch, (v) => { dna.beats.catch = v; }));
       card.appendChild(cw);
     }
