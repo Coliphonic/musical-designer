@@ -3904,6 +3904,41 @@ function importShow(file) {
   reader.readAsText(file);
 }
 
+// Strip inline emphasis that has no Fountain equivalent (chords, notes,
+// strikethrough, highlight), keeping the plain text underneath. Bold/italic/
+// underline (**/*/_) are left untouched — they're already valid Fountain
+// inline markup, unchanged since Fountain's own convention predates ours.
+function stripToFountainText(text) {
+  return (text || '')
+    .replace(NOTE_RE, '$3')          // drop the note wrapper, keep the highlighted phrase
+    .replace(CHORD_RE, '')           // chords have no Fountain analog
+    .replace(/~~([^~]+?)~~/g, '$1')  // strikethrough has no Fountain analog
+    .replace(/==([^=]+?)==/g, '$1'); // editorial highlight has no Fountain analog
+}
+
+// Emit a card's manuscript body via the same cardBodyTokens() the Manuscript
+// and PDF export already render from — so Fountain export always reflects
+// current lyric-line classification (seamless cues, dual dialogue, section
+// tags) instead of a hand-rolled parser that predates them.
+function emitCardBodyFountain(c, lines) {
+  let lastWasBlank = true; // start-of-card counts as blank, so a leading cue never needs a spacer first
+  cardBodyTokens(c).forEach((tok) => {
+    if (tok.type === 'blank') { lines.push(''); lastWasBlank = true; return; }
+    if (tok.type === 'scenebreak') { lines.push('> * * * <'); lastWasBlank = false; return; }
+    if (tok.type === 'section') { lines.push('= ' + stripToFountainText(tok.text)); lastWasBlank = false; return; }
+    if (tok.type === 'cue') {
+      if (!lastWasBlank) lines.push(''); // Fountain requires a blank line before a character cue
+      lines.push(stripToFountainText(tok.text).toUpperCase() + (tok.dual ? ' ^' : ''));
+      lastWasBlank = false;
+      return;
+    }
+    // sung / dialogue / paren / action — plain body lines (paren already
+    // carries its own parens from the parser)
+    lines.push(stripToFountainText(tok.text));
+    lastWasBlank = false;
+  });
+}
+
 function exportFountain() {
   const lines = [];
 
@@ -3915,17 +3950,6 @@ function exportFountain() {
   const order = displayOrder();
   let actHeaderDone = { one: false, two: false };
   let songNum = 0;
-
-  const emitLyricLines = (text) => {
-    (text || '').split('\n').forEach((ln) => {
-      const t = ln.trim();
-      if (!t) { lines.push(''); return; }
-      if (/^\[.+\]$/.test(t)) { lines.push('= ' + t.slice(1, -1)); return; }
-      if (/^@/.test(t))       { lines.push(t.slice(1).trim().toUpperCase()); return; }
-      if (/^~/.test(t))       { lines.push(t.slice(1).trim()); return; }
-      lines.push(t);
-    });
-  };
 
   order.forEach((i) => {
     const c = state.cards[i];
@@ -3946,19 +3970,29 @@ function exportFountain() {
     if (c.type === 'scene') {
       lines.push('## ' + (c.title || 'Scene'));
       lines.push('');
-      if (c.note && c.note.trim()) { lines.push(c.note); lines.push(''); }
+      emitCardBodyFountain(c, lines);
+      lines.push('');
 
     } else if (c.type === 'beat') {
-      if (c.note && c.note.trim()) { lines.push(c.note); lines.push(''); }
-      if (c.lyrics && c.lyrics.trim()) { emitLyricLines(c.lyrics); lines.push(''); }
+      // The Beatline (c.note) is a planning logline shown above the lyrics in
+      // Manuscript, not performed text — export it as a synopsis line (same
+      // "= " convention as section tags) so it isn't mistaken for action.
+      if (c.note && c.note.trim() && state.msOptions.showBeatlines !== false) {
+        lines.push('= ' + stripToFountainText(c.note));
+        lines.push('');
+      }
+      const before = lines.length;
+      emitCardBodyFountain(c, lines);
+      if (lines.length > before) lines.push('');
 
     } else if (c.type === 'song') {
       songNum++;
       const num = String(songNum).padStart(2, '0');
       lines.push('> #' + num + ' ' + (c.title || 'UNTITLED SONG').toUpperCase() + ' <');
       lines.push('');
-      if (c.lyrics && c.lyrics.trim()) { emitLyricLines(c.lyrics); }
-      else { lines.push('(no lyrics yet)'); }
+      const before = lines.length;
+      emitCardBodyFountain(c, lines);
+      if (lines.length === before) lines.push('(no lyrics yet)');
       lines.push('');
     }
   });

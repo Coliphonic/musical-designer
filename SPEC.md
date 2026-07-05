@@ -271,7 +271,16 @@ The Export page offers:
   backup keeps its song/prose identity instead of silently reverting to `'song'`.
 - **Open backup** — import a `.pshow` as a new project.
 - **Export as Fountain** — a `.fountain` plain-text screenplay file compatible with Final Draft,
-  Highland, and Fade In; lyrics use standard Fountain character/dialogue blocks.
+  Highland, and Fade In; lyrics use standard Fountain character/dialogue blocks. **Rewritten
+  2026-07-05** to route through `cardBodyTokens()` — the same classified-line source the
+  Manuscript/PDF pipeline renders from — instead of a hand-rolled `@`/`~`-only line parser that
+  predated seamless cues, inline chords, inline notes, and dual dialogue, and so silently leaked
+  raw chord/note/highlight/strikethrough markup (including base64 note payloads) into exported
+  files. Bold/italic/underline pass through unchanged (Fountain's own `**`/`*`/`_` syntax already
+  matches ours); chords/notes/highlight/strikethrough have no Fountain equivalent and are stripped
+  to plain text; a scene break exports as `> * * * <` (a bare `***` risked misparsing as an
+  unterminated bold-italic run in strict parsers); a Beatline exports as a `= ` synopsis line
+  (respecting the Beatlines visibility toggle) so it isn't mistaken for performed action.
 - **PDF** — via Print View's print dialog (the FD-formatted pages).
 
 Reference shows are read-only, so their export buttons are disabled.
