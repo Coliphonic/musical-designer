@@ -96,7 +96,45 @@ mid-write-loop if ambitious (or just eyeball the rename logic), confirm a forced
 
 ---
 
-## Phase 2 — A test harness for the round-trip core (no deps)
+## Phase 2 — A test harness for the round-trip core (no deps) — ✅ DONE 2026-07-05
+
+Shipped in commit (see git log for exact hash — added right after this line was
+written). Lives in `test/`, run with `node --test` or `node --test test/*.test.js`
+from the repo root. Zero new dependencies, zero changes to `app.js` itself.
+
+- `test/load-app.js` — the "load-and-extract shim" from the option below. Splits
+  `app.js`'s source right before the unguarded boot tail (`initControls();` onward),
+  wraps that tail in a try/catch, appends a footer that copies the functions/state
+  we want onto `globalThis.__TEST_EXPORTS__`, and runs the whole thing via `vm.
+  runInContext` against a sandbox that auto-stubs `document`/`window` (any property
+  access or call returns another harmless stub — nothing throws) plus minimal real
+  implementations of `localStorage`, `fetch` (always resolves `ok:false`), `btoa`/
+  `atob`, and empty `SHOWS`/`LYRIC` stubs (needed because the boot tail falls back to
+  `openReference('fiddler')` when there are no projects).
+- `test/html-fixture.js` — a ~40-line HTML-fragment parser scoped to exactly the tag
+  vocabulary `emphToHtml()` emits (b/i/u/s/mark/br), so the emphasis tests are a
+  genuine text → HTML → text round trip, not two isolated assertions.
+- `test/serialize.test.js`, `test/lines.test.js`, `test/emphasis.test.js`,
+  `test/misc.test.js` — 16 tests covering the serialize/applyShowData fixpoint,
+  song+prose line round-trips (including dual-dialogue and section headers),
+  emphasis/note/chord markup round-trips + HTML-escaping, `mergeLineIds` identity
+  preservation, `countWords`, and `migrateLegacyIds`.
+
+Deliberately **not** covered: `paginateBlocks` — it measures real DOM layout
+(`clientHeight`/`offsetHeight`), which a stub can't meaningfully fake and jsdom is a
+new dependency this plan rules out. Leave it untested rather than write a test that
+only checks the stub's own fake numbers.
+
+The lines round-trip tests are written as a *fixpoint* (parse text once, reserialize,
+reparse, compare the two parses) rather than raw text equality — the serializer is
+allowed to normalize formatting (e.g. it inserts a blank line before a cue per
+Fountain convention), so text-in/text-out equality is the wrong invariant; line-level
+stability across a second pass is the one that actually matters.
+
+---
+
+<details>
+<summary>Original planning notes (superseded by the "done" summary above)</summary>
 
 Zero tests today. The code most likely to eat a manuscript is pure-ish logic living
 inside `app.js`: `seamlessToLines`/`linesToSeamless` (the lyric↔lines round-trip),
@@ -137,6 +175,8 @@ What to actually test (in value order):
 
 Put tests in `test/` at repo root, runnable as `node --test test/`. Add nothing to
 package.json (there isn't one; don't create one).
+
+</details>
 
 ---
 
