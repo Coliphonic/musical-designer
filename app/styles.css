@@ -722,10 +722,6 @@ body.dark.app-prose .pill.beat-fn:not(.empty) { background: #3a2620; color: #edc
 body.app-prose .pill.beat-fn:focus { background: #fbe3db; color: #9a4a34; box-shadow: inset 0 0 0 1px #dd8a72; }
 body.dark.app-prose .pill.beat-fn:focus { background: #3a2620; color: #f3d3c5; }
 
-/* Manuscript — nav / settings / title toggle buttons */
-body.app-prose .ms-nav-btn.active, body.app-prose .ms-settings-btn.active, body.app-prose .ms-title-btn.active { background: var(--energy); border-color: var(--energy); }
-body.dark.app-prose .ms-nav-btn.active, body.dark.app-prose .ms-settings-btn.active, body.dark.app-prose .ms-title-btn.active { background: var(--energy); border-color: var(--energy); }
-
 /* Manuscript — Edit/Print segment container */
 body.app-prose .ms-mode-seg, body.app-prose .ribbon .seg { background: #f2ded4; }
 body.dark.app-prose .ms-mode-seg, body.dark.app-prose .ribbon .seg { background: #33221d; }
@@ -1095,6 +1091,43 @@ body.dark .pbtn.primary:hover { background: #564ab0; }
    min-height/min-width:0 stops the flex item from growing to its content
    height — otherwise the whole wrap (and the side drawer) balloons to the
    full manuscript height and the drawer scrolls off-screen. */
+/* Focus mode — hide the chrome and dim everything but the section being
+   edited. Pure CSS on body.ms-focus + a per-section .ms-card-focused class;
+   see buildManuscriptPage's "Focus mode" block in app.js for the toggle. */
+body.ms-focus #topnav,
+body.ms-focus .ms-toolbar,
+body.ms-focus .ms-nav { display: none !important; }
+body.ms-focus .ms-edit-doc .ms-card-section {
+  opacity: 0.35;
+  transition: opacity 0.2s ease;
+}
+body.ms-focus .ms-edit-doc .ms-card-section.ms-card-focused,
+body.ms-focus .ms-edit-doc .ms-card-section:hover {
+  opacity: 1;
+}
+/* The sticky format bar stays available but recedes until you touch it or
+   move the mouse, so it doesn't read as chrome while you're just reading/typing. */
+body.ms-focus .ms-format-bar { opacity: 0.2; transition: opacity 0.2s ease; }
+body.ms-focus .ms-format-bar:hover,
+body.ms-focus .ms-format-bar:focus-within { opacity: 1; }
+.ms-focus-exit-pill {
+  position: absolute;
+  top: 14px;
+  right: 18px;
+  z-index: 20;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  box-shadow: 0 2px 10px #0004;
+}
+body.ms-focus .ms-focus-exit-pill.show { opacity: 1; pointer-events: auto; }
 .ms-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; overflow: hidden; position: relative; }
 .ms-wrap .ms-body { flex: 1; min-width: 0; overflow-y: auto; background: #888; }
 body.dark .ms-body { background: var(--bg); }
@@ -1157,15 +1190,14 @@ body.dark .ribbon, body.dark .ms-toolbar { background: #211e2c; }
 /* Navigation, Print, and Settings share one bare-button language. They sit at
    the same 32px height as the Edit/Print View seg track so the whole ribbon
    reads as one uniform row. */
-.ms-nav-btn, .ms-print-btn, .ms-settings-btn, .ms-title-btn {
+.ms-nav-btn, .ms-print-btn, .ms-settings-btn, .ms-focus-btn, .ms-title-done {
   display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
   height: 32px; padding: 0 11px; border-radius: 7px; border: 1px solid transparent;
   background: transparent; color: var(--muted); font-size: 12px; font-weight: 500;
   font-family: inherit; cursor: pointer; transition: background 0.12s, color 0.12s;
 }
-.ms-nav-btn:hover, .ms-print-btn:hover, .ms-settings-btn:hover, .ms-title-btn:hover { background: var(--hover); color: var(--ink); }
-.ms-nav-btn.active, .ms-settings-btn.active, .ms-title-btn.active { background: #534ab7; color: #fff; border-color: #534ab7; }
-body.dark .ms-nav-btn.active, body.dark .ms-settings-btn.active, body.dark .ms-title-btn.active { background: #6a61d0; color: #fff; border-color: #6a61d0; }
+.ms-nav-btn:hover, .ms-print-btn:hover, .ms-settings-btn:hover, .ms-focus-btn:hover { background: var(--hover); color: var(--ink); }
+.ms-nav-btn.active, .ms-settings-btn.active, .ms-focus-btn.active, .ms-title-done { background: var(--energy); color: #fff; border-color: var(--energy); }
 .ms-tb-divider { width: 1px; height: 22px; background: var(--line); flex-shrink: 0; }
 /* Segmented toggles in a ribbon share the nav-pill language: a tinted track
    container with a purple-filled active chip (matches the top-nav pill and the

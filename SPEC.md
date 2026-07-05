@@ -226,11 +226,22 @@ clicking one scrolls to the card, flashes the anchored highlight, and opens its 
 
 - **Outline navigator** (Edit) — a left panel listing every card grouped by act lane; click a row
   to smooth-scroll to it; the card nearest the viewport top highlights via an `IntersectionObserver`.
-  Toggled from a **☰ Navigation** button. Inline notes appear as sub-rows beneath their card (see above).
-- **Contextual ribbon** — Navigation · Edit/Print toggle · centered zoom · Print · Settings. The
-  Page setup drawer ("Show in document") toggles document elements: show title, act headers,
-  **section tags**, and **chords** — all hide/show in both Print View and the Edit editor without
-  stripping the underlying markup.
+  Toggled from a **Navigation** button. Inline notes appear as sub-rows beneath their card (see above).
+- **Contextual ribbon** — Navigation · word count · centered zoom · Edit/Print toggle · Focus ·
+  Print · Settings. The Page setup drawer ("Show in document") toggles document elements: show
+  title, act headers, **section tags**, and **chords** — all hide/show in both Print View and the
+  Edit editor without stripping the underlying markup.
+- **Focus mode** (Edit only, 2026-07-05) — a `body.ms-focus` class hides the topbar, ribbon, and
+  outline navigator via CSS, and dims every card section to 35% opacity except the one the caret is
+  currently in (tracked by a delegated `focusin` listener, so it follows click, keyboard nav, or
+  Tab equally). The sticky format bar recedes to 20% opacity until hovered/focused-within, so it
+  doesn't read as chrome while just reading or typing. A floating **✕ Exit focus** pill fades in on
+  mouse movement and fades back out after ~1.8s idle. Exits via the pill, `Esc` (module-level
+  `msFocusExit` hook so the global key handler can reach whichever Manuscript instance is live),
+  switching to Print View, or navigating to another page — never persisted, since re-entering the
+  app into a chromeless screen would be disorienting. Deliberately scoped to Manuscript, not the
+  card-modal Fountain editor, since the modal's rhyme/gutter tools are a different, tool-heavy
+  activity, not sustained drafting.
 
 ---
 
@@ -242,6 +253,11 @@ clicking one scrolls to the card, flashes the anchored highlight, and opens its 
   these power the editor's name autocomplete and (future) vocal-load diagnostics.
 - **Title pages** — generated front matter (title, authors, contact, cast list, song list, page
   settings) rendered on the same print sheets as the Manuscript, with per-block include toggles.
+  Reached via **Edit title pages…** in the Page setup drawer (2026-07-05), not the Edit/Print
+  toggle — title pages are set-up-once document furniture, not a document mode you work in, so
+  they don't compete with the genuine Edit ⇄ Print View either/or. While open, the toolbar's mode
+  switcher is replaced by a single **✓ Done with title pages** button that returns to whichever of
+  Edit/Print View you came from; a reload never lands on title pages.
 
 ---
 

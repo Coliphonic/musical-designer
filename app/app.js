@@ -3801,6 +3801,11 @@ function buildDnaWeb(wrap, dna, ro) {
 // it once the incoming page's fresh DOM is in place.
 let msSavedAnchor = null;
 let notesScrollTop = 0;
+// Set by buildManuscriptPage while Focus mode is on (Edit mode only); the
+// global Escape handler calls this to exit rather than reaching into the
+// per-instance closure directly, since buildManuscriptPage reruns every time
+// the Manuscript page is (re)entered.
+let msFocusExit = null;
 
 // Manuscript uses content-anchored (not raw scrollTop) memory, matching the
 // anchor system already used for its own Edit/Print mode switches — offsets
@@ -3831,6 +3836,7 @@ function restoreMsAnchor(anchors) {
 function navigateTo(page, sceneId) {
   const prevPage = state.page;
   if (prevPage === 'manuscript') msSavedAnchor = captureMsAnchor();
+  if (prevPage === 'manuscript' && page !== 'manuscript' && msFocusExit) msFocusExit(); // never leave focus mode's chrome hidden on another page
   if (prevPage === 'notes') {
     const sc = document.querySelector('#page-notes .notes-scroll');
     if (sc) notesScrollTop = sc.scrollTop;
@@ -4352,6 +4358,8 @@ function buildManuscriptPage(sceneId) {
   const ZOOM_STEP = 0.15, ZOOM_MIN = 0.4, ZOOM_MAX = 2.0;
   let zoom = (() => { try { return parseFloat(localStorage.getItem('md-ms-zoom')) || 0.75; } catch (_) { return 0.75; } })();
   let msMode = (() => { try { return localStorage.getItem('md-ms-mode') || 'edit'; } catch (_) { return 'edit'; } })();
+  if (msMode !== 'edit' && msMode !== 'layout') msMode = 'edit'; // never boot into title pages (or a stale value)
+  let lastDocMode = msMode; // where "Done with title pages" returns to
 
   const zoomOut = el('button', { class: 'ms-zoom-btn', text: '−', title: 'Zoom out' });
   const zoomIn  = el('button', { class: 'ms-zoom-btn', text: '+', title: 'Zoom in' });
@@ -4365,15 +4373,20 @@ function buildManuscriptPage(sceneId) {
   const layoutTab = el('button', { text: 'Print View' });
   modeSeg.appendChild(editTab);
   modeSeg.appendChild(layoutTab);
-  // Title pages is an add-on, not a third state of the Edit/Print toggle —
-  // it lives as its own standalone button, matching navBtn/settingsBtn.
-  const titleTab = el('button', { class: 'ms-title-btn', title: 'Title pages', text: 'Title pages' });
+  // Title pages is a third msMode under the hood, but to the writer it's
+  // set-up-once document furniture, not a place they work — so it's entered
+  // from the Page-setup drawer, and while it's open the Edit/Print switcher
+  // swaps for a single Done button that returns to wherever you were.
+  const titleDoneBtn = el('button', { class: 'ms-title-done', text: '✓ Done with title pages' });
   const printBtn = el('button', { class: 'ms-print-btn', title: 'Print / Save as PDF' });
   printBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span>Print</span>';
   printBtn.addEventListener('click', () => exportPDF(true));
   const settingsBtn = el('button', { class: 'ms-settings-btn', title: 'Page settings' });
   settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
-  const navBtn = el('button', { class: 'ms-nav-btn', title: 'Show/hide the outline navigation', text: '☰ Navigation' });
+  const navBtn = el('button', { class: 'ms-nav-btn', title: 'Show/hide the outline navigation' });
+  navBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg><span>Navigation</span>';
+  const focusBtn = el('button', { class: 'ms-focus-btn', title: 'Focus mode — hide the chrome and dim everything but the scene you’re in (Esc to exit)' });
+  focusBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="0.5" fill="currentColor"/></svg><span>Focus</span>';
   const wcLbl = el('span', { class: 'ms-wc-lbl' });
   const updateWordCount = () => { wcLbl.textContent = totalShowWords().toLocaleString() + ' words'; };
   updateWordCount();
@@ -4397,8 +4410,8 @@ function buildManuscriptPage(sceneId) {
   // Edit-only Navigation button disappears in Print View.
   const tbRight = el('div', { class: 'ms-tb-right' });
   tbRight.appendChild(modeSeg);
-  tbRight.appendChild(el('span', { class: 'ms-tb-divider' }));
-  tbRight.appendChild(titleTab);
+  tbRight.appendChild(titleDoneBtn); // occupies the switcher's slot while title pages are open
+  tbRight.appendChild(focusBtn); // Focus is a way of viewing Edit mode — lives beside the view switcher
   tbRight.appendChild(el('span', { class: 'ms-tb-divider' }));
   tbRight.appendChild(printBtn);
   tbRight.appendChild(settingsBtn); // settings last — it opens the right-edge drawer
@@ -4696,9 +4709,15 @@ function buildManuscriptPage(sceneId) {
     const anchor = captureAnchor();
     editTab.classList.toggle('active', msMode === 'edit');
     layoutTab.classList.toggle('active', msMode === 'layout');
-    titleTab.classList.toggle('active', msMode === 'title');
-    try { localStorage.setItem('md-ms-mode', msMode); } catch (_) {}
+    if (msMode !== 'title') lastDocMode = msMode;
+    // While on title pages the Edit/Print switcher gives way to one Done button.
+    modeSeg.style.display = msMode === 'title' ? 'none' : '';
+    titleDoneBtn.style.display = msMode === 'title' ? '' : 'none';
+    // Persist only real document modes — a reload should never land on title pages.
+    try { localStorage.setItem('md-ms-mode', lastDocMode); } catch (_) {}
+    if (msMode !== 'edit' && focusMode) exitFocus(); // Focus is an Edit-only concept
     applyNav(); // outline panel + Navigation button reflect Edit/Print state
+    applyFocus();
     // Title mode has its own inline include-checkboxes, so the settings gear
     // (script options: title/act headers/section tags) is hidden there.
     settingsBtn.style.display = msMode === 'title' ? 'none' : '';
@@ -4710,11 +4729,23 @@ function buildManuscriptPage(sceneId) {
   };
   editTab.addEventListener('click', () => { if (msMode !== 'edit') { msMode = 'edit'; applyMode(); } });
   layoutTab.addEventListener('click', () => { if (msMode !== 'layout') { msMode = 'layout'; applyMode(); } });
-  titleTab.addEventListener('click', () => { if (msMode !== 'title') { msMode = 'title'; applyMode(); } });
+  titleDoneBtn.addEventListener('click', () => { msMode = lastDocMode; applyMode(); });
 
   // ── Settings drawer ──────────────────────────────────────────────
   const drawer = buildHeaderDrawer(() => { if (msMode === 'layout') rebuildSheets(); else rebuildEdit(); });
   const drawerInner = drawer.querySelector('.ms-hd-inner');
+  // Title pages live here (not in the Edit/Print switcher) — they're document
+  // furniture you set up once, so they're reached from Page setup like the
+  // rest of the front-matter options.
+  drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
+  const titleOpenBtn = el('button', { class: 'ms-rev-btn ms-rev-lockbtn', text: 'Edit title pages…' });
+  titleOpenBtn.addEventListener('click', () => {
+    drawer.classList.remove('open');
+    settingsBtn.classList.remove('active');
+    msMode = 'title';
+    applyMode();
+  });
+  drawerInner.appendChild(titleOpenBtn);
   drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
   drawerInner.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Show in document' }));
   const mkDrawerToggle = (label, key, defaultVal) => {
@@ -4890,6 +4921,43 @@ function buildManuscriptPage(sceneId) {
     try { localStorage.setItem('md-ms-nav', navOpen ? 'open' : 'closed'); } catch (_) {}
     applyNav();
   });
+
+  // ── Focus mode — Edit-only, never persisted (always a deliberate, one-session
+  // choice, unlike zoom/nav which remember themselves). Hides the topbar, the
+  // manuscript toolbar, and the outline via a body class (pure CSS), and dims
+  // every card section except the one the caret is currently in.
+  const exitPill = el('button', { class: 'ms-focus-exit-pill', title: 'Exit focus mode (Esc)', text: '✕ Exit focus' });
+  msWrap.appendChild(exitPill);
+  let focusMode = false;
+  let pillTimer = null;
+  const showExitPill = () => {
+    if (!focusMode) return;
+    exitPill.classList.add('show');
+    clearTimeout(pillTimer);
+    pillTimer = setTimeout(() => exitPill.classList.remove('show'), 1800);
+  };
+  const applyFocus = () => {
+    document.body.classList.toggle('ms-focus', focusMode);
+    focusBtn.classList.toggle('active', focusMode);
+    focusBtn.style.display = msMode === 'edit' ? '' : 'none'; // like navBtn — Edit-only
+    msFocusExit = focusMode ? exitFocus : null;
+    if (focusMode) showExitPill();
+  };
+  function exitFocus() { focusMode = false; applyFocus(); }
+  focusBtn.addEventListener('click', () => { focusMode = !focusMode; applyFocus(); });
+  exitPill.addEventListener('click', exitFocus);
+  msWrap.addEventListener('mousemove', showExitPill);
+  // Track which card section currently has the caret so CSS can dim the rest —
+  // works for every path into a card editor (click, keyboard nav, Tab) since
+  // they all end in a real DOM focus on the contenteditable.
+  msWrap.addEventListener('focusin', (e) => {
+    if (!focusMode) return;
+    const sec = e.target.closest && e.target.closest('.ms-card-section');
+    if (!sec) return;
+    msWrap.querySelectorAll('.ms-card-section.ms-card-focused').forEach((s) => { if (s !== sec) s.classList.remove('ms-card-focused'); });
+    sec.classList.add('ms-card-focused');
+  });
+  applyFocus();
 
   let navObserver = null;
   const navRows = new Map(); // card id -> row element
@@ -5587,6 +5655,7 @@ function initControls() {
       return;
     }
     if (e.key === 'Escape') {
+      if (msFocusExit) { msFocusExit(); return; }
       const exd = document.getElementById('exp-drawer');
       if (exd) { closeExportDrawer(); return; }
       const fnd = document.getElementById('find-modal');
