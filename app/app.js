@@ -170,6 +170,9 @@ function saveLastOpened(type, val) {
 }
 
 function openReference(key) {
+  // Flush a pending debounced save before leaving the real project open now —
+  // see openProject's identical guard for why.
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; doSave(); }
   // References are read-only examples — don't let them overwrite the last
   // opened *project*, so reopening the app returns to the user's own work.
   state.loading = true;
@@ -252,6 +255,11 @@ function applyShowData(d) {
 }
 
 function openProject(id, afterOpen) {
+  // Flush a pending debounced save (see scheduleSave) before switching away —
+  // otherwise its 700ms timer would fire after state.projectId already points
+  // at the new show and get dropped by doSave's staleness guard, silently
+  // losing the last ~700ms of edits to the show being left.
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; doSave(); }
   saveLastOpened('project', id);
   fetch('/api/shows/' + id).then((r) => r.json()).then((d) => {
     state.loading = true;
@@ -289,12 +297,28 @@ function scheduleSave() {
   if (state.readonly || !state.projectId || state.loading) return;
   setSaveInd('saving');
   clearTimeout(_saveTimer);
-  _saveTimer = setTimeout(doSave, 700);
+  // Capture which show this edit belongs to. If the user switches shows
+  // before the timer fires, state.cards/etc. will belong to the NEW show but
+  // state.projectId would too — without this, doSave would serialize the new
+  // show's state and PUT it over the old show's id (or vice versa). Instead,
+  // if the target has changed by fire time, doSave bails and the edit is
+  // simply dropped rather than corrupting either show. openProject() also
+  // flushes a pending save synchronously before switching, so in practice
+  // this only guards the residual gap between "switch" and "flush".
+  const targetId = state.projectId;
+  _saveTimer = setTimeout(() => doSave(targetId), 700);
 }
-function doSave() {
-  if (!state.projectId) return;
-  fetch('/api/shows/' + state.projectId, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: serialize() })
-    .then(() => { setSaveInd('saved'); loadProjects(); }).catch(() => setSaveInd('error'));
+// targetId is only passed by scheduleSave()'s timer, to detect a show switch
+// that happened while it was pending. Direct/synchronous callers (status
+// change, folder move, snapshot restore, immediate blur-saves) omit it and
+// always mean "save whatever show is open right now" — no staleness risk
+// since there's no delay between call and fetch.
+function doSave(targetId) {
+  const id = targetId || state.projectId;
+  if (state.readonly || state.loading || !state.projectId || state.projectId !== id) return;
+  fetch('/api/shows/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: serialize() })
+    .then((r) => { if (!r.ok) throw new Error('save failed: ' + r.status); setSaveInd('saved'); loadProjects(); })
+    .catch(() => setSaveInd('error'));
 }
 function loadProjects() {
   return fetch('/api/shows').then((r) => r.json()).then((list) => { state.projects = list || []; renderShowBtn(); if (state.page === 'library') buildLibraryPage(); }).catch(() => {});

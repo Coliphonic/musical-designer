@@ -66,11 +66,30 @@ function sendJSON(res, code, obj) {
   res.end(JSON.stringify(obj));
 }
 function safeId(id) { return /^[a-z0-9-]+$/.test(id || '') ? id : null; }
-function readBody(req, cb) { let b = ''; req.on('data', (c) => { b += c; }); req.on('end', () => cb(b)); }
+// Shows are tens of KB even for a full novel; cap well above that so a stray
+// or hostile huge body can't exhaust memory/disk on this box (458MB RAM).
+const MAX_BODY_BYTES = 10 * 1024 * 1024;
+function readBody(req, res, cb) {
+  let b = ''; let bytes = 0; let killed = false;
+  req.on('data', (c) => {
+    if (killed) return;
+    bytes += c.length;
+    if (bytes > MAX_BODY_BYTES) { killed = true; sendJSON(res, 413, { error: 'payload too large' }); req.destroy(); return; }
+    b += c;
+  });
+  req.on('end', () => { if (!killed) cb(b); });
+}
+// Write-then-rename so a crash or full disk mid-write can never leave a show
+// file truncated/corrupt — rename is atomic on the same filesystem.
+function writeFileAtomic(fp, data) {
+  const tmp = fp + '.tmp-' + process.pid + '-' + Date.now();
+  fs.writeFileSync(tmp, data);
+  fs.renameSync(tmp, fp);
+}
 function fileFor(id) { return path.join(SHOWS_DIR, id + '.json'); }
 function snapFileFor(id) { return path.join(SNAPS_DIR, id + '.json'); }
 function loadSnaps(id) { try { return JSON.parse(fs.readFileSync(snapFileFor(id), 'utf8')); } catch (_) { return { snapshots: [] }; } }
-function saveSnaps(id, obj) { fs.writeFileSync(snapFileFor(id), JSON.stringify(obj)); }
+function saveSnaps(id, obj) { writeFileAtomic(snapFileFor(id), JSON.stringify(obj)); }
 
 // ---- Auth helpers --------------------------------------------------------
 function loadUsers() { try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); } catch (_) { return []; } }
@@ -152,7 +171,7 @@ function handleAuth(req, res, parts) {
     return sendJSON(res, 200, { id: u.id, name: u.name });
   }
   if (action === 'login' && req.method === 'POST') {
-    return readBody(req, (body) => {
+    return readBody(req, res, (body) => {
       let data; try { data = JSON.parse(body || '{}'); } catch (_) { data = {}; }
       const name = String(data.name || '').trim().toLowerCase();
       const user = loadUsers().find((u) => u.id === name || (u.name || '').toLowerCase() === name);
@@ -195,11 +214,11 @@ function handleApi(req, res, parts, user) {
     return;
   }
   if (req.method === 'POST' && !id) {
-    readBody(req, (body) => {
+    readBody(req, res, (body) => {
       let obj; try { obj = JSON.parse(body || '{}'); } catch (_) { obj = {}; }
       obj.owner = user.id; // stamp ownership on creation
       const newid = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-      try { fs.writeFileSync(fileFor(newid), JSON.stringify(obj)); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
+      try { writeFileAtomic(fileFor(newid), JSON.stringify(obj)); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
       sendJSON(res, 200, { id: newid });
     });
     return;
@@ -217,12 +236,12 @@ function handleApi(req, res, parts, user) {
     if (req.method !== 'PUT') return sendJSON(res, 405, { error: 'method' });
     if (!existing) return sendJSON(res, 404, { error: 'not found' });
     if (existing.owner && existing.owner !== user.id) return sendJSON(res, 403, { error: 'owner only' });
-    return readBody(req, (body) => {
+    return readBody(req, res, (body) => {
       let data; try { data = JSON.parse(body || '{}'); } catch (_) { data = {}; }
       const ids = loadUsers().map((u) => u.id);
       existing.collaborators = (Array.isArray(data.collaborators) ? data.collaborators : [])
         .filter((cid) => cid !== user.id && ids.indexOf(cid) >= 0);
-      try { fs.writeFileSync(fileFor(sid), JSON.stringify(existing)); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
+      try { writeFileAtomic(fileFor(sid), JSON.stringify(existing)); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
       sendJSON(res, 200, { ok: true, collaborators: existing.collaborators });
     });
   }
@@ -242,7 +261,7 @@ function handleApi(req, res, parts, user) {
       return snap ? sendJSON(res, 200, snap) : sendJSON(res, 404, { error: 'not found' });
     }
     if (req.method === 'POST' && !snapId) {
-      return readBody(req, (body) => {
+      return readBody(req, res, (body) => {
         let d; try { d = JSON.parse(body || '{}'); } catch (_) { d = {}; }
         const snap = {
           id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
@@ -257,7 +276,7 @@ function handleApi(req, res, parts, user) {
       });
     }
     if (req.method === 'PUT' && snapId) {
-      return readBody(req, (body) => {
+      return readBody(req, res, (body) => {
         let d; try { d = JSON.parse(body || '{}'); } catch (_) { d = {}; }
         const snap = store.snapshots.find((s) => s.id === snapId);
         if (!snap) return sendJSON(res, 404, { error: 'not found' });
@@ -281,12 +300,12 @@ function handleApi(req, res, parts, user) {
     return;
   }
   if (req.method === 'PUT') {
-    readBody(req, (body) => {
+    readBody(req, res, (body) => {
       let obj; try { obj = JSON.parse(body || '{}'); } catch (_) { obj = {}; }
       // Preserve ownership/collaborators across saves; clients don't manage them yet.
       obj.owner = (existing && existing.owner) || user.id;
       if (existing && existing.collaborators) obj.collaborators = existing.collaborators;
-      try { fs.writeFileSync(fileFor(sid), JSON.stringify(obj)); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
+      try { writeFileAtomic(fileFor(sid), JSON.stringify(obj)); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
       sendJSON(res, 200, { ok: true });
     });
     return;
