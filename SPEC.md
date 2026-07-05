@@ -701,7 +701,7 @@ why this is a skin-per-app model, not a format dropdown.
 | Separate subdomains (`musicaldesigner.` / `proseplot.colincreates.com`), shared login, per-app PWA branding | ✅ (2026-07-04) |
 | **Prose-native Manuscript editor** (see below) | ⬜ still Song Plot's libretto editor, unmodified |
 | Prose-tuned Story DNA labels | ⬜ |
-| Prose Export (EPUB/DOCX compile, front matter) | ⬜ |
+| Book export — EPUB + print PDF, front/back matter, themes, trim sizes (see below; Manuscript-format PDF for agent submission stays as-is) | ⬜ |
 
 ### The prose-native editor — what's needed (not yet built)
 
@@ -743,8 +743,75 @@ to the author's discretion. Concretely, in priority order:
 **Phasing (UI-first, mirroring how every other Plot Suite piece shipped):** (1) Collapse the
 Element dropdown to Body/Chapter/Scene-break + promote italic/bold — the editor stops looking like
 a screenplay tool. (2) Smart-typography auto-substitution. (3) Paragraph-convention toggle
-(indent vs. block). (4) Per-chapter word counts in the Navigator. (5) Focus mode. (6) Metadata
-inspector, prose-craft feedback, and EPUB/DOCX export — each a later, independent phase.
+(indent vs. block). (4) Per-chapter word counts in the Navigator. (5) Focus mode — **shipped
+2026-07-05**, but only for the shared libretto-based Manuscript Prose Plot currently reuses; revisit
+once the prose-native editor above exists. (6) Metadata inspector, prose-craft feedback, and
+EPUB/DOCX export — each a later, independent phase.
+
+### Book export — EPUB + print-ready PDF (future, not yet built)
+
+Prose Plot's eventual biggest gap versus Atticus/Vellum: today it can only export the screenplay-
+style Fountain/PDF Song Plot already has. A novelist needs two genuinely different deliverables,
+generated from the same card data, and **both must coexist as separate output modes** — this is
+not a replacement for the existing Manuscript look:
+
+- **Manuscript format (keep, unchanged)** — Courier/Times, double-spaced, 1" margins, header
+  `LASTNAME / TITLE / #`, scene breaks as `#` — the standard format for submitting to agents and
+  editors. This is what Prose Plot's Print View already produces and must keep producing.
+  Chapter-opener/theme styling below applies to the **book** output only, never to this one.
+- **Book output (new)** — a self-publishing-ready PDF (print) and EPUB (ebook), styled and paginated
+  completely differently from the submission manuscript.
+
+**Front matter / back matter** (shared structure, both book outputs) — a toggleable, templated
+block system extending the pattern Song Plot's title pages already use (per-block include
+checkboxes): half title, title page, copyright page (©, ISBN, edition, disclaimer), dedication,
+epigraph, table of contents (auto-generated; in EPUB this is the machine-readable nav document
+required by spec), foreword/preface/prologue. Back matter: acknowledgments, About the Author, Also
+By (with store links in EPUB), newsletter signup. Some blocks are pure generation (TOC), some are
+short free text (dedication), one is a real small formatted document (copyright page) — plan the
+data model for that range, not just checkboxes.
+
+**Print-only layout** (the pagination engine gains real book-printing concepts, not just a new
+page size):
+- **Trim sizes** — 5×8, 5.25×8, 5.5×8.5, 6×9 (the last two cover most fiction) as a
+  `{width, height, margins}` parameter on the existing measurement-based engine.
+- **Mirrored margins with a gutter** — recto/verso pages, inside margin wider than outside. The
+  engine currently has no concept of page side; this is the first genuinely new idea it needs.
+- **Front-matter page numbering** — lowercase roman numerals (or none), resetting to arabic 1 at
+  chapter one; no folio on chapter-opening or blank pages; running heads (author on verso, title on
+  recto) that vanish on chapter openers.
+- **Chapter-start rules** — new chapter always starts on a fresh page with a deep sink (~⅓ down);
+  optionally forced to always land on a recto page (inserting a blank verso when needed).
+
+**Chapter heading design + fonts — a "theme" layer** (Vellum's actual product, worth copying as a
+concept): one bundle of choices applied everywhere rather than dozens of independent knobs.
+- **Chapter number/title style** — "Chapter One" / "Chapter 1" / bare "1" / roman numeral / custom
+  label, optional title beneath, optional ornament or rule.
+- **Chapter openers** — drop cap, raised cap, first-line small caps, or plain.
+- **Scene breaks** — the existing `***`/`⁂` convention, themeable as asterisks, an ornament, or
+  blank space.
+- **Serif fonts, OFL-licensed** (free to embed in both PDF and EPUB) — EB Garamond, Crimson Pro,
+  Literata (Google's ebook-commissioned face), Alegreya, Libre Baskerville, Source Serif, Spectral.
+  Ship two or three good ones rather than many mediocre ones. Note: most e-readers let the reader
+  override the publisher font regardless, so embedded EPUB fonts are a default, not a guarantee —
+  the print PDF is where font choice fully pays off.
+
+**EPUB packaging** — a ZIP of XHTML chapter files + CSS + an OPF manifest (title, author, language,
+ISBN/identifier, description) + the nav/TOC document + cover image, targeting EPUB 3 (validate
+against EPUBCheck; KDP now ingests EPUB directly, so one artifact covers Kindle + Apple Books +
+Kobo). Two things that make this fit the existing no-dependencies, vanilla-JS house rule: card
+bodies already round-trip through `emphToHtml`, so chapter-XHTML generation is half-written; and a
+ZIP with **stored (uncompressed) entries** is valid and simple to hand-write (the one spec quirk —
+the `mimetype` file must be first and uncompressed — falls out naturally from store-only). New
+show-level metadata this requires: author display name, ISBN, publisher line, description, a cover
+image (the data model's first real binary asset — flag early), and per-book theme + trim settings.
+
+**Phasing** (front/back matter first since it also improves the existing PDF path immediately):
+(1) Front/back-matter blocks. (2) Theme layer + serif fonts + chapter-opener styles (Print View
+visibly becomes "book," not "manuscript" — still no new pagination-engine concepts). (3) Trim
+sizes + recto/verso + book page-numbering (the pagination-engine work). (4) EPUB export last — the
+least coupled piece since it skips pagination entirely; it just needs (1) and (2) done to have real
+content and metadata to package.
 
 ### Design lessons we're keeping
 
