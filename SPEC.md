@@ -446,6 +446,38 @@ the table above):
    *comparison, not fill-in*: "your show has no Act 1 finale — here's how three reference shows
    handle that beat." A prompt to think, never a slot to fill.
 
+### Professional-libretto formatting gaps (future, small)
+
+Audited 2026-07-05. Song Plot's **Libretto look is already the default** — sung lyrics render
+ALL-CAPS in the Manuscript (`.lw-sung` uppercase, with chord names exempted so `Bb`/`B#` survive),
+the "SONGS" title page auto-lists every song card in order, songs auto-number 1, 2, 3… (with inline
+`#7`-style header markup supported), and characters carry a **voice type** that surfaces on the Cast
+title page. So most of what a submission packet needs exists. The genuine remaining gaps, all small
+relative to the existing engine:
+
+- **Musical-number *types* beyond songs.** Numbering counts song cards only. Real scripts number the
+  *whole* musical spine — overture, entr'acte, playoffs, scene-change music, bows — and use
+  **letter suffixes for reprises/incidental music** (`#7A — Tango Playoff`, `#7B — Scene Change`).
+  Needs a "number type" on song cards (song / reprise / instrumental) that ripples into the song
+  list and the manuscript song headers. This is the one real structural gap.
+- **Structured book/music/lyrics credits.** The title page's author line is a single freetext field.
+  Pros credit *Book by / Music by / Lyrics by* as separate lines, plus underlying-rights ("Based
+  on…") and occasionally separate © for book vs. score. A small structured upgrade to the title-page
+  data model.
+- **French-scenes grid.** The who's-onstage-when matrix (characters × scenes) that SMs/directors
+  build by hand. Fully derivable from existing cue data — a generated read-only artifact, not new
+  authored data.
+- **Revision *colors*.** Revision marks and revised-pages-only export already exist; the pro
+  convention adds the goldenrod/salmon/blue colored-page sequence. Mostly a label-and-tint on the
+  revision machinery already built.
+- **Sides generation.** Per-scene export already exists and is close; a "pull one scene + one song
+  for auditions" packet would finish it.
+
+If Song Plot ever wants a Prose-Plot-style *theme* switcher it's only two or three modes —
+**Submission manuscript** (today's default), **Libretto style** (already 90% the default), and maybe
+a normal-case **Reading draft** — far lighter than the book-formatting effort, since it's one engine
+with different toggles rather than a new render path.
+
 ## 13. Editorial notes — the review punch-list
 
 **Status: a v1 has shipped** as the highlight-as-note feature (§5, "Inline notes"): select text →
