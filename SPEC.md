@@ -95,7 +95,7 @@ indicator) over a per-page contextual ribbon. The pages:
 | **Title pages** | Generated front matter (title, authors, contact, cast list, song list, settings), rendered on the same print sheets as the Manuscript, with per-block include toggles. |
 | **Manuscript** | The libretto word processor — Edit + Print View (§5). The primary surface. |
 | **Characters** | A registry card per character (voice type, description, notes, auto "appears in"), synced from lyric cues (§6). |
-| **Export** | Backup (.songplot JSON), Fountain (.fountain), PDF (via Print View), and import (§7). |
+| **Export** | Backup (.pshow JSON), Fountain (.fountain), PDF (via Print View), and import (§7). |
 
 ---
 
@@ -265,8 +265,11 @@ clicking one scrolls to the card, flashes the anchored highlight, and opens its 
 
 The Export page offers:
 
-- **Save backup** — download a `.songplot` JSON of the whole show.
-- **Open backup** — import a `.songplot` as a new project.
+- **Save backup** — download a `.pshow` JSON of the whole show (renamed from `.songplot` 2026-07-05
+  — the extension is app-neutral since Prose Plot uses the identical format; import still accepts
+  old `.songplot`/`.json` backups for compatibility). Includes `state.format` so a re-imported
+  backup keeps its song/prose identity instead of silently reverting to `'song'`.
+- **Open backup** — import a `.pshow` as a new project.
 - **Export as Fountain** — a `.fountain` plain-text screenplay file compatible with Final Draft,
   Highland, and Fade In; lyrics use standard Fountain character/dialogue blocks.
 - **PDF** — via Print View's print dialog (the FD-formatted pages).

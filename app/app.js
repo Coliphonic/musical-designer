@@ -3867,6 +3867,7 @@ function exportShow() {
     version: 1,
     title: state.title,
     mode: state.mode,
+    format: state.format,
     cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
     characters: state.characters,
     exported: Date.now(),
@@ -3875,7 +3876,7 @@ function exportShow() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = (state.title || 'untitled').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.songplot';
+  a.download = (state.title || 'untitled').replace(/[^a-z0-9]+/gi, '-').toLowerCase() + '.pshow';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -3889,6 +3890,7 @@ function importShow(file) {
       const body = JSON.stringify({
         title: data.title || 'Imported show',
         mode: data.mode || 'full',
+        format: data.format || 'song', // older backups predate the format field
         cards: data.cards,
         characters: data.characters || {},
         updated: Date.now(),
@@ -3896,7 +3898,7 @@ function importShow(file) {
       fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
         .then((r) => r.json()).then((d) => loadProjects().then(() => { openProject(d.id); navigateTo('board'); }));
     } catch (_) {
-      alert('Could not read file. Make sure it\'s a valid .songplot file.');
+      alert('Could not read file. Make sure it\'s a valid .pshow file.');
     }
   };
   reader.readAsText(file);
@@ -4045,8 +4047,8 @@ function openExportDrawer() {
   // Save backup
   const s1 = el('div', { class: 'exp-section' });
   s1.appendChild(el('h2', { class: 'exp-heading', text: 'Save backup' }));
-  s1.appendChild(el('p', { class: 'exp-desc', text: 'Download a .songplot file you can keep locally or move to another computer.' }));
-  const expBtn = el('button', { class: 'pbtn exp-btn', text: '↓  Download ' + (state.title || 'show') + '.songplot' });
+  s1.appendChild(el('p', { class: 'exp-desc', text: 'Download a .pshow file you can keep locally or move to another computer.' }));
+  const expBtn = el('button', { class: 'pbtn exp-btn', text: '↓  Download ' + (state.title || 'show') + '.pshow' });
   expBtn.addEventListener('click', exportShow);
   if (state.readonly) {
     expBtn.disabled = true;
@@ -4072,9 +4074,9 @@ function openExportDrawer() {
   // Import
   const s3 = el('div', { class: 'exp-section' });
   s3.appendChild(el('h2', { class: 'exp-heading', text: 'Open backup' }));
-  s3.appendChild(el('p', { class: 'exp-desc', text: 'Load a .songplot file. It will be added as a new project and you can rename it.' }));
-  const fileInput = el('input', { type: 'file', accept: '.songplot,.json', class: 'exp-file-input', id: 'exp-file-input' });
-  const impLabel = el('label', { class: 'pbtn exp-btn', for: 'exp-file-input', text: '↑  Choose .songplot file…' });
+  s3.appendChild(el('p', { class: 'exp-desc', text: 'Load a .pshow file. It will be added as a new project and you can rename it.' }));
+  const fileInput = el('input', { type: 'file', accept: '.pshow,.songplot,.json', class: 'exp-file-input', id: 'exp-file-input' });
+  const impLabel = el('label', { class: 'pbtn exp-btn', for: 'exp-file-input', text: '↑  Choose .pshow file…' });
   fileInput.addEventListener('change', (e) => { if (e.target.files[0]) { closeExportDrawer(); importShow(e.target.files[0]); } });
   s3.appendChild(impLabel);
   s3.appendChild(fileInput);
