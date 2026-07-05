@@ -762,6 +762,11 @@ EPUB/DOCX export — each a later, independent phase.
 
 ### Book export — EPUB + print-ready PDF (future, not yet built)
 
+> **Execution plan exists:** `BOOK-FORMATTING-PLAN.md` (repo root) breaks this into 11
+> phases with per-phase file anchors, decided designs, and acceptance criteria, written to
+> be executed one phase per session. This section stays as the concept-level rationale;
+> the plan file is the how and carries the live status table.
+
 Prose Plot's eventual biggest gap versus Atticus/Vellum: today it can only export the screenplay-
 style Fountain/PDF Song Plot already has. A novelist needs two genuinely different deliverables,
 generated from the same card data, and **both must coexist as separate output modes** — this is
