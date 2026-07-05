@@ -33,7 +33,14 @@ by (user value ÷ risk); each is independently shippable and independently skipp
 
 ---
 
-## Phase 1 — Data safety (do first; small diffs, highest stakes)
+## Phase 1 — Data safety (do first; small diffs, highest stakes) — ✅ DONE 2026-07-05
+
+Shipped in commit `c01a558`. All four items below are live: atomic show/snapshot
+writes, honest save-error reporting, the schedule/fire staleness guard + flush-on-
+switch, and the 10MB request body cap. Verified in the browser preview (forced-500 →
+red dot, scheduled-then-switched save dropped correctly while flush-on-switch
+persisted it to the show being left, oversized PUT → 413). Left below for reference/
+audit trail — do not redo.
 
 The user's stated fear is losing work to corruption. These four fixes close the actual
 holes. Each is a few lines.
