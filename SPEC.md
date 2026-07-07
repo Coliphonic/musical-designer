@@ -243,6 +243,24 @@ clicking one scrolls to the card, flashes the anchored highlight, and opens its 
   card-modal Fountain editor, since the modal's rhyme/gutter tools are a different, tool-heavy
   activity, not sustained drafting.
 
+### North star: the unified manuscript (future — execution plan exists)
+
+Decided 2026-07-05: the long-term design is **one document, one editor, tools that come to
+you**. The Manuscript becomes the only editing surface; the Board becomes a pure planning
+lens (cards open the Manuscript, focused, rather than a separate editor); the lyric
+window's bench — rhymes, syllables, thesaurus, verse checks, card details — folds into the
+Manuscript as caret-following tools (a right-side inspector rail + a per-line craft margin
+on the active song); and input goes Highland-style flow-typing, with the seamless format's
+inference (`parseLyricLines`) surfaced live while typing and explicit element controls
+demoted to overrides. Rationale: `buildRichEditor` and the line model are already shared —
+what's duplicated is the *room around the editor*, not the editor; song-as-puzzle isolation
+is a view state (Focus + rail), not a separate window. The lyric window survives until the
+folded-in bench reaches parity, then demotes to an opener, then retires.
+**`UNIFIED-MANUSCRIPT-PLAN.md`** (repo root) breaks this into 12 phases across 5 tracks
+(A: Board↔Manuscript connections · B: inspector rail · C: craft margin · D: flow-typing ·
+E: lyric-window retirement) with per-phase code anchors, decided designs, and acceptance
+criteria; it carries the live status table.
+
 ---
 
 ## 6. Characters & Title pages
