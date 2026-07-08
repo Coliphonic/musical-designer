@@ -276,7 +276,7 @@ function openProject(id, afterOpen) {
     state.readonly = state.role === 'viewer';
     state.loading = false;
     render();
-    setSaveInd('saved');
+    setSaveInd(state.role === 'viewer' ? 'viewonly' : 'saved');
     if (afterOpen) afterOpen();
   }).catch(() => setSaveInd('error'));
 }
@@ -990,9 +990,9 @@ function setCurrentApp(app) {
 
 function setSaveInd(s) {
   const e = document.getElementById('save-ind'); if (!e) return;
-  const cls = s === 'saving' ? 'saving' : s === 'saved' ? 'saved' : s === 'ref' ? 'ref' : s === 'error' ? 'err' : 'unsaved';
+  const cls = s === 'saving' ? 'saving' : s === 'saved' ? 'saved' : s === 'ref' ? 'ref' : s === 'viewonly' ? 'viewonly' : s === 'error' ? 'err' : 'unsaved';
   e.className = 'sb-save-dot ' + cls;
-  e.title = s === 'saving' ? 'Saving…' : s === 'saved' ? 'Saved' : s === 'ref' ? 'Reference · read-only' : s === 'error' ? 'Save failed' : 'Unsaved changes';
+  e.title = s === 'saving' ? 'Saving…' : s === 'saved' ? 'Saved' : s === 'ref' ? 'Reference · read-only' : s === 'viewonly' ? 'View only — your changes here wouldn\'t be saved' : s === 'error' ? 'Save failed' : 'Unsaved changes';
 }
 function renderShowBtn() {
   const nameEl = document.getElementById('sb-show-name');

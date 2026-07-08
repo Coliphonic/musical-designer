@@ -883,7 +883,8 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
 }
 .sb-save-dot.saved { background: #4ecb8b; box-shadow: 0 0 5px 0 rgba(78,203,139,0.6); }
 .sb-save-dot.unsaved,
-.sb-save-dot.ref { background: #6b6477; }
+.sb-save-dot.ref,
+.sb-save-dot.viewonly { background: #6b6477; }
 .sb-save-dot.saving { background: #8b82e8; animation: sb-dot-pulse 1s ease-in-out infinite; }
 .sb-save-dot.err { background: #e0564f; box-shadow: 0 0 5px 0 rgba(224,86,79,0.6); }
 @keyframes sb-dot-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
