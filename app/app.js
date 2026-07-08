@@ -1037,7 +1037,8 @@ function showShowPopover() {
   const dupBtn = el('button', { class: 'pbtn', text: 'Duplicate' });
   dupBtn.addEventListener('click', (e) => { e.stopPropagation(); closeShowPopover(); duplicateProject(); });
   const delBtn = el('button', { class: 'pbtn danger', text: 'Delete' });
-  delBtn.disabled = state.readonly;
+  const curProject = (state.projects || []).find((p) => p.id === state.projectId);
+  delBtn.disabled = state.readonly || (curProject ? !isOwner(curProject) : false);
   delBtn.addEventListener('click', (e) => { e.stopPropagation(); closeShowPopover(); deleteProject(); });
 
   [newBtn, dupBtn, delBtn].forEach((b) => actions.appendChild(b));
@@ -1168,11 +1169,18 @@ function openSnapshotsDrawer() {
       if (nl === null) return;
       snapApi('PUT', '/' + s.id, { label: nl.trim() }).then(renderSnapList).catch(() => {});
     });
-    const del = el('button', { class: 'snap-act danger', text: 'Delete' });
-    del.addEventListener('click', () => {
-      if (confirm('Delete this snapshot? This can’t be undone.')) snapApi('DELETE', '/' + s.id).then(renderSnapList).catch(() => {});
-    });
-    [restore, rename, del].forEach((b) => actions.appendChild(b));
+    actions.appendChild(restore);
+    actions.appendChild(rename);
+    // Deleting a snapshot is owner-only (server enforces this too) — a
+    // collaborator shouldn't be able to erase the owner's version history.
+    const curProject = (state.projects || []).find((p) => p.id === state.projectId);
+    if (!curProject || isOwner(curProject)) {
+      const del = el('button', { class: 'snap-act danger', text: 'Delete' });
+      del.addEventListener('click', () => {
+        if (confirm('Delete this snapshot? This can’t be undone.')) snapApi('DELETE', '/' + s.id).then(renderSnapList).catch(() => {});
+      });
+      actions.appendChild(del);
+    }
     row.appendChild(actions);
     return row;
   }

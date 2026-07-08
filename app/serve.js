@@ -439,6 +439,7 @@ function handleApi(req, res, parts, user) {
       });
     }
     if (req.method === 'DELETE' && snapId) {
+      if (existing.owner && existing.owner !== user.id) return sendJSON(res, 403, { error: 'owner only' });
       store.snapshots = store.snapshots.filter((s) => s.id !== snapId);
       try { saveSnaps(sid, store); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
       return sendJSON(res, 200, { ok: true });
@@ -464,6 +465,8 @@ function handleApi(req, res, parts, user) {
     return;
   }
   if (req.method === 'DELETE') {
+    if (!existing) return sendJSON(res, 404, { error: 'not found' });
+    if (existing.owner && existing.owner !== user.id) return sendJSON(res, 403, { error: 'owner only' });
     try { fs.unlinkSync(fileFor(sid)); } catch (_) { /* gone */ }
     try { fs.unlinkSync(snapFileFor(sid)); } catch (_) { /* none */ }
     sendJSON(res, 200, { ok: true });
