@@ -529,7 +529,7 @@ http
       const user = currentUser(req);
       if (!user) return sendJSON(res, 401, { error: 'unauth' });
       if (USE_REMOTE) return proxyToRemote(req, res);
-      return sendJSON(res, 200, loadUsers().map((u) => ({ id: u.id, name: u.name })));
+      return sendJSON(res, 200, loadUsers().filter((u) => !u.disabled).map((u) => ({ id: u.id, name: u.name })));
     }
 
     // Shows API requires a valid session.

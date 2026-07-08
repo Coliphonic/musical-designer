@@ -721,7 +721,13 @@ function openShareModal(id) {
   const collab = p.collaborators || [];
   const others = (state.users || []).filter((u) => !state.me || u.id !== state.me.id);
   if (!others.length) {
-    list.appendChild(el('div', { class: 'share-empty', text: 'No other accounts yet. Create one on the server with: node users.js add <name> <password>' }));
+    const isAdmin = state.me && state.me.admin;
+    list.appendChild(el('div', { class: 'share-empty', text: isAdmin ? 'No other accounts yet. Invite a collaborator from the Admin page.' : 'No other accounts yet. Ask an admin to invite a collaborator.' }));
+    if (isAdmin) {
+      const goBtn = el('button', { class: 'pbtn', style: 'align-self:flex-start;margin-top:8px', text: 'Open Admin page' });
+      goBtn.addEventListener('click', () => { closeShareModal(); navigateTo('admin'); });
+      list.appendChild(goBtn);
+    }
   } else {
     others.forEach((u) => {
       const row = el('label', { class: 'share-row' });
