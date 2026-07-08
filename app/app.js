@@ -3057,9 +3057,16 @@ function buildBlocks(toksRaw) {
   const blocks = [];
   let i = 0;
   let prevRealType = null; // last non-blank token type seen
+  let lastCueName = null; // last character to speak, for same-page CONT'D
   while (i < toks.length) {
     const tok = toks[i];
+    // Scene/act/song boundaries break the CONT'D chain even if no other character spoke.
+    if (['act-header', 'scene-header', 'song-num', 'section'].includes(tok.type)) lastCueName = null;
     if (tok.type === 'cue') {
+      if (!tok.dual && lastCueName && tok.text.trim().toLowerCase() === lastCueName.trim().toLowerCase()) {
+        tok.contd = true;
+      }
+      if (!tok.dual) lastCueName = tok.text;
       const tokens = [tok];
       let j = i + 1;
       while (j < toks.length) {
