@@ -1153,9 +1153,11 @@ function openSnapshotsDrawer() {
     }).catch(() => {});
   }
   function snapRow(s) {
+    const isAuto = s.kind === 'auto';
     const row = el('div', { class: 'snap-row' });
     const top = el('div', { class: 'snap-row-top' });
-    top.appendChild(el('span', { class: 'snap-label', text: s.label || snapDefaultLabel() }));
+    if (isAuto) top.appendChild(el('span', { class: 'snap-badge', text: 'Auto' }));
+    top.appendChild(el('span', { class: 'snap-label', text: s.label || (isAuto ? 'Automatic checkpoint' : snapDefaultLabel()) }));
     top.appendChild(el('span', { class: 'snap-time', text: snapRelTime(s.ts) }));
     row.appendChild(top);
     const actions = el('div', { class: 'snap-actions' });
@@ -1163,14 +1165,16 @@ function openSnapshotsDrawer() {
     restore.addEventListener('click', () => {
       if (confirm('Restore "' + (s.label || 'this snapshot') + '"?\n\nYour current version will be snapshotted first, so this is safe.')) restoreSnapshot(s.id);
     });
-    const rename = el('button', { class: 'snap-act', text: 'Rename' });
-    rename.addEventListener('click', () => {
-      const nl = prompt('Rename snapshot:', s.label || '');
-      if (nl === null) return;
-      snapApi('PUT', '/' + s.id, { label: nl.trim() }).then(renderSnapList).catch(() => {});
-    });
     actions.appendChild(restore);
-    actions.appendChild(rename);
+    if (!isAuto) {
+      const rename = el('button', { class: 'snap-act', text: 'Rename' });
+      rename.addEventListener('click', () => {
+        const nl = prompt('Rename snapshot:', s.label || '');
+        if (nl === null) return;
+        snapApi('PUT', '/' + s.id, { label: nl.trim() }).then(renderSnapList).catch(() => {});
+      });
+      actions.appendChild(rename);
+    }
     // Deleting a snapshot is owner-only (server enforces this too) — a
     // collaborator shouldn't be able to erase the owner's version history.
     const curProject = (state.projects || []).find((p) => p.id === state.projectId);

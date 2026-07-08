@@ -89,8 +89,40 @@ function writeFileAtomic(fp, data) {
 }
 function fileFor(id) { return path.join(SHOWS_DIR, id + '.json'); }
 function snapFileFor(id) { return path.join(SNAPS_DIR, id + '.json'); }
-function loadSnaps(id) { try { return JSON.parse(fs.readFileSync(snapFileFor(id), 'utf8')); } catch (_) { return { snapshots: [] }; } }
+function loadSnaps(id) {
+  let d;
+  try { d = JSON.parse(fs.readFileSync(snapFileFor(id), 'utf8')); } catch (_) { d = {}; }
+  if (!Array.isArray(d.snapshots)) d.snapshots = [];
+  if (!Array.isArray(d.auto)) d.auto = []; // separate, smaller-capped pool for automatic checkpoints
+  return d;
+}
 function saveSnaps(id, obj) { writeFileAtomic(snapFileFor(id), JSON.stringify(obj)); }
+
+// Automatic checkpoints: a lightweight safety net (a collaborator or a slip
+// of your own can overwrite content; manual snapshots only help if you
+// remembered to take one first). Time-gated rather than per-save, since
+// scheduleSave() can fire every ~1s during active typing — snapshotting that
+// often would blow through the cap in minutes and lose the point of having
+// history spread over a useful span of time. Capped separately from manual
+// snapshots so autosaves can never crowd out ones you took on purpose.
+const AUTO_SNAPSHOT_INTERVAL_MS = 15 * 60 * 1000; // at most one every 15 min
+const AUTO_SNAPSHOT_CAP = 15;
+function maybeAutoSnapshot(sid, previousData) {
+  const store = loadSnaps(sid);
+  const last = store.auto[0];
+  if (last && Date.now() - last.ts < AUTO_SNAPSHOT_INTERVAL_MS) return;
+  store.auto.unshift({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5), ts: Date.now(), data: previousData });
+  if (store.auto.length > AUTO_SNAPSHOT_CAP) store.auto.length = AUTO_SNAPSHOT_CAP;
+  try { saveSnaps(sid, store); } catch (_) { /* best effort — never block a save over this */ }
+}
+// Locates a snapshot by id across both the manual and automatic pools.
+function findSnap(store, snapId) {
+  let idx = store.snapshots.findIndex((s) => s.id === snapId);
+  if (idx >= 0) return { list: store.snapshots, idx, kind: 'manual' };
+  idx = store.auto.findIndex((s) => s.id === snapId);
+  if (idx >= 0) return { list: store.auto, idx, kind: 'auto' };
+  return null;
+}
 
 // ---- Auth helpers --------------------------------------------------------
 function loadUsers() { try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); } catch (_) { return []; } }
@@ -400,18 +432,24 @@ function handleApi(req, res, parts, user) {
   }
 
   // Sub-action: /api/shows/:id/snapshots — whole-show version history.
-  // GET (list metadata) · POST (create) · GET/:snapId (full data) ·
-  // PUT/:snapId (rename) · DELETE/:snapId. Access already enforced above.
+  // Two pools: manual (capped 30, user-labeled) and auto (capped 15, written
+  // by maybeAutoSnapshot on every save). GET (list metadata, both pools
+  // tagged with kind) · POST (create manual) · GET/:snapId (full data) ·
+  // PUT/:snapId (rename, manual only) · DELETE/:snapId (owner only).
   if (parts[3] === 'snapshots') {
     if (!existing) return sendJSON(res, 404, { error: 'not found' });
     const snapId = parts[4] ? safeId(parts[4]) : null;
     const store = loadSnaps(sid);
-    const meta = (s) => ({ id: s.id, label: s.label, ts: s.ts });
+    const meta = (s, kind) => ({ id: s.id, label: s.label || '', ts: s.ts, kind });
 
-    if (req.method === 'GET' && !snapId) return sendJSON(res, 200, store.snapshots.map(meta));
+    if (req.method === 'GET' && !snapId) {
+      const list = store.snapshots.map((s) => meta(s, 'manual')).concat(store.auto.map((s) => meta(s, 'auto')));
+      list.sort((a, b) => b.ts - a.ts);
+      return sendJSON(res, 200, list);
+    }
     if (req.method === 'GET' && snapId) {
-      const snap = store.snapshots.find((s) => s.id === snapId);
-      return snap ? sendJSON(res, 200, snap) : sendJSON(res, 404, { error: 'not found' });
+      const found = findSnap(store, snapId);
+      return found ? sendJSON(res, 200, Object.assign({}, found.list[found.idx], { kind: found.kind })) : sendJSON(res, 404, { error: 'not found' });
     }
     if (req.method === 'POST' && !snapId) {
       return readBody(req, res, (body) => {
@@ -425,22 +463,23 @@ function handleApi(req, res, parts, user) {
         store.snapshots.unshift(snap);
         if (store.snapshots.length > 30) store.snapshots.length = 30; // cap; drop oldest
         try { saveSnaps(sid, store); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
-        return sendJSON(res, 200, meta(snap));
+        return sendJSON(res, 200, meta(snap, 'manual'));
       });
     }
     if (req.method === 'PUT' && snapId) {
       return readBody(req, res, (body) => {
         let d; try { d = JSON.parse(body || '{}'); } catch (_) { d = {}; }
-        const snap = store.snapshots.find((s) => s.id === snapId);
+        const snap = store.snapshots.find((s) => s.id === snapId); // rename applies to manual snapshots only
         if (!snap) return sendJSON(res, 404, { error: 'not found' });
         if (typeof d.label === 'string') snap.label = d.label.trim().slice(0, 120);
         try { saveSnaps(sid, store); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
-        return sendJSON(res, 200, meta(snap));
+        return sendJSON(res, 200, meta(snap, 'manual'));
       });
     }
     if (req.method === 'DELETE' && snapId) {
       if (existing.owner && existing.owner !== user.id) return sendJSON(res, 403, { error: 'owner only' });
-      store.snapshots = store.snapshots.filter((s) => s.id !== snapId);
+      const found = findSnap(store, snapId);
+      if (found) found.list.splice(found.idx, 1);
       try { saveSnaps(sid, store); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
       return sendJSON(res, 200, { ok: true });
     }
@@ -459,7 +498,10 @@ function handleApi(req, res, parts, user) {
       // Preserve ownership/collaborators across saves; clients don't manage them yet.
       obj.owner = (existing && existing.owner) || user.id;
       if (existing && existing.collaborators) obj.collaborators = existing.collaborators;
-      try { writeFileAtomic(fileFor(sid), JSON.stringify(obj)); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
+      try {
+        if (existing) maybeAutoSnapshot(sid, existing); // checkpoint the pre-save version, time-gated
+        writeFileAtomic(fileFor(sid), JSON.stringify(obj));
+      } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
       sendJSON(res, 200, { ok: true });
     });
     return;
