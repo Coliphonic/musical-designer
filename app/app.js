@@ -59,6 +59,7 @@ const state = {
   wordCountBaseline: 0,     // total word count as of the start of wordCountBaselineDate
   wordCountBaselineDate: '', // 'YYYY-MM-DD', local time — rolls forward in buildStats
   projectId: null,
+  role: 'owner',       // 'owner' | 'editor' | 'viewer' — role on the currently open project
   readonly: true,
   loading: false,
   projects: [],
@@ -266,7 +267,13 @@ function openProject(id, afterOpen) {
     applyShowData(d);
     state.projectId = id;
     state.showKey = null;
-    state.readonly = false;
+    state.role = d.role || 'owner';
+    // A 'viewer' collaborator gets the same read-only rendering as the
+    // reference library (no card edits, no lyric editing, no saves) — see
+    // the state.readonly call sites for what that disables. state.showKey
+    // staying null is what distinguishes "viewer of a real show" from
+    // "studying a reference show" at the couple of spots that need to.
+    state.readonly = state.role === 'viewer';
     state.loading = false;
     render();
     setSaveInd('saved');
@@ -456,7 +463,7 @@ function libCard(p) {
   const tags = el('div', { class: 'lib-card-tags' });
   const status = p.status || 'active';
   tags.appendChild(el('span', { class: 'lib-badge lib-status-' + status, text: status.charAt(0).toUpperCase() + status.slice(1) }));
-  if (p.shared) tags.appendChild(el('span', { class: 'lib-badge lib-shared', text: 'Shared by ' + userName(p.owner) }));
+  if (p.shared) tags.appendChild(el('span', { class: 'lib-badge lib-shared', text: 'Shared by ' + userName(p.owner) + (p.role === 'viewer' ? ' · View only' : '') }));
   else if ((p.collaborators || []).length) tags.appendChild(el('span', { class: 'lib-badge lib-shared', text: 'Shared · ' + p.collaborators.length }));
   card.appendChild(tags);
   return card;
@@ -729,11 +736,25 @@ function openShareModal(id) {
       list.appendChild(goBtn);
     }
   } else {
+    const roles = p.collabRoles || {};
     others.forEach((u) => {
-      const row = el('label', { class: 'share-row' });
+      const row = el('div', { class: 'share-row' });
+      const cbLabel = el('label', { class: 'share-cb-label' });
       const cb = el('input'); cb.type = 'checkbox'; cb.value = u.id; cb.checked = collab.indexOf(u.id) >= 0;
-      row.appendChild(cb);
-      row.appendChild(el('span', { class: 'share-name', text: u.name }));
+      cbLabel.appendChild(cb);
+      cbLabel.appendChild(el('span', { class: 'share-name', text: u.name }));
+      row.appendChild(cbLabel);
+      // Role only matters while the collaborator is checked in — disabled
+      // (but still visible) otherwise so the choice isn't lost if they
+      // uncheck-then-recheck within the same modal session.
+      const roleSel = el('select', { class: 'share-role' });
+      roleSel.appendChild(el('option', { value: 'editor', text: 'Can edit' }));
+      roleSel.appendChild(el('option', { value: 'viewer', text: 'Can view' }));
+      roleSel.value = roles[u.id] === 'viewer' ? 'viewer' : 'editor';
+      roleSel.disabled = !cb.checked;
+      roleSel.dataset.uid = u.id;
+      cb.addEventListener('change', () => { roleSel.disabled = !cb.checked; });
+      row.appendChild(roleSel);
       list.appendChild(row);
     });
   }
@@ -743,8 +764,10 @@ function closeShareModal() { document.getElementById('share-modal').style.displa
 function saveSharing() {
   if (!_shareId) { closeShareModal(); return; }
   const ids = Array.from(document.querySelectorAll('#share-list input:checked')).map((c) => c.value);
+  const roles = {};
+  document.querySelectorAll('#share-list select.share-role').forEach((sel) => { if (sel.value === 'viewer') roles[sel.dataset.uid] = 'viewer'; });
   const id = _shareId;
-  fetch('/api/shows/' + id + '/share', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collaborators: ids }) })
+  fetch('/api/shows/' + id + '/share', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ collaborators: ids, roles }) })
     .then((r) => r.json()).then(() => { closeShareModal(); loadProjects().then(() => { if (state.page === 'library') buildLibraryPage(); }); })
     .catch(() => { closeShareModal(); });
 }
@@ -1587,7 +1610,7 @@ function buildBoard() {
       if (state.view === 'songs' && c.type !== (state.format === 'prose' ? 'scene' : 'song')) return;
       lane.appendChild(buildCard(c, i, pct[i]));
     });
-    lane.appendChild(addTile(L.key));
+    if (!state.readonly) lane.appendChild(addTile(L.key));
     wrap.appendChild(el('div', { class: 'actband' }, [el('div', { class: 'actlabel' }, [el('span', { text: L.label })]), lane]));
   });
   return wrap;
@@ -2955,7 +2978,7 @@ function buildContentTokens(sceneId) {
       toks.push({ type: 'song-num', num: songNum, title: c.title || 'Untitled', key: 'sg:' + c.id });
       toks.push({ type: 'blank' });
       if (c.lyrics && c.lyrics.trim()) cardBodyTokens(c).forEach(pushLyric);
-      else toks.push({ type: 'action', text: state.readonly ? '(lyrics not reproduced)' : '(no lyrics yet)' });
+      else toks.push({ type: 'action', text: (state.readonly && state.showKey) ? '(lyrics not reproduced)' : '(no lyrics yet)' });
       toks.push({ type: 'blank' });
     }
   };
@@ -4267,7 +4290,7 @@ function openExportDrawer() {
   s1.appendChild(el('p', { class: 'exp-desc', text: 'Download a .pshow file you can keep locally or move to another computer.' }));
   const expBtn = el('button', { class: 'pbtn exp-btn', text: '↓  Download ' + (state.title || 'show') + '.pshow' });
   expBtn.addEventListener('click', exportShow);
-  if (state.readonly) {
+  if (state.readonly && state.showKey) {
     expBtn.disabled = true;
     s1.appendChild(el('p', { class: 'exp-note', text: 'Switch to a project (not a reference show) to export.' }));
   }

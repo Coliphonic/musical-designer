@@ -216,11 +216,18 @@ function currentUser(req) {
   if (u && u.disabled) return null; // disabled accounts are logged out immediately, even with a valid cookie
   return u;
 }
-function canAccess(show, user) {
-  if (!show || !user) return false;
-  if (!show.owner) return true; // legacy show, not yet claimed
-  return show.owner === user.id || (show.collaborators || []).indexOf(user.id) >= 0;
+// A collaborator's role defaults to 'editor'; 'viewer' is only ever recorded
+// in collabRoles for collaborators explicitly downgraded via the share
+// modal. Legacy shows (no owner yet) are open to anyone signed in.
+function roleFor(show, user) {
+  if (!show || !user) return null;
+  if (!show.owner) return 'owner';
+  if (show.owner === user.id) return 'owner';
+  if ((show.collaborators || []).indexOf(user.id) < 0) return null;
+  return (show.collabRoles || {})[user.id] === 'viewer' ? 'viewer' : 'editor';
 }
+function canAccess(show, user) { return roleFor(show, user) !== null; }
+function canEdit(show, user) { const r = roleFor(show, user); return r === 'owner' || r === 'editor'; }
 
 // ---- Auth endpoints ------------------------------------------------------
 function handleAuth(req, res, parts) {
@@ -389,7 +396,8 @@ function handleApi(req, res, parts, user) {
             id: f.replace(/\.json$/, ''), title: d.title || 'Untitled', updated: d.updated || 0,
             mode: d.mode || 'full', status: d.status || 'active', folder: d.folder || '', owner: d.owner || null,
             format: d.format || 'song',
-            collaborators: d.collaborators || [], shared: !!(d.owner && d.owner !== user.id),
+            collaborators: d.collaborators || [], collabRoles: d.collabRoles || {}, shared: !!(d.owner && d.owner !== user.id),
+            role: roleFor(d, user),
           });
         } catch (_) { /* skip */ }
       });
@@ -416,7 +424,8 @@ function handleApi(req, res, parts, user) {
   try { existing = JSON.parse(fs.readFileSync(fileFor(sid), 'utf8')); } catch (_) { existing = null; }
   if (existing && !canAccess(existing, user)) return sendJSON(res, 403, { error: 'forbidden' });
 
-  // Sub-action: PUT /api/shows/:id/share — owner sets the collaborator list.
+  // Sub-action: PUT /api/shows/:id/share — owner sets the collaborator list
+  // and, per collaborator, an optional 'viewer' role (default is 'editor').
   if (parts[3] === 'share') {
     if (req.method !== 'PUT') return sendJSON(res, 405, { error: 'method' });
     if (!existing) return sendJSON(res, 404, { error: 'not found' });
@@ -426,8 +435,12 @@ function handleApi(req, res, parts, user) {
       const ids = loadUsers().map((u) => u.id);
       existing.collaborators = (Array.isArray(data.collaborators) ? data.collaborators : [])
         .filter((cid) => cid !== user.id && ids.indexOf(cid) >= 0);
+      const roles = {};
+      const inRoles = (data.roles && typeof data.roles === 'object') ? data.roles : {};
+      existing.collaborators.forEach((cid) => { if (inRoles[cid] === 'viewer') roles[cid] = 'viewer'; });
+      existing.collabRoles = roles;
       try { writeFileAtomic(fileFor(sid), JSON.stringify(existing)); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
-      sendJSON(res, 200, { ok: true, collaborators: existing.collaborators });
+      sendJSON(res, 200, { ok: true, collaborators: existing.collaborators, collabRoles: existing.collabRoles });
     });
   }
 
@@ -452,6 +465,7 @@ function handleApi(req, res, parts, user) {
       return found ? sendJSON(res, 200, Object.assign({}, found.list[found.idx], { kind: found.kind })) : sendJSON(res, 404, { error: 'not found' });
     }
     if (req.method === 'POST' && !snapId) {
+      if (!canEdit(existing, user)) return sendJSON(res, 403, { error: 'view only' });
       return readBody(req, res, (body) => {
         let d; try { d = JSON.parse(body || '{}'); } catch (_) { d = {}; }
         const snap = {
@@ -467,6 +481,7 @@ function handleApi(req, res, parts, user) {
       });
     }
     if (req.method === 'PUT' && snapId) {
+      if (!canEdit(existing, user)) return sendJSON(res, 403, { error: 'view only' });
       return readBody(req, res, (body) => {
         let d; try { d = JSON.parse(body || '{}'); } catch (_) { d = {}; }
         const snap = store.snapshots.find((s) => s.id === snapId); // rename applies to manual snapshots only
@@ -489,15 +504,17 @@ function handleApi(req, res, parts, user) {
   if (req.method === 'GET') {
     if (!existing) return sendJSON(res, 404, { error: 'not found' });
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' });
-    res.end(JSON.stringify(existing));
+    res.end(JSON.stringify(Object.assign({}, existing, { role: roleFor(existing, user) })));
     return;
   }
   if (req.method === 'PUT') {
+    if (existing && !canEdit(existing, user)) return sendJSON(res, 403, { error: 'view only' });
     readBody(req, res, (body) => {
       let obj; try { obj = JSON.parse(body || '{}'); } catch (_) { obj = {}; }
-      // Preserve ownership/collaborators across saves; clients don't manage them yet.
+      // Preserve ownership/collaborators/roles across saves; clients don't manage them yet.
       obj.owner = (existing && existing.owner) || user.id;
       if (existing && existing.collaborators) obj.collaborators = existing.collaborators;
+      if (existing && existing.collabRoles) obj.collabRoles = existing.collabRoles;
       try {
         if (existing) maybeAutoSnapshot(sid, existing); // checkpoint the pre-save version, time-gated
         writeFileAtomic(fileFor(sid), JSON.stringify(obj));
