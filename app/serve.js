@@ -25,6 +25,7 @@ const REMOTE_TOKEN = process.env.REMOTE_TOKEN || '';
 const SEED_DIR = path.join(ROOT, 'seed-shows');
 const USERS_FILE = path.join(ROOT, 'users.json');
 const SECRET_FILE = path.join(ROOT, 'secret.txt');
+const INVITES_FILE = path.join(ROOT, 'invites.json');
 try { fs.mkdirSync(SHOWS_DIR, { recursive: true }); } catch (e) { /* exists */ }
 // Whole-show version history. Kept in a sibling dir (not SHOWS_DIR) so the show
 // list endpoint, which scans every *.json in SHOWS_DIR, never trips over them.
@@ -93,6 +94,15 @@ function saveSnaps(id, obj) { writeFileAtomic(snapFileFor(id), JSON.stringify(ob
 
 // ---- Auth helpers --------------------------------------------------------
 function loadUsers() { try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); } catch (_) { return []; } }
+function saveUsers(users) { fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), { mode: 0o600 }); }
+function loadInvites() { try { return JSON.parse(fs.readFileSync(INVITES_FILE, 'utf8')); } catch (_) { return []; } }
+function saveInvites(invites) { try { fs.writeFileSync(INVITES_FILE, JSON.stringify(invites), { mode: 0o600 }); } catch (_) { /* best effort */ } }
+function slugName(name) { return String(name).trim().toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, ''); }
+function hashPassword(password) {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const h = crypto.scryptSync(String(password), salt, 32).toString('hex');
+  return salt + ':' + h;
+}
 
 function verifyPassword(user, password) {
   const [salt, hash] = (user.pass || '').split(':');
@@ -101,6 +111,22 @@ function verifyPassword(user, password) {
   try { test = crypto.scryptSync(String(password), salt, 32).toString('hex'); } catch (_) { return false; }
   const a = Buffer.from(hash, 'hex'); const b = Buffer.from(test, 'hex');
   return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// Invite/reset links: opaque single-use tokens stored server-side (not signed
+// like session tokens — the token itself IS the secret, like a password-reset
+// email link). type 'invite' creates a brand-new account; type 'reset' resets
+// an existing account's password (forUserId set). Admin-only to create.
+function validateInvite(inv) {
+  if (!inv) return { ok: false, reason: 'This invite link is not valid.' };
+  if (inv.revoked) return { ok: false, reason: 'This invite link was revoked.' };
+  if (inv.usedAt) return { ok: false, reason: 'This invite link was already used.' };
+  if (inv.expiresAt && Date.now() > inv.expiresAt) return { ok: false, reason: 'This invite link has expired.' };
+  return { ok: true };
+}
+function joinUrl(req, token) {
+  const proto = req.headers['x-forwarded-proto'] || (req.socket && req.socket.encrypted ? 'https' : 'http');
+  return proto + '://' + (req.headers.host || '') + '/join.html?t=' + token;
 }
 
 // Song Plot and Prose Plot are served from sibling subdomains of the same
@@ -154,7 +180,9 @@ function cookies(req) {
 function currentUser(req) {
   const id = parseToken(cookies(req).md_session);
   if (!id) return null;
-  return loadUsers().find((u) => u.id === id) || null;
+  const u = loadUsers().find((u) => u.id === id) || null;
+  if (u && u.disabled) return null; // disabled accounts are logged out immediately, even with a valid cookie
+  return u;
 }
 function canAccess(show, user) {
   if (!show || !user) return false;
@@ -168,14 +196,18 @@ function handleAuth(req, res, parts) {
   if (action === 'me' && req.method === 'GET') {
     const u = currentUser(req);
     if (!u) return sendJSON(res, 401, { error: 'unauth' });
-    return sendJSON(res, 200, { id: u.id, name: u.name });
+    return sendJSON(res, 200, { id: u.id, name: u.name, admin: !!u.admin });
   }
   if (action === 'login' && req.method === 'POST') {
     return readBody(req, res, (body) => {
       let data; try { data = JSON.parse(body || '{}'); } catch (_) { data = {}; }
       const name = String(data.name || '').trim().toLowerCase();
-      const user = loadUsers().find((u) => u.id === name || (u.name || '').toLowerCase() === name);
+      const users = loadUsers();
+      const user = users.find((u) => u.id === name || (u.name || '').toLowerCase() === name);
       if (!user || !verifyPassword(user, data.password)) return sendJSON(res, 401, { error: 'bad credentials' });
+      if (user.disabled) return sendJSON(res, 403, { error: 'account disabled' });
+      user.lastLogin = Date.now();
+      try { saveUsers(users); } catch (_) { /* best effort */ }
       const domainAttr = COOKIE_DOMAIN ? '; Domain=' + COOKIE_DOMAIN : '';
       const cookie = 'md_session=' + makeToken(user.id) + '; HttpOnly; SameSite=Lax; Path=/' + domainAttr + '; Max-Age=' + (60 * 60 * 24 * 90);
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'Set-Cookie': cookie });
@@ -186,6 +218,127 @@ function handleAuth(req, res, parts) {
     const domainAttr = COOKIE_DOMAIN ? '; Domain=' + COOKIE_DOMAIN : '';
     res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'Set-Cookie': 'md_session=; HttpOnly; SameSite=Lax; Path=/' + domainAttr + '; Max-Age=0' });
     return res.end(JSON.stringify({ ok: true }));
+  }
+  return sendJSON(res, 404, { error: 'not found' });
+}
+
+// ---- Join / reset (public, token-gated — no account signup exists otherwise) ---
+function handleJoin(req, res, parts) {
+  if (req.method === 'GET' && parts[0]) {
+    const inv = loadInvites().find((i) => i.token === parts[0]);
+    const check = validateInvite(inv);
+    if (!check.ok) return sendJSON(res, 410, { error: check.reason });
+    const forUser = inv.type === 'reset' ? loadUsers().find((u) => u.id === inv.forUserId) : null;
+    return sendJSON(res, 200, { type: inv.type, existingName: forUser ? forUser.name : null });
+  }
+  if (req.method === 'POST' && !parts[0]) {
+    return readBody(req, res, (body) => {
+      let data; try { data = JSON.parse(body || '{}'); } catch (_) { data = {}; }
+      const invites = loadInvites();
+      const inv = invites.find((i) => i.token === data.token);
+      const check = validateInvite(inv);
+      if (!check.ok) return sendJSON(res, 410, { error: check.reason });
+      const password = String(data.password || '');
+      if (password.length < 8) return sendJSON(res, 400, { error: 'Password must be at least 8 characters.' });
+      const users = loadUsers();
+      let user;
+      if (inv.type === 'reset') {
+        user = users.find((u) => u.id === inv.forUserId);
+        if (!user) return sendJSON(res, 404, { error: 'That account no longer exists.' });
+        user.pass = hashPassword(password);
+      } else {
+        const name = String(data.name || '').trim();
+        const id = slugName(name);
+        if (!name || !id) return sendJSON(res, 400, { error: 'Please enter a name.' });
+        if (users.find((u) => u.id === id)) return sendJSON(res, 409, { error: 'That name is already taken.' });
+        user = { id, name, pass: hashPassword(password), createdAt: Date.now() };
+        users.push(user);
+      }
+      inv.usedAt = Date.now();
+      inv.usedBy = user.id;
+      try { saveUsers(users); saveInvites(invites); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
+      const domainAttr = COOKIE_DOMAIN ? '; Domain=' + COOKIE_DOMAIN : '';
+      const cookie = 'md_session=' + makeToken(user.id) + '; HttpOnly; SameSite=Lax; Path=/' + domainAttr + '; Max-Age=' + (60 * 60 * 24 * 90);
+      res.writeHead(200, { 'content-type': 'application/json; charset=utf-8', 'Set-Cookie': cookie });
+      res.end(JSON.stringify({ id: user.id, name: user.name }));
+    });
+  }
+  return sendJSON(res, 404, { error: 'not found' });
+}
+
+// ---- Admin (requires an account with admin:true) --------------------------
+function handleAdmin(req, res, parts, adminUser) {
+  const section = parts[0];
+  if (section === 'users') {
+    const uid = parts[1];
+    if (req.method === 'GET' && !uid) {
+      const users = loadUsers();
+      const showCounts = {};
+      try {
+        fs.readdirSync(SHOWS_DIR).filter((f) => f.endsWith('.json')).forEach((f) => {
+          try {
+            const d = JSON.parse(fs.readFileSync(path.join(SHOWS_DIR, f), 'utf8'));
+            if (d.owner) showCounts[d.owner] = (showCounts[d.owner] || 0) + 1;
+          } catch (_) { /* skip */ }
+        });
+      } catch (_) { /* no shows dir */ }
+      return sendJSON(res, 200, users.map((u) => ({
+        id: u.id, name: u.name, admin: !!u.admin, disabled: !!u.disabled,
+        createdAt: u.createdAt || null, lastLogin: u.lastLogin || null,
+        showCount: showCounts[u.id] || 0,
+      })));
+    }
+    if (uid && parts[2] === 'toggle-disabled' && req.method === 'POST') {
+      const users = loadUsers();
+      const u = users.find((x) => x.id === uid);
+      if (!u) return sendJSON(res, 404, { error: 'not found' });
+      if (u.id === adminUser.id) return sendJSON(res, 400, { error: "You can't disable your own account." });
+      u.disabled = !u.disabled;
+      try { saveUsers(users); } catch (_) { return sendJSON(res, 500, { error: 'write' }); }
+      return sendJSON(res, 200, { id: u.id, disabled: u.disabled });
+    }
+    if (uid && parts[2] === 'reset-link' && req.method === 'POST') {
+      const users = loadUsers();
+      const u = users.find((x) => x.id === uid);
+      if (!u) return sendJSON(res, 404, { error: 'not found' });
+      const invites = loadInvites();
+      const token = crypto.randomBytes(24).toString('hex');
+      const inv = {
+        token, type: 'reset', forUserId: u.id, label: 'Password reset for ' + u.name,
+        createdBy: adminUser.id, createdAt: Date.now(), expiresAt: Date.now() + 3 * 24 * 60 * 60 * 1000,
+      };
+      invites.push(inv);
+      saveInvites(invites);
+      return sendJSON(res, 200, { token, url: joinUrl(req, token), expiresAt: inv.expiresAt });
+    }
+    return sendJSON(res, 404, { error: 'not found' });
+  }
+  if (section === 'invites') {
+    if (req.method === 'GET' && !parts[1]) {
+      return sendJSON(res, 200, loadInvites().slice().reverse());
+    }
+    if (req.method === 'POST' && !parts[1]) {
+      return readBody(req, res, (body) => {
+        let data; try { data = JSON.parse(body || '{}'); } catch (_) { data = {}; }
+        const invites = loadInvites();
+        const token = crypto.randomBytes(24).toString('hex');
+        const inv = {
+          token, type: 'invite', forUserId: null, label: String(data.label || '').trim().slice(0, 120),
+          createdBy: adminUser.id, createdAt: Date.now(), expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        };
+        invites.push(inv);
+        saveInvites(invites);
+        return sendJSON(res, 200, { token, url: joinUrl(req, token), expiresAt: inv.expiresAt });
+      });
+    }
+    if (req.method === 'DELETE' && parts[1]) {
+      const invites = loadInvites();
+      const inv = invites.find((i) => i.token === parts[1]);
+      if (inv) inv.revoked = true;
+      saveInvites(invites);
+      return sendJSON(res, 200, { ok: true });
+    }
+    return sendJSON(res, 405, { error: 'method' });
   }
   return sendJSON(res, 404, { error: 'not found' });
 }
@@ -359,6 +512,18 @@ http
     // Auth endpoints are always reachable.
     if (p.startsWith('/api/auth')) { handleAuth(req, res, p.split('/').filter(Boolean).slice(1)); return; }
 
+    // Join/reset endpoints are public but token-gated — this is the only way
+    // an account gets created (no open signup).
+    if (p.startsWith('/api/join')) { handleJoin(req, res, p.split('/').filter(Boolean).slice(2)); return; }
+
+    // Admin endpoints require an account with admin:true.
+    if (p.startsWith('/api/admin')) {
+      const user = currentUser(req);
+      if (!user || !user.admin) return sendJSON(res, 403, { error: 'forbidden' });
+      handleAdmin(req, res, p.split('/').filter(Boolean).slice(2), user);
+      return;
+    }
+
     // User directory (for the share picker) requires a valid session.
     if (p === '/api/users') {
       const user = currentUser(req);
@@ -399,7 +564,7 @@ http
     const fp = path.join(ROOT, p);
     if (!fp.startsWith(ROOT)) { res.writeHead(403); res.end('forbidden'); return; }
     // Never serve secrets/users over HTTP.
-    if (fp === USERS_FILE || fp === SECRET_FILE) { res.writeHead(403); res.end('forbidden'); return; }
+    if (fp === USERS_FILE || fp === SECRET_FILE || fp === INVITES_FILE) { res.writeHead(403); res.end('forbidden'); return; }
     fs.readFile(fp, (err, data) => {
       if (err) { res.writeHead(404); res.end('not found'); return; }
       // index.html carries per-subdomain title/theme-color; patch on the way out.

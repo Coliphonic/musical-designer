@@ -4,6 +4,7 @@
 //   node users.js list                        list accounts
 //   node users.js remove <name>               delete an account
 //   node users.js claim <name>                give all owner-less shows to <name>
+//   node users.js admin <name> [true|false]   grant/revoke admin-page access
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
@@ -30,7 +31,7 @@ if (cmd === 'add') {
   const id = slug(arg1);
   if (!id) { console.error('invalid name'); process.exit(1); }
   if (find(users, arg1)) { console.error('user "' + id + '" already exists'); process.exit(1); }
-  users.push({ id, name: arg1, pass: hash(arg2) });
+  users.push({ id, name: arg1, pass: hash(arg2), createdAt: Date.now() });
   save(users);
   console.log('created user "' + id + '"');
 } else if (cmd === 'passwd') {
@@ -42,7 +43,7 @@ if (cmd === 'add') {
   console.log('password updated for "' + u.id + '"');
 } else if (cmd === 'list') {
   if (!users.length) { console.log('(no users yet — run: node users.js add <name> <password>)'); }
-  users.forEach((u) => console.log('- ' + u.id + (u.name !== u.id ? '  (' + u.name + ')' : '')));
+  users.forEach((u) => console.log('- ' + u.id + (u.name !== u.id ? '  (' + u.name + ')' : '') + (u.admin ? '  [admin]' : '') + (u.disabled ? '  [disabled]' : '')));
 } else if (cmd === 'remove') {
   const u = find(users, arg1);
   if (!u) { console.error('no such user'); process.exit(1); }
@@ -58,6 +59,12 @@ if (cmd === 'add') {
     if (!d.owner) { d.owner = u.id; fs.writeFileSync(fp, JSON.stringify(d)); n++; }
   });
   console.log('assigned ' + n + ' owner-less show(s) to "' + u.id + '"');
+} else if (cmd === 'admin') {
+  const u = find(users, arg1);
+  if (!u) { console.error('no such user'); process.exit(1); }
+  u.admin = arg2 !== 'false';
+  save(users);
+  console.log((u.admin ? 'granted' : 'revoked') + ' admin access for "' + u.id + '"');
 } else {
   console.log('Musical Designer — user management\n');
   console.log('  node users.js add <name> <password>      create an account');
@@ -65,4 +72,5 @@ if (cmd === 'add') {
   console.log('  node users.js list                        list accounts');
   console.log('  node users.js remove <name>               delete an account');
   console.log('  node users.js claim <name>                give owner-less shows to <name>');
+  console.log('  node users.js admin <name> [true|false]   grant/revoke admin-page access');
 }

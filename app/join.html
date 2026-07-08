@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Join · Musical Designer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body.login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: var(--bg); margin: 0; }
+    .login-card {
+      width: 340px; max-width: calc(100vw - 40px); background: var(--panel);
+      border: 1px solid var(--line); border-radius: 14px; padding: 32px 28px;
+      box-shadow: 0 8px 40px #0002; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+    .login-logo { font-size: 30px; text-align: center; color: var(--energy); margin-bottom: 4px; }
+    .login-title { text-align: center; font-size: 17px; font-weight: 700; color: var(--ink); margin: 0 0 6px; }
+    .login-sub { text-align: center; font-size: 13px; color: var(--muted); margin: 0 0 22px; }
+    .login-card label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 5px; }
+    .login-card input {
+      width: 100%; box-sizing: border-box; padding: 9px 11px; margin-bottom: 16px;
+      border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font-size: 14px;
+    }
+    .login-card input:focus { outline: none; border-color: var(--energy); }
+    .login-btn {
+      width: 100%; padding: 10px; border: 0; border-radius: 8px; background: var(--energy); color: #fff;
+      font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .login-btn:hover { filter: brightness(1.06); }
+    .login-btn:disabled { opacity: 0.6; cursor: default; }
+    .login-err { color: var(--tension); font-size: 13px; text-align: center; min-height: 18px; margin: 12px 0 0; }
+    .login-dead { text-align: center; color: var(--muted); font-size: 14px; line-height: 1.5; }
+  </style>
+</head>
+<body class="login-page">
+  <div class="login-card" id="join-card">
+    <div class="login-logo">♪</div>
+    <h1 class="login-title" id="join-title">Loading…</h1>
+    <p class="login-sub" id="join-sub"></p>
+    <form id="join-form" autocomplete="on" style="display:none">
+      <div id="join-name-field">
+        <label for="j-name">Your name</label>
+        <input id="j-name" name="name" type="text" autocomplete="name" autofocus />
+      </div>
+      <label for="j-pass">Password</label>
+      <input id="j-pass" name="new-password" type="password" autocomplete="new-password" />
+      <label for="j-pass2">Confirm password</label>
+      <input id="j-pass2" name="confirm-password" type="password" autocomplete="new-password" />
+      <button class="login-btn" type="submit" id="join-submit">Create account</button>
+      <p class="login-err" id="j-err"></p>
+    </form>
+  </div>
+  <script>
+    (function () {
+      try { const v = localStorage.getItem('md-dark'); if (v === null || v === '1') document.body.classList.add('dark'); } catch (_) { document.body.classList.add('dark'); }
+      var token = new URLSearchParams(window.location.search).get('t');
+      var titleEl = document.getElementById('join-title');
+      var subEl = document.getElementById('join-sub');
+      var form = document.getElementById('join-form');
+      var err = document.getElementById('j-err');
+      var nameField = document.getElementById('join-name-field');
+      var submitBtn = document.getElementById('join-submit');
+
+      if (!token) {
+        titleEl.textContent = 'Invalid link';
+        subEl.textContent = 'This invite link is missing its token.';
+        return;
+      }
+
+      fetch('/api/join/' + encodeURIComponent(token)).then(function (r) {
+        return r.json().then(function (data) { return { ok: r.ok, data: data }; });
+      }).then(function (res) {
+        if (!res.ok) {
+          titleEl.textContent = 'This link isn’t valid';
+          subEl.textContent = res.data.error || 'It may have expired or already been used.';
+          return;
+        }
+        if (res.data.type === 'reset') {
+          titleEl.textContent = 'Reset your password';
+          subEl.textContent = res.data.existingName ? ('For ' + res.data.existingName) : '';
+          nameField.style.display = 'none';
+          submitBtn.textContent = 'Update password';
+        } else {
+          titleEl.textContent = 'You’re invited';
+          subEl.textContent = 'Create your account for Musical Designer.';
+          submitBtn.textContent = 'Create account';
+        }
+        form.style.display = '';
+      }).catch(function () {
+        titleEl.textContent = 'Something went wrong';
+        subEl.textContent = 'Could not reach the server. Try again.';
+      });
+
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        err.textContent = '';
+        var pass = document.getElementById('j-pass').value;
+        var pass2 = document.getElementById('j-pass2').value;
+        if (pass.length < 8) { err.textContent = 'Password must be at least 8 characters.'; return; }
+        if (pass !== pass2) { err.textContent = 'Passwords don’t match.'; return; }
+        submitBtn.disabled = true;
+        fetch('/api/join', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token, name: document.getElementById('j-name').value, password: pass })
+        }).then(function (r) {
+          return r.json().then(function (data) { return { ok: r.ok, data: data }; });
+        }).then(function (res) {
+          if (res.ok) { window.location.href = '/'; return; }
+          submitBtn.disabled = false;
+          err.textContent = res.data.error || 'Something went wrong.';
+        }).catch(function () {
+          submitBtn.disabled = false;
+          err.textContent = 'Something went wrong. Try again.';
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

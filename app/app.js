@@ -743,6 +743,165 @@ function saveSharing() {
     .catch(() => { closeShareModal(); });
 }
 
+// ---- Admin (accounts + invite links) --------------------------------------
+function adminRelTime(ts) { return ts ? relTime(ts) : '—'; }
+
+function copyToClipboard(text, btn) {
+  const done = () => { if (!btn) return; const old = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => { btn.textContent = old; }, 1400); };
+  if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text).then(done).catch(() => prompt('Copy this link:', text)); }
+  else prompt('Copy this link:', text);
+}
+
+function showInviteLinkModal(url, label) {
+  const overlay = el('div', { class: 'modal-overlay' });
+  const box = el('div', { class: 'modal-box' });
+  box.appendChild(el('h3', { class: 'modal-title', text: label || 'Invite link created' }));
+  box.appendChild(el('p', { style: 'font-size:13px;color:var(--muted);margin:0', text: 'Share this link however you like. It works once and expires automatically.' }));
+  const row = el('div', { style: 'display:flex;gap:8px' });
+  const input = el('input');
+  input.type = 'text'; input.readOnly = true; input.value = url;
+  input.style.cssText = 'flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:13px';
+  const copyBtn = el('button', { class: 'pbtn', text: 'Copy' });
+  copyBtn.addEventListener('click', () => copyToClipboard(url, copyBtn));
+  row.appendChild(input); row.appendChild(copyBtn);
+  box.appendChild(row);
+  const btns = el('div', { class: 'modal-btns' });
+  const closeBtn = el('button', { class: 'pbtn primary', text: 'Done' });
+  closeBtn.addEventListener('click', () => overlay.remove());
+  btns.appendChild(closeBtn);
+  box.appendChild(btns);
+  overlay.appendChild(box);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  input.focus(); input.select();
+}
+
+function adminApi(method, path, body) {
+  const opts = { method };
+  if (body !== undefined) { opts.headers = { 'Content-Type': 'application/json' }; opts.body = JSON.stringify(body); }
+  return fetch('/api/admin' + path, opts).then((r) => r.json().then((data) => { if (!r.ok) throw new Error(data.error || 'request failed'); return data; }));
+}
+
+function buildAdminPage() {
+  const host = document.getElementById('page-admin');
+  if (!host) return;
+  host.innerHTML = '';
+  if (!state.me || !state.me.admin) {
+    host.appendChild(el('div', { class: 'ch-empty', text: 'Admins only.' }));
+    return;
+  }
+
+  const toolbar = el('div', { class: 'ch-toolbar ribbon' });
+  toolbar.appendChild(el('span', { class: 'ch-toolbar-title', text: 'Admin' }));
+  toolbar.appendChild(el('span', { style: 'flex:1' }));
+  const inviteBtn = el('button', { class: 'pbtn', text: '+ Invite someone' });
+  inviteBtn.addEventListener('click', () => {
+    const label = prompt('Optional label for this invite (e.g. a name), or leave blank:') || '';
+    adminApi('POST', '/invites', { label }).then((d) => { showInviteLinkModal(d.url, label ? ('Invite for ' + label) : 'Invite link created'); reloadInvites(); })
+      .catch((e) => alert(e.message));
+  });
+  toolbar.appendChild(inviteBtn);
+  host.appendChild(toolbar);
+
+  const wrap = el('div', { style: 'padding:20px 24px;max-width:900px;display:flex;flex-direction:column;gap:32px' });
+  host.appendChild(wrap);
+
+  const usersSection = el('div');
+  usersSection.appendChild(el('h3', { style: 'margin:0 0 10px;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em', text: 'Accounts' }));
+  const usersHost = el('div', { class: 'admin-table-host' });
+  usersSection.appendChild(usersHost);
+  wrap.appendChild(usersSection);
+
+  const invitesSection = el('div');
+  invitesSection.appendChild(el('h3', { style: 'margin:0 0 10px;font-size:14px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em', text: 'Invite links' }));
+  const invitesHost = el('div', { class: 'admin-table-host' });
+  invitesSection.appendChild(invitesHost);
+  wrap.appendChild(invitesSection);
+
+  function reloadUsers() {
+    adminApi('GET', '/users').then((users) => renderAdminUsers(usersHost, users)).catch((e) => {
+      usersHost.innerHTML = ''; usersHost.appendChild(el('div', { class: 'ch-empty', text: e.message }));
+    });
+  }
+  function reloadInvites() {
+    adminApi('GET', '/invites').then((invites) => renderAdminInvites(invitesHost, invites)).catch((e) => {
+      invitesHost.innerHTML = ''; invitesHost.appendChild(el('div', { class: 'ch-empty', text: e.message }));
+    });
+  }
+  window.__adminReloadUsers = reloadUsers;
+  window.__adminReloadInvites = reloadInvites;
+  reloadUsers();
+  reloadInvites();
+}
+
+function renderAdminUsers(host, users) {
+  host.innerHTML = '';
+  const table = el('table', { class: 'admin-table' });
+  const thead = el('tr');
+  ['Name', 'Created', 'Last seen', 'Shows', 'Status', ''].forEach((h) => thead.appendChild(el('th', { text: h })));
+  table.appendChild(thead);
+  users.forEach((u) => {
+    const tr = el('tr');
+    tr.appendChild(el('td', { text: u.name + (u.admin ? '  ★' : '') }));
+    tr.appendChild(el('td', { text: adminRelTime(u.createdAt) }));
+    tr.appendChild(el('td', { text: adminRelTime(u.lastLogin) }));
+    tr.appendChild(el('td', { text: String(u.showCount) }));
+    tr.appendChild(el('td', { text: u.disabled ? 'Disabled' : 'Active', class: u.disabled ? 'admin-status-disabled' : 'admin-status-active' }));
+    const actions = el('td', { class: 'admin-actions' });
+    const resetBtn = el('button', { class: 'pbtn', text: 'Reset link' });
+    resetBtn.addEventListener('click', () => {
+      adminApi('POST', '/users/' + encodeURIComponent(u.id) + '/reset-link').then((d) => showInviteLinkModal(d.url, 'Password reset for ' + u.name)).catch((e) => alert(e.message));
+    });
+    actions.appendChild(resetBtn);
+    if (u.id !== state.me.id) {
+      const toggleBtn = el('button', { class: 'pbtn' + (u.disabled ? '' : ' danger'), text: u.disabled ? 'Enable' : 'Disable' });
+      toggleBtn.addEventListener('click', () => {
+        if (!u.disabled && !confirm('Disable "' + u.name + '"? They will be signed out and unable to log back in until re-enabled.')) return;
+        adminApi('POST', '/users/' + encodeURIComponent(u.id) + '/toggle-disabled').then(() => { if (window.__adminReloadUsers) window.__adminReloadUsers(); }).catch((e) => alert(e.message));
+      });
+      actions.appendChild(toggleBtn);
+    }
+    tr.appendChild(actions);
+    table.appendChild(tr);
+  });
+  host.appendChild(table);
+}
+
+function renderAdminInvites(host, invites) {
+  host.innerHTML = '';
+  if (!invites.length) { host.appendChild(el('div', { class: 'ch-empty', text: 'No invite links yet.' })); return; }
+  const table = el('table', { class: 'admin-table' });
+  const thead = el('tr');
+  ['Label', 'Type', 'Created', 'Status', ''].forEach((h) => thead.appendChild(el('th', { text: h })));
+  table.appendChild(thead);
+  invites.forEach((inv) => {
+    const tr = el('tr');
+    tr.appendChild(el('td', { text: inv.label || '(no label)' }));
+    tr.appendChild(el('td', { text: inv.type === 'reset' ? 'Password reset' : 'New account' }));
+    tr.appendChild(el('td', { text: adminRelTime(inv.createdAt) }));
+    let status = 'Pending', cls = 'admin-status-active';
+    if (inv.revoked) { status = 'Revoked'; cls = 'admin-status-disabled'; }
+    else if (inv.usedAt) { status = 'Used'; cls = ''; }
+    else if (inv.expiresAt && Date.now() > inv.expiresAt) { status = 'Expired'; cls = 'admin-status-disabled'; }
+    tr.appendChild(el('td', { text: status, class: cls }));
+    const actions = el('td', { class: 'admin-actions' });
+    const pending = !inv.revoked && !inv.usedAt && !(inv.expiresAt && Date.now() > inv.expiresAt);
+    if (pending) {
+      const copyBtn = el('button', { class: 'pbtn', text: 'Copy link' });
+      copyBtn.addEventListener('click', () => copyToClipboard(location.origin + '/join.html?t=' + inv.token, copyBtn));
+      actions.appendChild(copyBtn);
+      const revokeBtn = el('button', { class: 'pbtn danger', text: 'Revoke' });
+      revokeBtn.addEventListener('click', () => {
+        adminApi('DELETE', '/invites/' + inv.token).then(() => { if (window.__adminReloadInvites) window.__adminReloadInvites(); }).catch((e) => alert(e.message));
+      });
+      actions.appendChild(revokeBtn);
+    }
+    tr.appendChild(actions);
+    table.appendChild(tr);
+  });
+  host.appendChild(table);
+}
+
 // ---- Plot Suite: app theme + waffle launcher ------------------------------
 // Prose Plot re-skins Song Plot's shared substrate with a coral accent —
 // active whenever you're editing/reading a prose-format show, or browsing the
@@ -887,6 +1046,11 @@ function showShowPopover() {
   // Account / sign out
   pop.appendChild(el('div', { class: 'sp-divider' }));
   if (state.me && state.me.name) pop.appendChild(el('div', { class: 'sp-label', text: 'Signed in as ' + state.me.name }));
+  if (state.me && state.me.admin) {
+    const adminItem = el('button', { class: 'sp-item', text: '⚙  Admin' });
+    adminItem.addEventListener('click', (e) => { e.stopPropagation(); closeShowPopover(); navigateTo('admin'); });
+    pop.appendChild(adminItem);
+  }
   const signOut = el('button', { class: 'sp-item sp-signout', text: '⏻  Sign out' });
   signOut.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -3860,6 +4024,7 @@ function navigateTo(page, sceneId) {
   }
   if (page === 'characters') buildCharactersPage();
   if (page === 'storydna') buildStoryDnaPage();
+  if (page === 'admin') buildAdminPage();
 }
 
 function exportShow() {

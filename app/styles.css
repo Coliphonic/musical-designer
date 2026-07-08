@@ -1622,6 +1622,16 @@ body.dark .ms-style-hint { color: #8b83a8; }
 .ch-empty-icon { font-size: 48px; opacity: 0.25; }
 .ch-empty p { font-size: 14px; max-width: 360px; line-height: 1.6; margin: 0; }
 
+/* Admin page */
+#page-admin { display: flex; flex-direction: column; overflow-y: auto; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.admin-table th { text-align: left; font-weight: 600; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; padding: 6px 10px; border-bottom: 1px solid var(--line); }
+.admin-table td { padding: 9px 10px; border-bottom: 1px solid var(--line); color: var(--ink); vertical-align: middle; }
+.admin-table tr:last-child td { border-bottom: none; }
+.admin-status-active { color: #3a8f5c; }
+.admin-status-disabled { color: #a32d2d; }
+.admin-actions { display: flex; gap: 6px; justify-content: flex-end; white-space: nowrap; }
+
 .ch-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
