@@ -11,7 +11,7 @@ print-ready PDF"); this document is the how.
 
 | Phase | What ships | Status |
 |---|---|---|
-| 0 | `state.book` data model + Book setup drawer skeleton | ⬜ |
+| 0 | `state.book` data model + Book setup drawer skeleton | ✅ |
 | 1a | Front/back matter — data + editors | ⬜ |
 | 1b | Front/back matter — rendered into Book view + PDF | ⬜ |
 | 2a | Ship serif fonts (OFL, self-hosted) | ⬜ |
@@ -118,6 +118,27 @@ inside `buildManuscriptPage` (~4771–4840).
 **Acceptance:** create a novel, confirm `state.book` appears in the saved JSON
 (Network tab, PUT body), survives reload, survives `.pshow` export → import. Song Plot
 shows are untouched (no `book` UI, though the field may serialize — that's fine).
+
+**What shipped (2026-07-09):** added `bookDefaults()` / `migrateBook(d)` (app.js, right
+after `migrateDna`, same pattern as Story DNA's defaults/migrate pair). `state.book` is
+initialized with `bookDefaults()` at the top-level state object (mirrors `storyDna`'s
+`dnaDefaults()` call — function declarations are hoisted, so this works despite
+`bookDefaults` being defined later in the file). Threaded through all the places ground
+rule 7 lists: `serialize()`, both load paths (`openReference` resets it to
+`bookDefaults()` since reference shows are Song Plot-only; `applyShowData` deep-merges
+via `migrateBook(d.book)`), `duplicateShowById`, and `exportShow`/`importShow`. Server-side
+`serve.js` needed no changes — its PUT/POST handlers `JSON.parse` the body with no field
+whitelist, so a new top-level key round-trips for free (confirmed by reading `serve.js`,
+not just assuming). Drawer skeleton: in the Page-setup drawer's prose-only branch (the
+`state.format === 'prose'` block that already holds the paragraph-style control), added a
+"Book" section head + a placeholder line reusing the existing `.ms-rev-none` muted-text
+class (same class the Revisions section uses for its own "not tracking yet" placeholder —
+no new CSS). Verified live: a real Prose Plot show (`tide-keeper`) shows `state.book`
+populated with defaults; Song Plot shows also get `state.book` (data-model consistency)
+but no "Book" section renders in their drawer; edited `state.book.meta.authorName`,
+confirmed it round-trips through an actual `PUT`/`GET` cycle against the running server
+and through a full `openProject` reload; restored the test value afterward. sw bumped to
+v169.
 
 ---
 

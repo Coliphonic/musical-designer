@@ -80,6 +80,7 @@ const state = {
   storyDna: dnaDefaults(),
   titlePage: { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } },
   scriptHeader: { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false },
+  book: bookDefaults(), // Prose Plot only; see BOOK-FORMATTING-PLAN.md
   msOptions: (() => { try { return JSON.parse(localStorage.getItem('md-ms-opts') || '{}'); } catch (_) { return {}; } })(),
   dragFrom: null,
   openAct: null,
@@ -191,6 +192,7 @@ function openReference(key) {
   state.titlePage = Object.assign({}, tpDefaults, show.titlePage || {});
   state.titlePage.include = Object.assign({}, tpDefaults.include, (show.titlePage || {}).include || {});
   state.scriptHeader = { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false };
+  state.book = bookDefaults(); // reference shows are Song Plot-only for now
   state.title = show.title;
   state.projectId = null;
   state.readonly = true;
@@ -244,6 +246,7 @@ function applyShowData(d) {
   state.titlePage.include = Object.assign({}, tpDefaults.include, (d.titlePage || {}).include || {});
   const shDefaults = { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false };
   state.scriptHeader = Object.assign({}, shDefaults, d.scriptHeader || {});
+  state.book = migrateBook(d.book);
   state.title = d.title || 'Untitled show';
   state.mode = d.mode || 'full';
   state.status = d.status || 'active';
@@ -297,6 +300,7 @@ function serialize() {
     storyDna: state.storyDna,
     titlePage: state.titlePage,
     scriptHeader: state.scriptHeader,
+    book: state.book,
   });
 }
 let _saveTimer = null;
@@ -704,7 +708,7 @@ function doReplaceAll() {
 
 function duplicateShowById(id) {
   fetch('/api/shows/' + id).then((r) => r.json()).then((d) => {
-    const body = JSON.stringify({ title: (d.title || 'Untitled') + ' (copy)', mode: d.mode, format: d.format || 'song', status: 'draft', updated: Date.now(), cards: d.cards || [], characters: d.characters || {}, titlePage: d.titlePage, scriptHeader: d.scriptHeader });
+    const body = JSON.stringify({ title: (d.title || 'Untitled') + ' (copy)', mode: d.mode, format: d.format || 'song', status: 'draft', updated: Date.now(), cards: d.cards || [], characters: d.characters || {}, titlePage: d.titlePage, scriptHeader: d.scriptHeader, book: d.book });
     return fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
   }).then(() => loadProjects().then(buildLibraryPage));
 }
@@ -3826,6 +3830,28 @@ function migrateDna(d) {
 }
 function dnaGrow(t) { t.style.height = 'auto'; t.style.height = Math.max(t.scrollHeight, 22) + 'px'; }
 
+// ---- Book formatting (Prose Plot) -----------------------------------------
+// Per-show container for the book-output side (front/back matter, theme, trim
+// size) — separate from state.msOptions, which is per-device. See
+// BOOK-FORMATTING-PLAN.md. Empty/no-op until later phases render from it.
+function bookDefaults() {
+  return {
+    meta: { authorName: '', isbn: '', publisher: '', description: '', coverImage: null },
+    theme: { id: 'classic', font: 'ebgaramond', chapterLabel: 'word', chapterLabelCustom: '', showChapterTitle: true, opener: 'plain', sceneBreak: 'asterisks' },
+    trim: { size: '6x9', mirrored: true, gutterIn: 0.75, outsideIn: 0.5, topIn: 0.75, bottomIn: 0.75 },
+    matter: { front: [], back: [] },
+  };
+}
+function migrateBook(d) {
+  const base = bookDefaults();
+  if (!d || typeof d !== 'object') return base;
+  if (d.meta) Object.assign(base.meta, d.meta);
+  if (d.theme) Object.assign(base.theme, d.theme);
+  if (d.trim) Object.assign(base.trim, d.trim);
+  if (d.matter) { base.matter.front = d.matter.front || []; base.matter.back = d.matter.back || []; }
+  return base;
+}
+
 function buildStoryDnaPage() {
   const host = document.getElementById('page-storydna');
   host.innerHTML = '';
@@ -4083,6 +4109,7 @@ function exportShow() {
     format: state.format,
     cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
     characters: state.characters,
+    book: state.book,
     exported: Date.now(),
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -4106,6 +4133,7 @@ function importShow(file) {
         format: data.format || 'song', // older backups predate the format field
         cards: data.cards,
         characters: data.characters || {},
+        book: data.book,
         updated: Date.now(),
       });
       fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
@@ -5062,6 +5090,12 @@ function buildManuscriptPage(sceneId) {
     seg.appendChild(blockBtn);
     row.appendChild(seg);
     drawerInner.appendChild(row);
+
+    // Book formatting entry point — see BOOK-FORMATTING-PLAN.md. Controls
+    // arrive with their phases; this is just the container's placeholder.
+    drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
+    drawerInner.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Book' }));
+    drawerInner.appendChild(el('div', { class: 'ms-rev-none', text: 'Book formatting — coming in stages.' }));
   } else {
     // Act headers/Section tags/Chords are all Song Plot-only concepts — a
     // novel has no intermission-split acts (Prose Plot's default is always
