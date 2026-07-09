@@ -50,6 +50,33 @@ function appFromHost() {
   return null;
 }
 
+// Front/back matter block kinds (Prose Plot book output). Declared before
+// `state` because bookDefaults() runs inside the state initializer below.
+// `cls` drives the editor UI in rebuildBookMatter: 'generated' blocks have no
+// text field (derived from title/book.meta/chapters at render time, in Phase
+// 1b); 'freetext' is one plain-text-with-emphasis field; 'templated'
+// (copyright only) is a small form of its own fields.
+const bid = () => 'b' + Math.random().toString(36).slice(2, 9);
+const BOOK_MATTER_KINDS = {
+  front: [
+    { kind: 'halftitle', label: 'Half-title page', cls: 'generated' },
+    { kind: 'titlepage', label: 'Title page', cls: 'generated' },
+    { kind: 'copyright', label: 'Copyright page', cls: 'templated' },
+    { kind: 'dedication', label: 'Dedication', cls: 'freetext' },
+    { kind: 'epigraph', label: 'Epigraph', cls: 'freetext' },
+    { kind: 'toc', label: 'Table of contents', cls: 'generated' },
+    { kind: 'foreword', label: 'Foreword', cls: 'freetext' },
+    { kind: 'preface', label: 'Preface', cls: 'freetext' },
+    { kind: 'prologue', label: 'Prologue', cls: 'freetext' },
+  ],
+  back: [
+    { kind: 'acknowledgments', label: 'Acknowledgments', cls: 'freetext' },
+    { kind: 'abouttheauthor', label: 'About the Author', cls: 'freetext' },
+    { kind: 'alsoby', label: 'Also By', cls: 'freetext' },
+    { kind: 'newsletter', label: 'Newsletter signup', cls: 'freetext' },
+  ],
+};
+
 const state = {
   showKey: 'fiddler',
   title: '',
@@ -3342,6 +3369,191 @@ function renderPageToken(tok, container) {
   }
 }
 
+// ---- Book pagination (Prose Plot, Phase 1b) -------------------------------
+// A dedicated, simpler measure-and-break loop for Book view. Deliberately NOT
+// sharing paginateBlocks/renderPageToken: those are tuned for script content
+// (dual columns, cue/CONT'D handling, stanza-aware splitFill) and the ground
+// rule for this phase is that Manuscript output must stay pixel-identical —
+// safest guarantee of that is a fully separate render+paginate path for Book.
+// Chapters come straight from state.cards (a chapter IS a scene card in Prose
+// Plot — see cardBodyField/emitCard); a chapter's body tokens are exactly what
+// cardBodyTokens() already produces (action/scenebreak/blank), so no new
+// parsing is needed, only a new renderer + pagination loop for them.
+function bookChapters() {
+  const order = displayOrder();
+  return order
+    .map((i) => state.cards[i])
+    .filter((c) => c.type === 'scene')
+    .map((c) => ({ id: c.id, key: 'sc:' + c.id, title: c.title || 'Chapter', tokens: cardBodyTokens(c) }));
+}
+
+// Flat chapters → atomic blocks. Paragraphs and scene breaks are not split
+// across pages in this phase (a "render skeleton" — see BOOK-FORMATTING-PLAN.md);
+// a block taller than the page just moves whole to the next one.
+function buildBookBlocks(chapters) {
+  const blocks = [];
+  chapters.forEach((ch, ci) => {
+    blocks.push({ tokens: [{ type: 'book-chapter-title', text: ch.title, key: ch.key }], forceBreak: ci > 0 });
+    ch.tokens.forEach((t) => {
+      if (t.type === 'blank') return; // book paragraph spacing is margin-based, not spacer tokens
+      blocks.push({ tokens: [t] });
+    });
+  });
+  return blocks;
+}
+
+function paginateBookBlocks(blocks) {
+  const rig = el('div', { class: 'book-sheet' });
+  rig.style.cssText = 'position:absolute; left:-99999px; top:0; visibility:hidden; height:11in; min-height:0;';
+  const probe = el('div', { class: 'book-sheet-content' });
+  probe.style.cssText = 'flex:0 0 auto;';
+  rig.appendChild(probe);
+  document.body.appendChild(rig);
+
+  const pages = [];
+  let page = [];
+  const BUDGET = rig.clientHeight;
+  const fits = () => probe.offsetHeight <= BUDGET + 0.5;
+  const breakPage = () => { pages.push(page); page = []; probe.innerHTML = ''; };
+  const renderUnit = (unit) => unit.forEach((t) => renderBookToken(t, probe));
+
+  blocks.forEach((b) => {
+    if (b.forceBreak && page.length > 0) breakPage();
+    renderUnit(b.tokens);
+    if (page.length > 0 && !fits()) {
+      breakPage();
+      renderUnit(b.tokens);
+    }
+    b.tokens.forEach((t) => page.push(t));
+  });
+
+  rig.remove();
+  if (page.length) pages.push(page);
+  return pages;
+}
+
+function renderBookToken(tok, container) {
+  if (tok.type === 'book-chapter-title') {
+    container.appendChild(el('div', { class: 'book-chapter-title', html: emphToHtml(tok.text) }));
+  } else if (tok.type === 'action') {
+    container.appendChild(el('p', { class: 'book-para', html: emphToHtml(tok.text) }));
+  } else if (tok.type === 'scenebreak') {
+    container.appendChild(el('div', { class: 'book-scenebreak', text: sceneBreakGlyph() }));
+  }
+  const node = container.lastElementChild;
+  if (node) {
+    const a = anchorFromKey(tok.key);
+    if (a && !node.dataset.anchor) node.dataset.anchor = a;
+  }
+}
+// Scene-break glyph per theme (only 'asterisks' exists pre-2b; kept as its own
+// function so 2b's additional styles have one place to plug in).
+function sceneBreakGlyph() {
+  return '***';
+}
+
+// Front/back-matter blocks with no printed heading in the finished book
+// (dedication/epigraph are conventionally just centered text, no label).
+const NO_HEADING_MATTER_KINDS = new Set(['dedication', 'epigraph']);
+function matterKindLabel(kind) {
+  const all = BOOK_MATTER_KINDS.front.concat(BOOK_MATTER_KINDS.back);
+  const m = all.find((k) => k.kind === kind);
+  return m ? m.label : kind;
+}
+function renderMatterBody(container, text) {
+  (text || '').split(/\n{2,}/).forEach((para) => {
+    const p = para.trim();
+    if (p) container.appendChild(el('p', { class: 'book-para', html: emphToHtml(p) }));
+  });
+}
+
+// Build the full Book-view sheet list: front matter → chapters → back matter.
+// Shared by the on-screen Book mode (rebuildBook, inside buildManuscriptPage)
+// and exportBookPDF (top-level) so the two can never drift apart.
+function buildBookSheets() {
+  const book = state.book;
+  const bookTitle = state.title || 'Untitled';
+  const chapters = bookChapters();
+  const bodyPages = paginateBookBlocks(buildBookBlocks(chapters));
+  // First body-page (1-based) each chapter starts on — for the TOC. Real book
+  // page numbering (including front matter) is Phase 3b; this is a stable
+  // reference into the chapters flow only.
+  const chapterPageNum = {};
+  bodyPages.forEach((pageToks, pi) => {
+    pageToks.forEach((t) => { if (t.type === 'book-chapter-title' && chapterPageNum[t.key] === undefined) chapterPageNum[t.key] = pi + 1; });
+  });
+
+  const sheets = [];
+  const addSheet = (contentEl) => {
+    const sheet = el('div', { class: 'book-sheet' });
+    sheet.appendChild(el('div', { class: 'book-sheet-content' }, [contentEl]));
+    sheets.push(sheet);
+  };
+
+  book.matter.front.forEach((b) => {
+    if (!b.include) return;
+    if (b.kind === 'halftitle') {
+      addSheet(el('div', { class: 'book-halftitle' }, [el('div', { class: 'book-halftitle-text', text: bookTitle })]));
+    } else if (b.kind === 'titlepage') {
+      const kids = [el('div', { class: 'book-titlepage-title', text: bookTitle })];
+      if (book.meta.authorName) kids.push(el('div', { class: 'book-titlepage-author', text: book.meta.authorName }));
+      addSheet(el('div', { class: 'book-titlepage' }, kids));
+    } else if (b.kind === 'copyright') {
+      const wrap = el('div', { class: 'book-copyright' });
+      const year = b.copyrightYear || String(new Date().getFullYear());
+      const holder = b.copyrightHolder || book.meta.authorName || '';
+      wrap.appendChild(el('p', { class: 'book-copyright-line', text: `Copyright © ${year}${holder ? ' ' + holder : ''}` }));
+      if (b.edition) wrap.appendChild(el('p', { class: 'book-copyright-line', text: b.edition }));
+      wrap.appendChild(el('p', { class: 'book-copyright-line', text: 'All rights reserved.' }));
+      if (b.rightsText && b.rightsText.trim()) renderMatterBody(wrap, b.rightsText);
+      addSheet(wrap);
+    } else if (b.kind === 'toc') {
+      const wrap = el('div', { class: 'book-toc' }, [el('div', { class: 'book-toc-heading', text: 'Contents' })]);
+      chapters.forEach((ch) => {
+        wrap.appendChild(el('div', { class: 'book-toc-row' }, [
+          el('span', { class: 'book-toc-title', text: ch.title }),
+          el('span', { class: 'book-toc-num', text: String(chapterPageNum[ch.key] || '') }),
+        ]));
+      });
+      addSheet(wrap);
+    } else {
+      const wrap = el('div', { class: 'book-matter-freetext' });
+      if (!NO_HEADING_MATTER_KINDS.has(b.kind)) wrap.appendChild(el('div', { class: 'book-chapter-title', text: b.title || matterKindLabel(b.kind) }));
+      renderMatterBody(wrap, b.text);
+      addSheet(wrap);
+    }
+  });
+
+  bodyPages.forEach((pageToks) => {
+    const content = el('div', { class: 'book-sheet-content' });
+    pageToks.forEach((tok) => renderBookToken(tok, content));
+    const sheet = el('div', { class: 'book-sheet' });
+    sheet.appendChild(content);
+    sheets.push(sheet);
+  });
+
+  book.matter.back.forEach((b) => {
+    if (!b.include) return;
+    const wrap = el('div', { class: 'book-matter-freetext' });
+    wrap.appendChild(el('div', { class: 'book-chapter-title', text: b.title || matterKindLabel(b.kind) }));
+    renderMatterBody(wrap, b.text);
+    addSheet(wrap);
+  });
+
+  return sheets;
+}
+
+function exportBookPDF() {
+  const prev = document.getElementById('pdf-print-root');
+  if (prev) prev.remove();
+  const root = el('div', { id: 'pdf-print-root' });
+  buildBookSheets().forEach((sheet) => root.appendChild(sheet));
+  document.body.appendChild(root);
+  const cleanup = () => { root.remove(); window.removeEventListener('afterprint', cleanup); };
+  window.addEventListener('afterprint', cleanup);
+  setTimeout(() => window.print(), 60);
+}
+
 const VOICE_TYPES = ['Soprano', 'Mezzo-Soprano', 'Alto', 'Tenor', 'Baritone', 'Bass', 'Child', 'Ensemble', 'Speaking'];
 const LANE_LABELS = { '1': 'Act 1', '2A': 'Act 2A', '2B': 'Act 2B', '3': 'Act 3' };
 
@@ -3834,12 +4046,17 @@ function dnaGrow(t) { t.style.height = 'auto'; t.style.height = Math.max(t.scrol
 // Per-show container for the book-output side (front/back matter, theme, trim
 // size) — separate from state.msOptions, which is per-device. See
 // BOOK-FORMATTING-PLAN.md. Empty/no-op until later phases render from it.
+function defaultMatterBlocks(section) {
+  return BOOK_MATTER_KINDS[section].map(({ kind }) => ({
+    id: bid(), kind, include: (kind === 'titlepage' || kind === 'copyright'), title: '', text: '',
+  }));
+}
 function bookDefaults() {
   return {
     meta: { authorName: '', isbn: '', publisher: '', description: '', coverImage: null },
     theme: { id: 'classic', font: 'ebgaramond', chapterLabel: 'word', chapterLabelCustom: '', showChapterTitle: true, opener: 'plain', sceneBreak: 'asterisks' },
     trim: { size: '6x9', mirrored: true, gutterIn: 0.75, outsideIn: 0.5, topIn: 0.75, bottomIn: 0.75 },
-    matter: { front: [], back: [] },
+    matter: { front: defaultMatterBlocks('front'), back: defaultMatterBlocks('back') },
   };
 }
 function migrateBook(d) {
@@ -3848,7 +4065,12 @@ function migrateBook(d) {
   if (d.meta) Object.assign(base.meta, d.meta);
   if (d.theme) Object.assign(base.theme, d.theme);
   if (d.trim) Object.assign(base.trim, d.trim);
-  if (d.matter) { base.matter.front = d.matter.front || []; base.matter.back = d.matter.back || []; }
+  if (d.matter) {
+    // Only trust saved arrays once they're non-empty — old shows saved during
+    // Phase 0 have `{front:[],back:[]}` and should still get real defaults.
+    if (Array.isArray(d.matter.front) && d.matter.front.length) base.matter.front = d.matter.front;
+    if (Array.isArray(d.matter.back) && d.matter.back.length) base.matter.back = d.matter.back;
+  }
   return base;
 }
 
@@ -4635,7 +4857,8 @@ function buildManuscriptPage(sceneId) {
   const ZOOM_STEP = 0.15, ZOOM_MIN = 0.4, ZOOM_MAX = 2.0;
   let zoom = (() => { try { return parseFloat(localStorage.getItem('md-ms-zoom')) || 0.75; } catch (_) { return 0.75; } })();
   let msMode = (() => { try { return localStorage.getItem('md-ms-mode') || 'edit'; } catch (_) { return 'edit'; } })();
-  if (msMode !== 'edit' && msMode !== 'layout') msMode = 'edit'; // never boot into title pages (or a stale value)
+  if (msMode === 'book' && state.format !== 'prose') msMode = 'edit'; // Book view is Prose Plot-only
+  if (msMode !== 'edit' && msMode !== 'layout' && msMode !== 'book') msMode = 'edit'; // never boot into title pages (or a stale value)
   let lastDocMode = msMode; // where "Done with title pages" returns to
 
   const zoomOut = el('button', { class: 'ms-zoom-btn', text: '−', title: 'Zoom out' });
@@ -4647,9 +4870,16 @@ function buildManuscriptPage(sceneId) {
   // so it reads as a state toggle rather than an action button.
   const modeSeg = el('div', { class: 'seg ms-mode-seg', title: 'Switch view' });
   const editTab = el('button', { text: 'Edit' });
-  const layoutTab = el('button', { text: 'Print View' });
+  // Prose Plot renames "Print View" → "Manuscript" (it IS the manuscript
+  // format) and adds a third Book segment; Song Plot keeps Edit | Print View.
+  const layoutTab = el('button', { text: state.format === 'prose' ? 'Manuscript' : 'Print View' });
   modeSeg.appendChild(editTab);
   modeSeg.appendChild(layoutTab);
+  let bookTab = null;
+  if (state.format === 'prose') {
+    bookTab = el('button', { text: 'Book' });
+    modeSeg.appendChild(bookTab);
+  }
   // Title pages is a third msMode under the hood, but to the writer it's
   // set-up-once document furniture, not a place they work — so it's entered
   // from the Page-setup drawer, and while it's open the Edit/Print switcher
@@ -4657,7 +4887,7 @@ function buildManuscriptPage(sceneId) {
   const titleDoneBtn = el('button', { class: 'ms-title-done', text: '✓ Done with title pages' });
   const printBtn = el('button', { class: 'ms-print-btn', title: 'Print / Save as PDF' });
   printBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span>Print</span>';
-  printBtn.addEventListener('click', () => exportPDF(true));
+  printBtn.addEventListener('click', () => { if (msMode === 'book') exportBookPDF(); else exportPDF(true); });
   const settingsBtn = el('button', { class: 'ms-settings-btn', title: 'Page settings' });
   settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
   const navBtn = el('button', { class: 'ms-nav-btn', title: 'Show/hide the outline navigation' });
@@ -4719,6 +4949,25 @@ function buildManuscriptPage(sceneId) {
     newBody.scrollTop = scrollTop;
   };
 
+  // ── Book mode (Prose Plot only — front matter → chapters → back matter) ──
+  // Read-only, like Print View. See BOOK-FORMATTING-PLAN.md Phase 1b. Sheet
+  // assembly lives in the top-level buildBookSheets() so exportBookPDF (which
+  // isn't inside this closure) can reuse the exact same rendering — never
+  // fork the two like exportPDF/rebuildSheets historically didn't need to
+  // (they share renderPageToken already; this keeps Book to the same rule).
+  const rebuildBook = () => {
+    const oldBody = msWrap.querySelector('.ms-body');
+    const scrollTop = oldBody ? oldBody.scrollTop : 0;
+    if (oldBody) oldBody.remove();
+    const newBody = el('div', { class: 'ms-body' });
+    const viewport = el('div', { class: 'ms-viewport book-viewport' });
+    viewport.style.zoom = zoom;
+    buildBookSheets().forEach((sheet) => viewport.appendChild(sheet));
+    newBody.appendChild(viewport);
+    msWrap.insertBefore(newBody, msWrap.querySelector('.ms-hd-drawer'));
+    newBody.scrollTop = scrollTop;
+  };
+
   // ── Title-pages mode (front matter) ─────────────────────────────
   // The former standalone Title Pages tab, folded into Manuscript as a view.
   // Include-checkboxes sit inline above the zoomable sheet preview; Print
@@ -4769,6 +5018,122 @@ function buildManuscriptPage(sceneId) {
     });
     newBody.appendChild(checks);
     renderVp();
+    msWrap.insertBefore(newBody, msWrap.querySelector('.ms-hd-drawer'));
+    newBody.scrollTop = scrollTop;
+  };
+
+  // ── Book-matter mode (Prose Plot only, front/back matter data + editors) ──
+  // Phase 1a of BOOK-FORMATTING-PLAN.md: create/edit/reorder front & back
+  // matter blocks and book.meta. Rendering into an actual Book view is 1b —
+  // this mode is just the editor, mirroring rebuildTitle's structure above.
+  const rebuildBookMatter = () => {
+    const oldBody = msWrap.querySelector('.ms-body');
+    const scrollTop = oldBody ? oldBody.scrollTop : 0;
+    if (oldBody) oldBody.remove();
+    const newBody = el('div', { class: 'ms-body bm-body' });
+    const book = state.book;
+
+    const metaField = (label, key, placeholder) => {
+      const row = el('div', { class: 'bm-field' });
+      row.appendChild(el('label', { class: 'bm-field-label', text: label }));
+      const inp = el('input', { class: 'bm-field-in', type: 'text', value: book.meta[key] || '', placeholder: placeholder || '' });
+      if (state.readonly) inp.disabled = true;
+      else inp.addEventListener('input', () => { book.meta[key] = inp.value; scheduleSave(); });
+      row.appendChild(inp);
+      return row;
+    };
+    const metaSec = el('div', { class: 'bm-meta' });
+    metaSec.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Book details' }));
+    metaSec.appendChild(metaField('Author name', 'authorName'));
+    metaSec.appendChild(metaField('ISBN', 'isbn'));
+    metaSec.appendChild(metaField('Publisher', 'publisher'));
+    const descRow = el('div', { class: 'bm-field' });
+    descRow.appendChild(el('label', { class: 'bm-field-label', text: 'Description' }));
+    const descArea = el('textarea', { class: 'bm-field-area', placeholder: 'Back-cover copy…' });
+    descArea.value = book.meta.description || '';
+    if (state.readonly) descArea.setAttribute('readonly', '');
+    else descArea.addEventListener('input', () => { book.meta.description = descArea.value; scheduleSave(); });
+    descRow.appendChild(descArea);
+    metaSec.appendChild(descRow);
+
+    const buildCol = (section, sectionLabel) => {
+      const col = el('div', { class: 'bm-col' });
+      col.appendChild(el('div', { class: 'ms-hd-section-head', text: sectionLabel }));
+      const list = el('div', { class: 'bm-list' });
+      const blocks = book.matter[section];
+      const renderList = () => {
+        list.innerHTML = '';
+        blocks.forEach((b, i) => {
+          const kindMeta = BOOK_MATTER_KINDS[section].find((k) => k.kind === b.kind) || {};
+          const row = el('div', { class: 'bm-row' });
+          const head = el('div', { class: 'bm-row-head' });
+          const cb = el('input', { type: 'checkbox' });
+          cb.checked = b.include !== false;
+          if (state.readonly) cb.disabled = true;
+          else cb.addEventListener('change', () => { b.include = cb.checked; scheduleSave(); });
+          head.appendChild(cb);
+          head.appendChild(el('span', { class: 'bm-row-label', text: kindMeta.label || b.kind }));
+          const btns = el('div', { class: 'bm-row-btns' });
+          const upBtn = el('button', { type: 'button', class: 'bm-reorder-btn', text: '↑', title: 'Move up' });
+          const downBtn = el('button', { type: 'button', class: 'bm-reorder-btn', text: '↓', title: 'Move down' });
+          if (i === 0 || state.readonly) upBtn.disabled = true;
+          if (i === blocks.length - 1 || state.readonly) downBtn.disabled = true;
+          upBtn.addEventListener('click', () => { [blocks[i - 1], blocks[i]] = [blocks[i], blocks[i - 1]]; scheduleSave(); renderList(); });
+          downBtn.addEventListener('click', () => { [blocks[i + 1], blocks[i]] = [blocks[i], blocks[i + 1]]; scheduleSave(); renderList(); });
+          btns.appendChild(upBtn);
+          btns.appendChild(downBtn);
+          head.appendChild(btns);
+          row.appendChild(head);
+
+          if (kindMeta.cls === 'freetext') {
+            const ta = el('textarea', { class: 'bm-freetext' });
+            ta.value = b.text || '';
+            ta.placeholder = 'Write ' + (kindMeta.label || b.kind).toLowerCase() + '…';
+            if (state.readonly) ta.setAttribute('readonly', '');
+            else ta.addEventListener('input', () => { b.text = ta.value; scheduleSave(); });
+            row.appendChild(ta);
+          } else if (kindMeta.cls === 'templated') {
+            const form = el('div', { class: 'bm-copyright-form' });
+            const cField = (label, key, ph) => {
+              const r = el('div', { class: 'bm-field' });
+              r.appendChild(el('label', { class: 'bm-field-label', text: label }));
+              const inp = el('input', { class: 'bm-field-in', type: 'text', value: b[key] || '', placeholder: ph || '' });
+              if (state.readonly) inp.disabled = true;
+              else inp.addEventListener('input', () => { b[key] = inp.value; scheduleSave(); });
+              r.appendChild(inp);
+              return r;
+            };
+            form.appendChild(cField('Copyright year', 'copyrightYear', String(new Date().getFullYear())));
+            form.appendChild(cField('Copyright holder', 'copyrightHolder', book.meta.authorName || 'Author name'));
+            form.appendChild(cField('Edition', 'edition', 'First edition'));
+            const rr = el('div', { class: 'bm-field' });
+            rr.appendChild(el('label', { class: 'bm-field-label', text: 'Rights' }));
+            const rta = el('textarea', { class: 'bm-field-area' });
+            rta.value = b.rightsText || '';
+            rta.placeholder = 'All rights reserved.';
+            if (state.readonly) rta.setAttribute('readonly', '');
+            else rta.addEventListener('input', () => { b.rightsText = rta.value; scheduleSave(); });
+            rr.appendChild(rta);
+            form.appendChild(rr);
+            row.appendChild(form);
+          } else {
+            row.appendChild(el('div', { class: 'bm-generated-hint', text: 'Generated automatically from your title and book details.' }));
+          }
+          list.appendChild(row);
+        });
+      };
+      renderList();
+      col.appendChild(list);
+      return col;
+    };
+    const cols = el('div', { class: 'bm-cols' });
+    cols.appendChild(buildCol('front', 'Front matter'));
+    cols.appendChild(buildCol('back', 'Back matter'));
+
+    const wrap = el('div', { class: 'bm-wrap' });
+    wrap.appendChild(metaSec);
+    wrap.appendChild(cols);
+    newBody.appendChild(wrap);
     msWrap.insertBefore(newBody, msWrap.querySelector('.ms-hd-drawer'));
     newBody.scrollTop = scrollTop;
   };
@@ -5013,26 +5378,32 @@ function buildManuscriptPage(sceneId) {
     const anchor = captureAnchor();
     editTab.classList.toggle('active', msMode === 'edit');
     layoutTab.classList.toggle('active', msMode === 'layout');
-    if (msMode !== 'title') lastDocMode = msMode;
-    // While on title pages the Edit/Print switcher gives way to one Done button.
-    modeSeg.style.display = msMode === 'title' ? 'none' : '';
-    titleDoneBtn.style.display = msMode === 'title' ? '' : 'none';
-    // Persist only real document modes — a reload should never land on title pages.
+    if (bookTab) bookTab.classList.toggle('active', msMode === 'book');
+    const isSideMode = msMode === 'title' || msMode === 'book-matter'; // document furniture, not a real document mode
+    if (!isSideMode) lastDocMode = msMode;
+    // While on title pages/book matter the Edit/Print switcher gives way to one Done button.
+    modeSeg.style.display = isSideMode ? 'none' : '';
+    titleDoneBtn.style.display = isSideMode ? '' : 'none';
+    titleDoneBtn.textContent = msMode === 'book-matter' ? '✓ Done with book matter' : '✓ Done with title pages';
+    // Persist only real document modes — a reload should never land on title pages/book matter.
     try { localStorage.setItem('md-ms-mode', lastDocMode); } catch (_) {}
     if (msMode !== 'edit' && focusMode) exitFocus(); // Focus is an Edit-only concept
     applyNav(); // outline panel + Navigation button reflect Edit/Print state
     applyFocus();
-    // Title mode has its own inline include-checkboxes, so the settings gear
-    // (script options: title/act headers/section tags) is hidden there.
-    settingsBtn.style.display = msMode === 'title' ? 'none' : '';
+    // Title/book-matter modes have their own inline controls, so the settings
+    // gear (script options: title/act headers/section tags) is hidden there.
+    settingsBtn.style.display = isSideMode ? 'none' : '';
     if (msMode === 'edit') rebuildEdit();
     else if (msMode === 'title') rebuildTitle();
+    else if (msMode === 'book-matter') rebuildBookMatter();
+    else if (msMode === 'book') rebuildBook();
     else rebuildSheets();
     applyZoom();
     restoreAnchor(anchor);
   };
   editTab.addEventListener('click', () => { if (msMode !== 'edit') { msMode = 'edit'; applyMode(); } });
   layoutTab.addEventListener('click', () => { if (msMode !== 'layout') { msMode = 'layout'; applyMode(); } });
+  if (bookTab) bookTab.addEventListener('click', () => { if (msMode !== 'book') { msMode = 'book'; applyMode(); } });
   titleDoneBtn.addEventListener('click', () => { msMode = lastDocMode; applyMode(); });
 
   // ── Settings drawer ──────────────────────────────────────────────
@@ -5091,11 +5462,19 @@ function buildManuscriptPage(sceneId) {
     row.appendChild(seg);
     drawerInner.appendChild(row);
 
-    // Book formatting entry point — see BOOK-FORMATTING-PLAN.md. Controls
-    // arrive with their phases; this is just the container's placeholder.
+    // Book formatting entry point — see BOOK-FORMATTING-PLAN.md. More controls
+    // (themes, trim size…) arrive with their phases.
     drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
     drawerInner.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Book' }));
-    drawerInner.appendChild(el('div', { class: 'ms-rev-none', text: 'Book formatting — coming in stages.' }));
+    const bookMatterBtn = el('button', { class: 'ms-rev-btn ms-rev-lockbtn', text: 'Edit book matter…' });
+    bookMatterBtn.addEventListener('click', () => {
+      drawer.classList.remove('open');
+      settingsBtn.classList.remove('active');
+      msMode = 'book-matter';
+      applyMode();
+    });
+    drawerInner.appendChild(bookMatterBtn);
+    drawerInner.appendChild(el('div', { class: 'ms-rev-none', text: 'More book formatting coming in stages.' }));
   } else {
     // Act headers/Section tags/Chords are all Song Plot-only concepts — a
     // novel has no intermission-split acts (Prose Plot's default is always

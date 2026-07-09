@@ -12,8 +12,8 @@ print-ready PDF"); this document is the how.
 | Phase | What ships | Status |
 |---|---|---|
 | 0 | `state.book` data model + Book setup drawer skeleton | ✅ |
-| 1a | Front/back matter — data + editors | ⬜ |
-| 1b | Front/back matter — rendered into Book view + PDF | ⬜ |
+| 1a | Front/back matter — data + editors | ✅ |
+| 1b | Front/back matter — rendered into Book view + PDF | ✅ |
 | 2a | Ship serif fonts (OFL, self-hosted) | ⬜ |
 | 2b | Theme presets + chapter-opener styles | ⬜ |
 | 2c | Scene-break ornaments + drop caps | ⬜ |
@@ -183,6 +183,29 @@ v169.
 **Acceptance:** edit dedication + copyright fields, reload, values persist. Include
 toggles persist. Order changes persist. `node --check` + preview pass per ground rules.
 
+**What shipped (2026-07-09):** `BOOK_MATTER_KINDS` + `bid()` (block-id helper) declared
+**above the top-level `state` object** — this is load-bearing, not stylistic:
+`bookDefaults()` runs inside the state initializer, and consts declared later in the
+file are in the temporal dead zone at that moment. (The first cut declared them down by
+`migrateBook` and the whole script died on load with `Cannot access 'BOOK_MATTER_KINDS'
+before initialization`, leaving the static HTML shell and a "—" title — if the app ever
+boots like that again, check for this class of bug first.) `defaultMatterBlocks(section)`
+builds the default block arrays (only `titlepage` + `copyright` start `include: true`);
+`bookDefaults()`/`migrateBook()` now populate `matter.front`/`back`, with migrate
+trusting saved arrays only when non-empty so Phase-0-era `{front:[],back:[]}` saves
+still get real defaults. New `msMode === 'book-matter'` side mode mirrors `'title'`
+exactly (shared `isSideMode` handling: mode switcher + settings button hidden, single
+"✓ Done with book matter" button returning to `lastDocMode`, never persisted as a doc
+mode). `rebuildBookMatter()` renders Book details (`book.meta` fields) + two-column
+Front/Back matter lists: include checkbox, ↑/↓ reorder buttons, and per block class a
+freetext textarea, the copyright form, or a "generated automatically" hint. All inputs
+`scheduleSave()`; readonly guards throughout. `.bm-*` styles in styles.css using
+existing CSS vars. Drawer's Book section placeholder replaced with the "Edit book
+matter…" button (prose only — verified Song Plot drawer unchanged). Verified live
+against tide-keeper: edit dedication text, toggle include, reorder via ↓, `PUT`
+round-trip + reload persistence via `migrateBook`, Done returns to prior mode; test
+edits reverted afterward. sw bumped to v173.
+
 ---
 
 ## Phase 1b — Front/back matter rendered: the Book view exists
@@ -218,6 +241,55 @@ back matter as book-styled pages. This is the render skeleton every later phase 
 toggling a block's include in 1a's editor updates the render; Export PDF from Book view
 prints book pages; **Manuscript view output is pixel-identical to before** (spot-check a
 page against production).
+
+**What shipped (2026-07-09):** Book got a **fully separate** render + pagination path
+from Manuscript, on purpose — `paginateBlocks`/`renderPageToken` are tuned for script
+content (dual columns, cue/CONT'D handling, stanza-aware `splitFill`) and the acceptance
+bar is that Manuscript stays pixel-identical, so the safest way to guarantee that is to
+never touch the shared engine at all. New pieces, all top-level (not inside
+`buildManuscriptPage`, so `exportBookPDF` can reach them too):
+- `bookChapters()` — a chapter is a `state.cards` entry with `type === 'scene'`, walked
+  in `displayOrder()`; its body tokens are exactly `cardBodyTokens(c)` (no new parsing).
+- `buildBookBlocks(chapters)` → `paginateBookBlocks(blocks)` — one atomic block per
+  paragraph/scene-break/chapter-title; a chapter title forces a fresh page. Simpler than
+  the Manuscript engine on purpose: no mid-paragraph splitting yet (a block taller than
+  the page just moves whole to the next one) — acceptable for a "render skeleton every
+  later phase styles," per this phase's own goal statement.
+- `renderBookToken(tok, container)` — sibling of `renderPageToken`, emits `.book-para`/
+  `.book-chapter-title`/`.book-scenebreak` instead of `.lw-*` manuscript classes.
+- `buildBookSheets()` — assembles the full sheet list (front matter → paginated chapters
+  → back matter) as an array of `.book-sheet` DOM nodes; shared verbatim by on-screen
+  Book mode (`rebuildBook`, inside `buildManuscriptPage`) and `exportBookPDF()`
+  (top-level), so the two literally cannot drift apart.
+- Generated blocks: `halftitle`/`titlepage` center the show title (+ author from
+  `book.meta`); `copyright` builds a boilerplate line from `copyrightYear`/
+  `copyrightHolder`/`edition`/`rightsText`; `toc` lists chapters with page numbers taken
+  from each chapter-title block's first paginated page index (real book-wide page
+  numbering, including front matter, is Phase 3b — this is a stable reference into the
+  chapters flow only). Freetext blocks (dedication, epigraph, foreword, preface,
+  prologue, and all back-matter kinds) print the block's own text; dedication/epigraph
+  print with no heading (convention), the rest show their label or a custom `b.title`.
+- Mode switcher: Prose Plot gets a third **Book** segment and "Print View" is relabeled
+  **"Manuscript"** (Song Plot keeps "Edit | Print View" unchanged — verified live, no
+  Book tab appears on a Song Plot show). `msMode` gains `'book'`; boot guard extended
+  (never boots into Book on a Song Plot show even from a stale `localStorage` value);
+  `applyMode()` branches to `rebuildBook()`; the toolbar's Print button branches to
+  `exportBookPDF()` when `msMode === 'book'`.
+- CSS: `.book-sheet`/`.book-sheet-content` (system serif, justified/indented paragraphs
+  — real self-hosted serif faces are Phase 2a) plus generated/freetext/TOC/copyright
+  sub-styles, and a `#pdf-print-root .book-sheet` print rule paralleling `.ms-sheet`'s.
+  sw bumped to v174.
+- Verified live against tide-keeper (5 real chapters): Book view renders title page →
+  copyright → styled chapters with justified/indented paragraphs and a centered `***`
+  scene break; toggled on half-title/TOC/dedication/foreword to confirm every block
+  class renders (TOC showed real chapter titles + correct page numbers; dedication
+  printed with no heading; foreword printed with its heading + two paragraphs); switching
+  Edit → Manuscript → Book preserves scroll position via the shared `sc:<id>` anchor key;
+  Export PDF from Book view built 11 `.book-sheet` pages into `#pdf-print-root` and called
+  `window.print()`; Manuscript view re-checked after all of this — unchanged Courier
+  layout, header, chapter title. Confirmed via a direct `GET` that none of the toggle/text
+  test edits were saved to the server (never called `scheduleSave`/`doSave`) — tide-keeper
+  is back to its Phase-1a-verified state.
 
 ---
 
