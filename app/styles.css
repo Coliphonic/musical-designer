@@ -62,8 +62,7 @@ html, body {
 }
 .seg button:hover { color: var(--ink); }
 .seg button.active { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px #0000000f; }
-body.dark .seg button.active,
-body.dark .lwtoggle.active { background: #4a453e; color: #f3eee3; box-shadow: 0 1px 2px rgba(0,0,0,0.45); }
+body.dark .seg button.active { background: #4a453e; color: #f3eee3; box-shadow: 0 1px 2px rgba(0,0,0,0.45); }
 
 .pbtn { font-family: inherit; font-size: 12.5px; padding: 7px 11px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; cursor: pointer; }
 .pbtn:hover { background: var(--hover); }
@@ -235,6 +234,8 @@ body.dark .pill[data-fam="gray"]   { background: #1e1c18; border: 1px solid #706
 /* detail drawer */
 .lyricwin .dclose { border: 0; background: transparent; font-size: 20px; line-height: 1; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
 .lyricwin .dclose:hover { background: var(--hover); color: var(--ink); }
+.lwpush { border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; font-weight: 500; font-family: inherit; padding: 6px 12px; border-radius: 7px; cursor: pointer; }
+.lwpush:hover { background: var(--hover); color: var(--ink); border-color: var(--ink); }
 /* Dark mode: lift the editor windows off the near-identical board behind them. */
 body.dark .lyricwin-overlay { background: rgba(0,0,0,0.62); }
 body.dark .lyricwin { border-color: #4a443a; box-shadow: 0 28px 80px rgba(0,0,0,0.6); }
@@ -277,24 +278,8 @@ body.dark .sing.empty { background: var(--panel); border-color: #8b82e8; }
 .rhyme-tab.active { background: var(--hover); color: var(--energy); }
 .rhyme-tab:hover:not(.active) { background: var(--hover); }
 
-/* Edit / Preview toggle in lyric window header */
-.lwtoggle-wrap { display: inline-flex; background: var(--btn); border-radius: 8px; padding: 3px; gap: 2px; }
-.lwtoggle { border: 0; background: transparent; color: var(--muted); font-size: 12px; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; font-family: inherit; }
-.lwtoggle:hover { color: var(--ink); }
-.lwtoggle.active { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px #0000000f; }
-
-
 /* Broadway preview pane */
 .lwpreview-wrap { flex: 1; overflow-y: auto; background: var(--panel); display: flex; flex-direction: column; }
-.lwrich-wrap { flex: 1; min-height: 0; overflow-y: auto; background: var(--panel); display: flex; flex-direction: column; }
-.lwrich-wrap .ms-card-rich-editor { flex: 1; min-height: 0; }
-.lwrich-wrap .ms-style-bar { position: sticky; top: 0; z-index: 2; }
-/* .ms-card-rich-editor is a column flexbox, so ms-line-editor is a flex item —
-   auto margins on a flex item's cross axis absorb free space directly and
-   override align-items:stretch, which shrank this to its content width (a
-   near-empty line) instead of centering a 720px column. An explicit width
-   makes it a definite size again, so margin:auto centers it normally. */
-.lwrich-wrap .ms-line-editor { width: 100%; padding: 20px 24px 60px; max-width: 720px; margin: 0 auto; }
 .lwzoom-bar { display: flex; align-items: center; gap: 6px; justify-content: center; padding: 6px 0; background: var(--panel); border-bottom: 1px solid var(--line); flex-shrink: 0; position: sticky; top: 0; z-index: 2; }
 .lw-preview {
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
@@ -620,6 +605,20 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 /* full-screen lyric editor window */
 .lyricwin-overlay { position: fixed; inset: 0; background: #2c2c2a55; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .lyricwin { width: 1000px; max-width: 96vw; height: 86vh; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 70px #00000033; display: flex; flex-direction: column; overflow: hidden; }
+/* Prev/next card arrows: bare chevrons in the dimmed overlay margin, outside
+   the window itself, so the window's own chrome stays untouched. Faint at
+   rest, full-strength on hover. Hidden below a width where there isn't
+   enough overlay margin to hold them without crowding the window edge. */
+.lwnav {
+  position: fixed; top: 50%; transform: translateY(-50%);
+  width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+  border: 0; background: transparent; color: #fff; font-size: 30px; line-height: 1;
+  font-family: inherit; opacity: 0.35; cursor: pointer; z-index: 41; transition: opacity .15s;
+}
+.lwnav:hover, .lwnav:focus { opacity: 1; }
+.lwnav-prev { left: 18px; }
+.lwnav-next { right: 18px; }
+@media (max-width: 1100px) { .lwnav { display: none; } }
 .lwhead { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
 .lwhead .lwtitle { font-size: 16px; font-weight: 600; }
 .lwhead .lwsummary { font-size: 12px; color: var(--muted); }

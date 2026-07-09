@@ -5456,9 +5456,18 @@ function buildLyricWindow(c) {
   const closeBtn = el('button', { class: 'dclose', text: '✕', title: 'Close (Esc)' });
   closeBtn.addEventListener('click', closeLyricWindow);
 
-  const editBtn = el('button', { class: 'lwtoggle active', text: 'Fountain' });
-  const richBtn = el('button', { class: 'lwtoggle', text: 'Rich' });
-  const toggleWrap = el('div', { class: 'lwtoggle-wrap' }, [editBtn, richBtn]);
+  // Push into Manuscript: the travel gesture that unifies the two rooms — finish
+  // a draft here, then read it in the flow of the show around it. Reuses
+  // goToMatch (Find & Replace's jump helper), which already navigates + scrolls
+  // + pulses the card's section. Always lands in Edit mode: this is an editing
+  // continuation, so a stale Print View mode from a prior session would be wrong.
+  const pushBtn = el('button', { class: 'lwpush', text: 'Manuscript →', title: 'Continue in Manuscript' });
+  pushBtn.addEventListener('click', () => {
+    const id = c.id;
+    closeLyricWindow();
+    try { localStorage.setItem('md-ms-mode', 'edit'); } catch (_) {}
+    goToMatch({ kind: 'card', id });
+  });
 
   const pillEl = c.type === 'song'
     ? (() => { const meta = FN[c.fn] || FN.ballad; return el('span', { class: 'pill', 'data-fam': meta.fam, text: meta.label }); })()
@@ -5470,7 +5479,7 @@ function buildLyricWindow(c) {
     lwtitleEl,
     summary,
     el('span', { style: 'flex:1' }),
-    toggleWrap,
+    pushBtn,
     closeBtn,
   ]);
 
@@ -5485,7 +5494,6 @@ function buildLyricWindow(c) {
   // Body/Scene-break element set automatically (buildRichEditor reads
   // state.format itself), so it stays available for beats.
   const richTools = !plain && !isProse;
-  if (plain) toggleWrap.style.display = 'none';
 
   // Keep the editor header in sync when a basic is changed in the Details panel.
   const syncHead = () => {
@@ -5611,7 +5619,6 @@ function buildLyricWindow(c) {
   // children, which squeezed the editor into the narrow 58px gutter track.
   const noGutter = plain || isProse;
   const editPane = el('div', { class: 'lwbody' + (noGutter ? ' lwbody-plain' : '') }, noGutter ? [editor, side] : [gutter, editor, side]);
-  const richPane = el('div', { class: 'lwrich-wrap', style: 'display:none' });
 
   const refreshTools = () => {
     if (richTools) {
@@ -5635,42 +5642,8 @@ function buildLyricWindow(c) {
   editor.addEventListener('scroll', () => { gutter.scrollTop = editor.scrollTop; });
   rin.addEventListener('input', () => { rin._touched = true; showRhymes(rin.value); });
 
-  const showEdit = () => {
-    editor.value = c[bodyField] || '';        // reflect any edits made in the Rich tab
-    editPane.style.display = '';
-    richPane.style.display = 'none';
-    editBtn.classList.add('active');
-    richBtn.classList.remove('active');
-    refreshTools();
-    setTimeout(() => editor.focus(), 0);
-  };
-
-  const showRich = () => {
-    richPane.innerHTML = '';
-    richPane.appendChild(buildRichEditor({
-      text: c[bodyField] || '',
-      lines: c.lines,
-      isSong: c.type === 'song',
-      autofocus: true,
-      onSave: (val, lines) => {
-        if (val === (c[bodyField] || '')) return;  // nothing changed (e.g. just viewing)
-        setCardLines(c, lines);                // lines canonical; keeps the Fountain source in sync
-        if (richTools) { updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote); }
-        else if (isProse) { updateProseSummary(val, summary, c.wordTarget); }
-        scheduleSave();
-      },
-    }));
-    editPane.style.display = 'none';
-    richPane.style.display = '';
-    editBtn.classList.remove('active');
-    richBtn.classList.add('active');
-  };
-  editBtn.addEventListener('click', showEdit);
-  richBtn.addEventListener('click', showRich);
-
   win.appendChild(head);
   win.appendChild(editPane);
-  win.appendChild(richPane);
 
   if (richTools) {
     updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
@@ -5684,15 +5657,37 @@ function buildLyricWindow(c) {
   setTimeout(() => editor.focus(), 0);
   return win;
 }
+// Walk the show from the Workshop without bouncing back to the Board — bare
+// chevrons that live in the dimmed overlay margin, outside the window itself,
+// so the window's own chrome stays untouched. Faint at rest, full-strength on
+// hover; the dead side at either end of the show is simply absent, not
+// disabled. All card types (song/beat/scene) in document order.
+function buildLyricWindowNav(id) {
+  const order = displayOrder().map((i) => state.cards[i]);
+  const idx = order.findIndex((c) => c.id === id);
+  const frag = document.createDocumentFragment();
+  if (idx > 0) {
+    const prevBtn = el('button', { class: 'lwnav lwnav-prev', title: 'Previous card', 'aria-label': 'Previous card', text: '‹' });
+    prevBtn.addEventListener('click', () => openLyricWindow(order[idx - 1].id));
+    frag.appendChild(prevBtn);
+  }
+  if (idx >= 0 && idx < order.length - 1) {
+    const nextBtn = el('button', { class: 'lwnav lwnav-next', title: 'Next card', 'aria-label': 'Next card', text: '›' });
+    nextBtn.addEventListener('click', () => openLyricWindow(order[idx + 1].id));
+    frag.appendChild(nextBtn);
+  }
+  return frag;
+}
 function openLyricWindow(id) {
   state.lyricWinId = id;
   const host = document.getElementById('lyricwin');
   host.innerHTML = '';
   host.appendChild(buildLyricWindow(cardById(id)));
+  host.appendChild(buildLyricWindowNav(id));
   host.style.display = '';
 }
 function closeLyricWindow() {
-  // Flush any pending edit (the Rich tab saves on blur) before tearing down.
+  // Flush any pending edit before tearing down.
   if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
   state.lyricWinId = null;
   const host = document.getElementById('lyricwin');

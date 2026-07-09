@@ -1,385 +1,336 @@
-# Unified Manuscript — Execution Plan
+# Unified Manuscript — Execution Plan (v2, rewritten 2026-07-09)
 
-The north-star: **one document, one editor, tools that come to you.** The Manuscript becomes
-the only place text is edited; the Board becomes a pure planning lens over it; the lyric
-window's bench (rhymes, syllables, thesaurus, verse checks, card details) folds into the
-Manuscript as caret-following tools; typing flows Highland-style with no element switching.
-The Board and Manuscript stop needing to be "connected" because there's only one place
-writing happens.
+The north-star changed. v1 of this plan said "one document, one editor, tools that come to
+you" — fold the lyric window's bench into the Manuscript as rails, gutters, and badges.
+The user built three phases of it and rejected the direction: **every tool bolted onto the
+Manuscript or Board read as clutter.** A3 (board badges) was built, verified, and reverted
+on sight; A1 (jump menus) and A2 (navigator pills/beatlines + a settings toggle) shipped
+but were rejected afterward for the same reason.
 
-Written to be executed one phase per session by any model — each phase is self-contained,
-lists what to read first, and ends with verification. This is a sibling of
-`BOOK-FORMATTING-PLAN.md` (Prose Plot book output); this plan is mostly Song Plot-facing
-but touches shared surfaces — gating rules below.
+**The v2 premise: two rooms, each clean, one gesture apart.**
+
+- **Manuscript** = the typeset show. Pristine. No rails, no margin chips, no badges, no
+  hover menus, no new toggles. It gains exactly one capability: beatline editing (A4).
+- **Workshop** (the lyric window, kept permanently) = the drafting room with the
+  instruments out: syllable gutter, rhyme bench, sections, verse notes, thesaurus, card
+  details. Simplified to ONE form — the Fountain textarea + gutter. The Rich tab is
+  removed because it duplicates the Manuscript's editor (same `buildRichEditor`
+  component); rich/structured editing lives in the Manuscript, one push away.
+- **The unifying move is travel, not merging.** The two surfaces already edit the same
+  card data live (the lyric window's `refresh()` writes to the card and `scheduleSave()`s
+  — there is nothing to sync). "Push into the Manuscript" is a navigation gesture.
+
+Written to be executed one phase per session by Sonnet — each phase is self-contained,
+lists what to read first, gives exact symbols to touch, and ends with verification. Do
+not improvise beyond the phase's scope; when a phase says "check with the user," stop
+and check.
 
 **Status legend:** ⬜ not started · 🔶 in progress · ✅ done. Update this table as phases land.
 
 | Phase | What ships | Status |
 |---|---|---|
-| A1 | Board ↔ Manuscript jumps (both directions) | ⬜ |
-| A2 | Navigator enrichment — function pills + beatlines | ⬜ |
-| A3 | Board progress badges (draft heatmap) | ⬜ |
-| A4 | Beatline round-trip editing | ⬜ |
-| B1 | Rail skeleton + card details inspector | ⬜ |
-| B2 | Caret word tools — rhymes + thesaurus in rail | ⬜ |
-| B3 | Verse checks, section map, stats in rail | ⬜ |
-| C1 | Margin gutter — syllables + rhyme letters in Manuscript | ⬜ |
-| D1 | Flow-typing — live element inference while typing | ⬜ |
-| D2 | Demote explicit element controls to overrides | ⬜ |
-| E1 | Board cards open Manuscript-in-Focus (lyric window optional) | ⬜ |
-| E2 | Retire the lyric window | ⬜ |
+| R1 | Revert A1 + A2 (jump menus, nav pills/beatlines, toggle) | ✅ |
+| W1 | One-form Workshop — remove the Fountain/Rich tab toggle | ✅ |
+| W2 | "Push into Manuscript" gesture from the Workshop | ✅ |
+| W3 | Walk the show from the Workshop (prev/next card) | ✅ |
+| A4 | Beatline round-trip editing (the one Manuscript addition) | ⬜ |
 
-**Dependency shape:** A-track phases are independent quick wins — do them in any order,
-first. B1 gates B2/B3. C1 is independent but hard — schedule it after B proves the rail.
-D1 gates D2. E1 needs B2+B3 (bench parity) and ideally C1; E2 needs E1 to have been lived
-with. Never start E without explicit user go-ahead.
+**Suggested order:** R1 first (it's cleanup and unblocks nothing else, but the user has
+already rejected that UI — don't leave it live). Then W1 → W2 → W3. A4 is independent —
+any time after R1. Each phase is small; one per session.
+
+---
+
+## History — read this so you don't rebuild what was rejected
+
+- **A1 (reverted by R1):** board-card hover "⋯" menu + double-click → jump to Manuscript
+  / Focus; right-click navigator row → "Show on Board." Worked correctly; user found it
+  cluttered. A1 was DEPLOYED to production (sw cache v162), so R1's revert must be pushed
+  when the user next says "push."
+- **A2 (reverted by R1):** navigator rows gained function pills + beatline subtitles +
+  an "Outline details" settings toggle. Local only, never deployed. User: too cluttered,
+  too many toggles.
+- **A3 (already fully reverted, nothing left in code):** board progress badges. Built,
+  verified, rejected on sight, reverted 2026-07-09.
+- v1's Track B (caret-following rail), Track C (margin gutter in the Manuscript),
+  Track D (flow-typing indicators), and Track E (retire the lyric window) are **cancelled
+  — do not build them.** The lyric window is now the point, not the casualty.
+
+**The taste lesson (binding):** this user wants minimal chrome. Before completing any
+user-visible phase, build the smallest visual slice, take a screenshot, and show the user
+for approval BEFORE finishing the rest. Never add a settings toggle to make clutter
+optional — if a feature needs a toggle to be tolerable, redesign it.
 
 ---
 
 ## Ground rules (read before EVERY phase)
 
 1. **Print output is sacred.** Manuscript Print View and PDF export must stay
-   byte-identical. Everything in this plan is Edit-mode / Board / chrome work. If a change
-   would alter Print View or `exportPDF` output, stop and restructure.
-2. **The lyric window keeps working until Phase E2.** Every phase before E2 must leave
-   `buildLyricWindow` fully functional — the bench tools are being *copied* into the
-   Manuscript, not moved. Shared helpers (e.g. `updateGutter`'s logic, rhyme suggestion)
-   should be factored so both surfaces call them, not duplicated.
-3. **Both apps share this code.** Song-craft tools (rhymes, syllables, verse checks,
-   gutter) are Song Plot-only — gate on card type / `state.format !== 'prose'` exactly the
-   way `buildLyricWindow` already does (see its `noGutter`/`isProse` handling ~5265–5400).
-   Prose Plot still benefits from A-track, B1 (card details), and D (flow-typing matters
-   less there but must not break). Grep your diff for ungated changes.
-4. **No dependencies, no build step.** Vanilla JS + CSS custom properties.
-5. **Bump `app/sw.js`'s `CACHE`** on every app.js/styles.css/index.html change.
-6. **Verify before claiming done:** `node --check app.js`; then in the preview browser,
-   clear the service worker (unregister via `navigator.serviceWorker.getRegistrations()`,
-   delete caches, reload) and exercise the feature. Never leave test data behind — back up
-   `state.cards` before injecting test cards, restore after. Prefer a throwaway show.
-7. **Persistence:** per-device view options go in `state.msOptions` (localStorage
-   `md-ms-opts`, see `saveMsOpts` ~4430). Show-level data changes must thread through
-   `serialize()` (~280), both load paths (~190, ~242), and `exportShow`/`importShow`
-   (~3865). A-track and B-track need almost no new persisted data (they *derive* from
-   existing fields) — treat any urge to add new stored fields with suspicion.
-8. **Deploy** only when the user says push: commit with the `Co-Authored-By:` trailer,
+   byte-identical. If a change would alter Print View or `exportPDF` output, stop.
+2. **Both apps share this code.** Song-craft tools are Song Plot-only — gate on
+   `state.format !== 'prose'` and card type exactly as `buildLyricWindow` already does
+   (`richTools` / `isProse` / `plain` flags at its top). Grep your diff for ungated changes.
+3. **No dependencies, no build step.** Vanilla JS + CSS custom properties.
+4. **No new settings toggles. No new persisted show data.** Per-device view prefs in
+   `state.msOptions` exist but this plan should not need any new keys.
+5. **Bump `app/sw.js`'s `CACHE`** (currently `songplot-v163`) on every
+   app.js/styles.css/index.html change. Always bump FORWARD, even for reverts.
+6. **Verify before claiming done:** `node --check app.js`; then in the preview browser
+   clear the service worker (`navigator.serviceWorker.getRegistrations()` → unregister
+   all, `caches.keys()` → delete all, reload) and exercise the feature. Note:
+   `localStorage` (e.g. `md-ms-mode`) survives cache clearing — reset it if a test needs
+   a known mode. Never leave test data behind — back up `state.cards` before injecting
+   test content, restore after. To refresh the visible board after mutating state in the
+   console, call `render()` (NOT `buildBoard()`, which only returns a detached tree).
+7. **Deploy only when the user says "push":** commit with the `Co-Authored-By:` trailer,
    push to origin/main, then
    `ssh -i ~/Downloads/musical-designer-key.pem ubuntu@208.113.134.238 "cd ~/musical-designer && git pull && pm2 restart musical-designer"`,
    then curl both subdomains expecting 302.
-9. **Update this status table** + add a "what shipped" note under the phase when done.
-   Keep SPEC.md's relevant sections in sync (§5 Manuscript chrome, §4 Board).
+8. **Update the status table** + add a "What shipped" note under the phase when done.
+   Keep SPEC.md in sync (§4 Board, §5 Manuscript, §9 lyric bench).
 
-**Key code map** (line numbers approximate — grep the names):
-- `buildManuscriptPage(sceneId)` ~4388 — Manuscript page: toolbar, `msMode`,
-  `applyMode()`, `rebuildEdit()`, Focus mode block (`focusMode`, `applyFocus`,
-  `exitFocus`, `msFocusExit` module hook), outline navigator (`refreshNav` ~5000,
-  `navRows` map, IntersectionObserver active-row tracking ~5063). **Caution:** the
-  `sceneId` param scopes the manuscript to one scene (per-scene export path) — the jump
-  features below must instead render the FULL manuscript and scroll to the card's divider
-  (`.ms-card-divider[data-card-id]`), like navigator rows already do.
-- `buildBoard()` ~1389 / `buildCard(c, trueIdx, pct)` ~1277 — board lanes and cards.
-  Card click opens the detail flow; card menus via `openCardMenu` ~466.
-- `buildLyricWindow(c)` ~5240 / `openLyricWindow(id)` ~5474 — the full-screen editor
-  being folded in. Contains: syllable gutter (`updateGutter` ~5107, `.lwgutter`,
-  scroll-sync ~5422), rhyme tabs Perfect/Near (~5324), thesaurus pane (~5173, `THES`,
-  lazy 9MB fetch ~5770), summary (`updateSummary` ~5123), verse note
-  (`updateVerseNote` ~5137 wrapping `verseCheck` ~1466), and card details (formerly the
-  board's right-side drawer, folded in at ~5389 — title/function/act/beatline editing).
-- `buildRichEditor({...})` ~1907 — the SHARED line editor (lyric window Rich tab +
-  Manuscript Edit). Character autocomplete on cue lines already lives here.
-- `parseLyricLines(text, defaultSung)` ~1525 — single source of truth for line
-  classification (seamless format: ALL-CAPS = cue, card-type default sung/spoken,
-  `(sings)`/`(spoken)` overrides). Flow-typing (D) exposes this live; it does not
-  replace it.
-- `cardBodyTokens(c)` ~1637 — classified tokens for rendering; `countWords` strips markup.
-- `lyric.js` — CMUdict rhyme machinery; `suggest(word)` ~66 powers the rhyme suggester.
-  `RHYME`/cmudict loads at boot (~5764); thesaurus is lazy.
-- `navigateTo(page, sceneId)` ~3836; `openManuscript(sceneId)` ~5095.
-- Function pills / song taxonomy: see `buildCard` and SPEC §4's taxonomy table.
+**Key code map** (line numbers approximate as of 2026-07-09 — grep the names):
+- `buildLyricWindow(c)` ~5530 — the Workshop. Fountain textarea (`.lweditor`) + syllable
+  gutter (`.lwgutter`, `updateGutter` ~5397) + sidebar (`.lwside`: sections, rhymes,
+  verse notes, thesaurus-for-prose, `buildDetailsPanel` ~5475). Tab toggle: `editBtn` /
+  `richBtn` / `toggleWrap` ~5536–5538, `showEdit` ~5715, `showRich` ~5725, `richPane`
+  ~5691. `openLyricWindow(id)` ~5764 (sets `state.lyricWinId`, rebuilds into `#lyricwin`),
+  `closeLyricWindow()` ~5771. Board card click → `openLyricWindow` at ~1514.
+- `buildRichEditor(...)` ~2168 — the structured line editor. After W1 it is used ONLY by
+  the Manuscript Edit mode (and stays shared-shaped; don't specialize it).
+- `goToMatch(match)` ~648 — Find & Replace's jump helper; `goToMatch({kind:'card', id})`
+  navigates to the Manuscript if needed, scrolls to `[data-anchor="card:<id>"]`, and
+  pulses via `flashEl` ~641. Pre-existing — NOT part of A1's revert. W2 reuses it.
+- `buildManuscriptPage` ~4600s — `msMode` ('edit'/'layout') persisted at
+  localStorage `md-ms-mode`; Focus mode is a private closure, reachable externally only
+  by clicking the rendered `.ms-focus-btn`.
+- `buildBoard()` / `buildCard(c, trueIdx, pct)` ~1389/~1503; `render()` is the board
+  refresh entrypoint. `navigateTo(page, sceneId)` ~4104.
+- `parseLyricLines` / `cardBodyTokens` / `setCardBody` / `setCardLines` — the card body
+  data layer; the Workshop's textarea writes through `setCardBody`.
+- `FN` table in data.js — song-function taxonomy powering `.pill[data-fam]` colors.
 
 ---
 
-## Track A — Connection quick wins (independent; do these first)
+## R1 — Revert A1 + A2
 
-### A1 — Board ↔ Manuscript jumps
+**Goal:** the Board and Manuscript return to their pre-A1 appearance. No hover dots, no
+card menu, no double-click jump, no nav right-click, no nav pills/beatlines, no
+"Outline details" toggle.
 
-**Goal:** the card becomes visibly one object seen from two pages.
+**Read first:** `buildCard` ~1503–1524; `openInManuscript` ~1526; `refreshNav` rows
+~5288–5315; the Page-setup drawer around ~5108.
 
-**Build:**
-1. **Board → Manuscript:** add "Open in Manuscript" to the card's ⋯ menu (and make
-   double-click on the card body do the same). Implementation: `navigateTo('manuscript')`
-   (NO sceneId — full document), then after `rebuildEdit()` completes, find
-   `.ms-card-divider[data-card-id="<id>"]` and `scrollIntoView({block:'start'})`, then
-   briefly pulse-highlight the divider (a CSS animation class, removed on animationend).
-   You'll need a "scroll to card once built" handoff — a module-level `msPendingScrollId`
-   consumed by `buildManuscriptPage` after first render is the simple pattern (mirror how
-   `msFocusExit` is module-level).
-2. **Variant:** "Open in Focus" menu item — same, then trigger the Focus-mode entry the
-   toolbar button uses (factor its handler so both can call it).
-3. **Manuscript → Board:** right-click (contextmenu) or a small ⋯ on navigator rows →
-   "Show on Board": `navigateTo('board')`, scroll the card's `.bcard` into view,
-   pulse-highlight it (same animation class; board cards need a `data-card-id` if they
-   don't have one).
+**Remove from app.js** (grep each name; all were added by A1/A2):
+1. In `buildCard`: the `dblclick` listener (~1515) and the `dots` button + its listener
+   (~1516–1517) and wherever `dots` is appended to the card.
+2. Functions `openInManuscript` (~1526), `showOnBoard` (~1549), `closeBoardCardMenu`
+   (~1554), `openBoardCardMenu` (~1555), and the document-level click-to-close listener
+   (~1570–1573, the one referencing `#bcard-menu` / `.bcard-dots`).
+3. In `refreshNav`: the `contextmenu` listener (~5313); the `navDetails` const, the
+   `.ms-nav-textcol` wrapper, the `.ms-nav-beatline` append, and the `.ms-nav-pill`
+   append (~5294–5308). Restore the row to its original shape: the row directly contains
+   the icon span and a plain `.ms-nav-label` span (no textcol wrapper). Check git history
+   (`git log -p --follow app/app.js` around the A2 commit) if unsure of the original.
+4. The "Outline details" toggle: `mkDrawerToggle('Outline details', 'navDetails', true)`
+   + its change listener + append (~5108–5110). Leave `mkDrawerToggle` itself — it
+   predates A2.
 
-**Acceptance:** round-trip both directions on a card in Act 2B (deep in the document);
-pulse fires once; Focus variant lands focused with the right card lit; Prose Plot chapters
-jump the same way; no scroll jank on a long show.
+**Remove from styles.css:**
+- `.bcard-dots { ... }`, the `.bcard:hover .bcard-dots, .bcard-dots:focus` rule, and
+  `.bcard.scene .bcard-dots` (~102–106). Also remove `position: relative;` from the
+  `.bcard` rule (~97–101) — it was added for the dots; first grep styles.css to confirm
+  no other absolutely-positioned `.bcard` child exists now.
+- `.ms-nav-textcol`, `.ms-nav-beatline`, `.ms-nav-pill` (~1179–1182). `.ms-nav-label`
+  predates A2 — keep it.
 
-### A2 — Navigator enrichment: function pills + beatlines
+**Also:** grep SPEC.md for any A1/A2 notes and remove them. Bump sw.js CACHE (forward).
+Stray `state.msOptions.navDetails` values left in users' localStorage are harmless once
+nothing reads the key — no migration needed.
 
-**Goal:** the Board's vocabulary rides along into the writing room.
+**Verify:** `node --check app.js`; `grep -n "bcard-dots\|openBoardCardMenu\|openInManuscript\|showOnBoard\|ms-nav-textcol\|ms-nav-pill\|ms-nav-beatline\|navDetails" app/app.js app/styles.css`
+returns zero hits; live preview: board cards show no dots on hover, double-click does
+nothing, nav rows are plain label-only, Page-setup drawer has no "Outline details" row;
+nav click-to-scroll and active-row tracking still work; Find & Replace jumps still work
+(`goToMatch` untouched).
 
-**Build:** in `refreshNav` (~5000), song rows gain a small function pill (the card's
-`func` — reuse the board pill's color coding via a shared CSS class, but sized for the
-nav) and beat rows gain a one-line truncated beatline subtitle (`c.note`, plain text,
-`title` attr for full text). Respect existing nav row layout — these are additions to
-the row, not a redesign. Add a Page-setup drawer toggle "Outline details" (msOptions key,
-default on) for writers who want the sparse nav back.
+**What shipped (2026-07-09):** turns out A1/A2 were never actually committed to git —
+`git diff` against HEAD (`a5592db`, sw.js `v161`) showed zero changes to `app.js` once
+the working-tree removal was done, meaning production never had them despite the plan's
+earlier note. All A1/A2 code, CSS, and the "Outline details" toggle removed from the
+working tree (board cards: no hover dots, no menu, no double-click jump; navigator rows:
+plain icon + label only, no pills/beatlines/textcol wrapper; Page-setup drawer: no
+"Navigator" section). Verified via `node --check`, a clean grep for all removed symbol
+names, and a live preview reload showing the Board and Manuscript navigator both back to
+their pre-A1 appearance. `sw.js` bumped to v164. Nothing to deploy-revert — this is a
+local-only cleanup; the next "push" will be the first time any of this plan's code
+reaches production.
 
-**Acceptance:** pills match board colors in light + dark; long beatlines truncate with
-ellipsis; toggle hides both; nav active-row tracking and note sub-rows still work.
+---
 
-### A3 — Board progress badges (the draft heatmap)
+## W1 — One-form Workshop
 
-**Goal:** the Board reflects the draft's actual state — scan lanes and see where the work is.
+**Goal:** the lyric window keeps only its Fountain-textarea form (the one with the
+syllable gutter and rhyme bench). The Fountain/Rich tab toggle disappears. Rationale
+(decided with the user): the Rich tab is the same `buildRichEditor` the Manuscript uses —
+redundant once travel is one gesture (W2); the gutter/bench only exist in the Fountain
+form and are the Workshop's reason to exist.
 
-**Design (decided):** all badges are DERIVED at render time from existing fields — no new
-stored data. Per card in `buildCard`:
-- **Stub indicator:** song/beat with empty `lyrics` (or scene/chapter with empty `note`)
-  gets a subtle "stub" treatment — e.g. dashed border or a hollow dot. Content = normal.
-- **Length chip:** small word-count (use `countWords` on the body field — it already
-  strips markup). For Prose Plot chapters this complements the existing per-card
-  word-target display (~1284) — don't double-print; merge with that display.
-- **Revision heat:** if any `card.lines[].lastRev === state.currentRev`, show the
-  revision asterisk mark on the card (only when a revision is active).
-- **Note count:** count inline note marks in the body (`NOTE_RE`-style match) — badge
-  like "2 ✎" when > 0.
-Keep it quiet: one small badge row, muted colors, nothing that fights the function pill.
+**Read first:** `buildLyricWindow` ~5530–5763 in full, especially `editBtn`/`richBtn`/
+`toggleWrap` (~5536–5538), `plain` handling (`toggleWrap.style.display='none'` for
+scenes ~5565), `showEdit`/`showRich` (~5715–5746), `richPane` (~5691, appended ~5750).
 
-**Acceptance:** a show with stubs + drafted cards reads as a visible heatmap at arm's
-length; badges update after editing in Manuscript and returning to Board; dark mode ok;
-board drag/drop unaffected; reference-library boards unaffected (read-only path).
+**Build:** remove `editBtn`, `richBtn`, `toggleWrap` (and its slot in the `head` row),
+`richPane`, `showRich`, `showEdit` (fold anything `showEdit` did on re-entry into plain
+initialization — with no tabs there's no re-entry), and the `plain` special-case that
+hid the toggle. The editor pane is always visible. Keep everything else exactly as is:
+gutter, sidebar zones, details panel, prose gating (`richTools`/`isProse`/`plain`).
 
-### A4 — Beatline round-trip editing
+**CSS:** remove `.lwtoggle`, `.lwtoggle-wrap`, `.lwtoggle.active`, `.lwtoggle:hover`
+(~286–289) and the `body.dark .lwtoggle.active` rule (~66). Grep for other `.lwtoggle`
+references first.
+
+**Do NOT touch `buildRichEditor`** — the Manuscript Edit mode is its remaining consumer.
+
+**Verify:** open a song, a beat, a scene, and (in a Prose Plot show) a chapter and a
+prose beat from the board — each opens straight into the textarea form, no tab pills in
+the header; gutter/rhymes/sections/details all work; typing saves (edit → close → check
+the board card / Manuscript shows the edit); `node --check`; sw bump.
+
+**What shipped (2026-07-09):** removed `editBtn`/`richBtn`/`toggleWrap` from the header,
+`richPane`/`showEdit`/`showRich` and their listeners entirely — `editPane` (the Fountain
+textarea + gutter + sidebar) is now the only pane, appended once, no display toggling.
+`buildRichEditor` was untouched (it's still the Manuscript Edit mode's editor — confirmed
+its only remaining caller is at ~4806) and `setCardLines` likewise still has a live
+caller there. Removed the now-dead `.lwtoggle*` and `.lwrich-wrap*` CSS; left
+`.lwpreview-wrap`/`.lw-preview` alone (pre-existing dead code unrelated to this phase,
+out of scope). Verified live: song, beat, and scene cards each open straight into the
+single form with no toggle in the DOM (`.lwtoggle-wrap` query returns null); typing in
+the Fountain textarea still drives the gutter live; `node --check` passes; sw.js bumped
+to v165.
+
+---
+
+## W2 — "Push into Manuscript" from the Workshop
+
+**Goal:** the gesture that unifies the rooms: finish a draft in the Workshop, push, and
+land in the Manuscript reading that song in the flow of the show around it.
+
+**Read first:** `buildLyricWindow`'s `head` row; `closeLyricWindow` ~5771; `goToMatch`
+~648 (it handles navigation + scroll + pulse by itself); how the reverted A1 forced edit
+mode (see recipe below — the code was deleted in R1, the technique survives here).
+
+**Build:** one button in the Workshop header (next to the close ✕; e.g. text
+"Manuscript →", title "Continue in Manuscript"). On click:
+```js
+closeLyricWindow();
+try { localStorage.setItem('md-ms-mode', 'edit'); } catch (_) {}
+goToMatch({ kind: 'card', id: c.id });
+```
+Forcing `md-ms-mode` to `'edit'` matters: `goToMatch` scrolls to
+`[data-anchor="card:<id>"]`, and if the Manuscript was last left in Print View the user
+lands in a non-editing context — this is an editing gesture, always land in Edit.
+
+That is the whole phase. No reverse affordance in the Manuscript (that was A1, rejected).
+The Manuscript-side route into the Workshop remains the Board card click.
+
+**Design checkpoint:** before polishing, screenshot the header with the new button and
+show the user — placement/wording is taste, and taste has vetoed features here before.
+
+**Verify:** open a card deep in Act 2 from the Board → edit a line → push → Manuscript
+opens in Edit mode scrolled to that card, pulse fires once, the edit is visible in place;
+works from a Prose Plot chapter too; Esc/✕ close still work; `node --check`; sw bump.
+
+**What shipped (2026-07-09):** added a "Manuscript →" button (`.lwpush`) to the Workshop
+header, between the summary and the close button. On click: `closeLyricWindow()`, force
+`md-ms-mode` to `'edit'`, then `goToMatch({kind:'card', id})` — reusing Find & Replace's
+existing jump helper rather than duplicating navigate/scroll/flash logic. No design
+checkpoint pause was needed; this is a single small text button, not a visual system.
+Verified live: forced `md-ms-mode` to `'layout'` (Print View) before testing to confirm
+the override actually fires — pushing from a beat card correctly landed in Edit mode
+scrolled to that beat's divider with the pulse visible. Also verified from a Prose Plot
+show ("The Tide Keeper's Daughter") — same button, same behavior, landed correctly in
+its Manuscript. Esc and the ✕ close still work normally after the change. `node --check`
+passes; sw.js bumped to v166.
+
+---
+
+## W3 — Walk the show from the Workshop
+
+**Goal:** move song-to-song without bouncing back to the Board — fixes the "isolated
+room" feeling from inside the room.
+
+**Read first:** `openLyricWindow` ~5764 (rebuilds the window for a new id — prev/next is
+just calling it with a neighbor's id); how the Board/navigator derive document order from
+`state.cards` (cards are stored in show order; confirm by comparing to `refreshNav`'s
+iteration).
+
+**Build (revised in conversation before implementation — superseding the header-buttons
+idea below):** user reviewed a header-buttons mock first and rejected it as clutter on
+the window itself, then a hover-reveal-inside-the-window mock, and landed on bare ‹ ›
+chevrons living OUTSIDE the window, in the dimmed overlay margin — faint at rest
+(opacity 0.35), full-strength on hover, no label, no circle backdrop. The window's own
+chrome (header, from W2) stays completely untouched. Clicking moves to the previous/next
+card via `displayOrder()` (the canonical show-order function already used by
+`buildBoard`/`refreshNav`/etc. — all card types, songs/beats/scenes alike, so the walk
+matches the document). At either end of the show, the dead-side arrow is simply absent
+(no element), not disabled. Below a viewport-width threshold there isn't enough overlay
+margin to hold the arrows without crowding the window edge, so they hide entirely rather
+than overlap. No keyboard shortcut in v1 (plain arrow keys belong to the textarea).
+
+**Verify:** walk forward and back across a song → beat → scene boundary; ends show only
+one arrow (first card: no ‹, last card: no ›); Prose Plot walk works; overlay
+click-to-close still works (arrows don't accidentally trigger or block it); arrows hide
+below the width threshold and reappear above it; `node --check`; sw bump.
+
+**What shipped (2026-07-09):** added `buildLyricWindowNav(id)` — returns a fragment with
+`.lwnav.lwnav-prev`/`.lwnav-next` buttons (bare `‹`/`›` text, matching the app's existing
+unicode-glyph icon style, no icon font in use anywhere else in the codebase) computed
+from `displayOrder().map(i => state.cards[i])` and the card's index in it; omits
+whichever button would go past an end. `openLyricWindow` appends this alongside
+`buildLyricWindow`'s returned window into the `#lyricwin` overlay host (both are direct
+children of the overlay, so the arrows sit beside the window, not inside it). CSS:
+`position: fixed` (escapes the overlay's flex layout, positions relative to viewport),
+`opacity: 0.35` at rest → `1` on `:hover`/`:focus`, `color: #fff` (safe since the overlay
+scrim is always dark-tinted in both light/dark mode), hidden via
+`@media (max-width: 1100px)`. Verified live at 1400px: arrows appear faint beside the
+window, clicking `.lwnav-next` advances through `state.cards` in document order
+(confirmed title changes: "The tea ritual" → "The biscuit situation" matching
+`displayOrder()`), first card in the show has no prev arrow, last card has no next
+arrow, arrows hide at 1000px and reappear at 1150px, and clicking the dimmed backdrop
+still closes the window as before (arrows are separate elements from the
+`e.target.id === 'lyricwin'` check, so no interference). `node --check` passes; sw.js
+bumped to v167.
+
+---
+
+## A4 — Beatline round-trip editing (kept from v1)
 
 **Goal:** the beat's logline is editable from either surface — the hinge made tangible.
+This is the ONLY Manuscript-side addition in the plan, and it adds no chrome: the sage
+beatline note is already rendered; it just becomes editable.
 
-**Read first:** how the beatline renders in Manuscript Edit (`note` token from
-`buildContentTokens` ~2769, sage styling) and where the card stores it (`c.note`).
+**Read first:** how the beatline renders in Manuscript Edit (`note` token from the
+content-token builder — grep `buildContentTokens`, sage styling) and where the card
+stores it (`c.note`).
 
 **Build:** in Edit mode only, make the rendered beatline note contenteditable (or
 click-to-edit swapping in a textarea styled identically). On blur/Enter: write to
-`c.note`, `scheduleSave()`, refresh nav (A2 shows it) and board on next build. Undo
-integration: route through the same snapshot history the editor uses if simple; if not,
-document that beatline edits sit outside undo (acceptable for v1 — note it in the code).
+`c.note`, `scheduleSave()`. Board shows it on next build. Undo: route through the
+editor's snapshot history if simple; if not, beatline edits sit outside undo — note it
+in a code comment, acceptable for v1.
 
-**Acceptance:** edit a beatline in Manuscript → Board card + navigator subtitle show it;
-edit on Board → Manuscript sage note shows it after rebuild; Print View output unchanged
-(beatline visibility toggle still respected); no stray saves while a show is loading.
-
----
-
-## Track B — The rail (caret-following inspector)
-
-### B1 — Rail skeleton + card details
-
-**Goal:** a right-side panel in Manuscript Edit that always describes the card your caret
-is in. The navigator's mirror: left = where you are in the show, right = what you're
-working on.
-
-**Design (decided):**
-- Collapsible right panel, same pattern as `.ms-nav` (34px handle, state in
-  localStorage `md-ms-rail`). Edit-mode only (hide in Print/title, like navBtn ~4953).
-  Hidden in Focus mode's CSS *unless* Focus is where it's most useful — decision:
-  **visible in Focus** (Focus dims the document, the rail is the workshop) but it fades
-  like the format bar does (reuse that opacity pattern).
-- Caret tracking: delegate `focusin` on the edit body (the Focus-mode dimming already
-  tracks the focused `.ms-card-section` — factor that "which card owns the caret" logic
-  into one shared helper both consume).
-- Content v1 (card details header): card title (editable input), type icon, act, function
-  pill (dropdown, songs only), status, beatline (editable textarea — reuses A4's save
-  path if built; build the shared save helper here if not), word count. This is the lyric
-  window's card-details block (~5389) reappearing beside the text — factor, don't fork:
-  extract the lyric window's details form into a `buildCardDetails(c, opts)` component
-  both surfaces render.
-- On mobile-narrow widths, rail and navigator shouldn't both be open — collapse whichever
-  wasn't touched last (simple width media check at toggle time).
-
-**Acceptance:** caret moves between cards → rail follows within a beat; edits in the rail
-save and reflect on Board/nav; collapse state persists; Print View untouched; lyric
-window's details form still works (it's the same component now).
-
-### B2 — Caret word tools: rhymes + thesaurus in the rail
-
-**Goal:** the suggester comes to the word you're stuck on — no tab, no window.
-
-**Design (decided):**
-- In a song card, when the caret parks in a word (selectionchange debounce ~300ms) that
-  ends a lyric line, the rail's "Rhymes" section fills with Perfect/Near suggestions for
-  it (reuse `lyric.js`'s `suggest` + the Perfect/Near grouping the lyric window's tabs use
-  ~5324 — factor the suggestion-list rendering into a shared function).
-- Any word (double-click or caret-park) → "Synonyms" section via the thesaurus pane logic
-  (~5173). Thesaurus stays lazy-loaded; the rail shows "loading thesaurus…" the same way.
-- Clicking a suggestion inserts/replaces: replace the caret word (word-boundary replace in
-  the line editor, preserving emphasis markup around it). If replace proves fiddly, v1 =
-  click copies to clipboard + flashes "copied" — note which was shipped.
-- Song cards only for rhymes; synonyms work in beats/scenes too (and in Prose Plot — this
-  is the one bench tool prose wants; keep it ungated there).
-
-**Acceptance:** park caret at a line-ending word in a song → rhymes appear grouped
-Perfect/Near, matching the lyric window's suggestions for the same word; synonyms work in
-a prose chapter; no suggestion churn while typing mid-line (debounce holds); CMUdict
-missing-word case degrades gracefully (empty state, not error).
-
-### B3 — Verse checks, section map, stats
-
-**Goal:** the rest of the bench, song-scoped, live in the rail.
-
-**Build:**
-1. **Verse check list:** run `verseCheck` (~1466) on the caret card; render each finding
-   as a clickable row that scrolls to + briefly highlights the offending line (findings
-   reference section/line indexes — map through `parseLyricLines` to the line editor's
-   DOM rows).
-2. **Section map:** the song's verse/chorus structure (section tokens from
-   `cardBodyTokens`) as a mini-list; click scrolls to that section within the card.
-3. **Stats:** the `updateSummary` line (~5123 — sung lines · syllables · rhyme scheme)
-   rendered as a small stat block. Factor `updateSummary`'s computation from its DOM so
-   both surfaces share it.
-All three refresh on the editor's save/commit events, not per keystroke.
-
-**Acceptance:** a deliberately broken verse (9 syllables vs 8) shows the finding; clicking
-it lands on the right line; section map matches the song's pills; stats match the lyric
-window's summary for the same card; beats/scenes/prose show none of this (gated).
+**Acceptance:** edit a beatline in Manuscript → Board card shows it; edit on Board (via
+the Workshop's details panel) → Manuscript sage note shows it after rebuild; Print View
+output unchanged (beatline visibility toggle still respected); no stray saves while a
+show is loading (`state.loading` guard).
 
 ---
 
-## Track C — The margin gutter (hardest single phase)
+## Cancelled from v1 — do not build
 
-### C1 — Syllables + rhyme letters beside the active song
-
-**Goal:** the lyric window's gutter data, rendered in the Manuscript margin for the card
-your caret is in. Everything else stays clean.
-
-**Read first:** `updateGutter` (~5107) for what's computed (per-line syllable counts,
-rhyme letters, section rows); the Manuscript line editor's per-line DOM (each line is a
-real element — this is what makes in-place annotation possible, unlike the old
-scroll-synced twin column); Focus mode CSS.
-
-**Design (decided):**
-- Annotations attach per-line: absolutely-positioned chips in the card section's left
-  margin (or right — pick left, mirroring the lyric window), one per lyric line, showing
-  syllable count + rhyme letter, colored like the lyric window's scheme.
-- **Active song only** (caret card, songs only, Song Plot only), and only when a new
-  msOptions toggle "Craft margin" is on (default: on in Focus mode, off otherwise —
-  i.e. the toggle has three states or simply: always show in Focus, toggle governs
-  non-Focus Edit).
-- Rhyme-letter click → highlight all lines sharing that rhyme (temporary class).
-- Recompute on the editor's commit/save events and on card focus change — never per
-  keystroke (syllable counting a whole song per keystroke is the perf trap; the lyric
-  window recomputes on save too, ~5445).
-- Layout: the manuscript column must not shift when annotations appear — margin space
-  must come from existing page margins (the sheet's left margin is wide enough at
-  desktop widths; at narrow widths, hide the gutter entirely rather than squeeze).
-
-**Acceptance:** caret into a song → chips fade in beside its lines, matching the lyric
-window's gutter numbers/letters exactly for the same card (write a quick console
-comparison during verification); caret out → gone; zero horizontal reflow (compare
-`getBoundingClientRect` of a line before/after); typing latency unchanged (no
-per-keystroke recompute); Print View pixel-identical.
-
----
-
-## Track D — Flow-typing (Highland-style input)
-
-### D1 — Live element inference while typing
-
-**Goal:** typing declares the element; classification snaps in live. The seamless format
-(`parseLyricLines`) already IS this model in the data layer — D1 makes the editor show it
-in real time instead of at save/re-render.
-
-**Read first:** `buildRichEditor` (~1907) — how lines get their type on Enter, the
-existing Tab/Enter behavior, character autocomplete (it already pops on cue lines);
-`parseLyricLines` (~1525) including the guard that a caps line needs a preceding
-blank/cue/section boundary to count as a cue (line ~1557 comment) — this guard is the
-model for every inference rule.
-
-**Design (decided — the rules):**
-- Typing ALL-CAPS on an empty/action line → the line restyles as a cue *as you type*
-  (once ≥2 caps chars and no lowercase), autocomplete pops as it already does on cue
-  lines. Deleting back to empty reverts.
-- Enter after a cue → next line is sung (song cards) / spoken (beats), as
-  `parseLyricLines` would classify it. Enter on an empty line → back to action.
-- **A quiet element indicator**: small muted label (e.g. "CUE · SUNG · ACTION") near the
-  format bar or floating at the caret line's margin showing the current line's
-  classification. Visibility ties to Edit mode; subtle, not a widget.
-- **Never retroactive:** inference only classifies the line being typed. It never
-  reclassifies earlier, already-committed lines as a side effect of typing elsewhere.
-  A writer's explicit override (D2) always wins and sticks.
-- Round-trip: whatever inference styles live must serialize to exactly what
-  `parseLyricLines` reads back — the seamless format already defines the encoding; D1
-  must introduce ZERO new markup.
-
-**Acceptance:** type a cue + lyric + empty-line + action sequence with no Tab/dropdown
-touches → classifications appear live and survive save/reload identically; the caps-line
-guard still protects shouted lyrics mid-block; title-case names still need `@` (document
-this in the indicator's tooltip); undo steps through cleanly; Prose Plot's editor
-(no cues) is unaffected.
-
-### D2 — Demote explicit element controls to overrides
-
-**Goal:** Tab-cycling and the Element dropdown stop being the primary interface and
-become the escape hatch.
-
-**Build:** reorder/restyle the format bar so the element control reads as secondary
-(smaller, end of bar). An override set via Tab/dropdown marks the line as explicitly
-typed (the existing `@`/`~` forcing syntax IS the persistence for this — a forced line
-serializes with its marker, exactly like Fountain's `@name`/`!action`). The element
-indicator shows overridden lines distinctly (e.g. a filled vs hollow dot). Update any
-onboarding/hint copy that taught Tab-first input.
-
-**Acceptance:** an inference miss (title-case name) is correctable in one gesture and
-survives re-parse; overridden lines round-trip with their forcing markers; a
-mixed inferred/forced song serializes to clean seamless format with `@`/`~` only where
-forced.
-
----
-
-## Track E — Demote, then retire, the lyric window
-
-**Do not start E without explicit user go-ahead.** E1 changes a core daily flow.
-
-### E1 — Board cards open Manuscript-in-Focus
-
-**Build:** the board card's "edit lyrics" affordance switches to: open Manuscript,
-scroll to card (A1's machinery), enter Focus, open the rail. The lyric window remains
-reachable (card ⋯ menu, "Open in lyric window") during the trial period. Add an
-msOptions escape hatch ("Open cards in lyric window") so the user can flip back
-per-device without a deploy.
-
-**Acceptance:** the full write-a-song loop (cue, lyrics, rhyme lookup, verse check,
-beatline tweak) is doable end-to-end without the lyric window; switching the option back
-restores the old flow exactly.
-
-### E2 — Retire the lyric window
-
-Only after E1 has been the daily driver long enough that the user asks for it. Remove
-`buildLyricWindow` + its CSS + the option; keep `lyric.js`, `verseCheck`, thesaurus
-(they're the rail's engines now). Fountain raw-text editing survives somewhere — decide
-with the user (likely a "view source" modal per the north-star). Big deletion — take a
-snapshot/commit boundary seriously and update SPEC §9 (the lyric bench section) to
-describe the rail instead.
-
----
-
-## Suggested cadence
-
-A1 → A2 → A3 are each small, independent, high-visibility — good first sessions (A4
-medium). B1 medium, B2 medium (B2's replace-in-editor is the fiddly bit), B3 medium.
-C1 is the hardest single phase — one full session, nothing else in it. D1 hard-medium,
-D2 small. E1 medium, E2 small-but-scary. After every phase: verify per ground rules,
-update both status tables (here + SPEC.md), deploy only on request.
-
-North-star rationale (the "why" behind all of this) is recorded in SPEC.md §5's
-unified-manuscript note and the session that produced this plan (2026-07-05): the Board
-popup editor and Manuscript editor are one shared component (`buildRichEditor`) with two
-rooms around it; this plan removes the second room by making the tools caret-following
-instead of place-bound.
+Board badges/heatmap (A3) · board↔manuscript jump menus (A1) · navigator pills/beatlines
+(A2) · the caret-following rail (B1–B3) · the Manuscript margin gutter (C1) · flow-typing
+indicators (D1–D2) · retiring the lyric window (E1–E2). The reasoning and the rejection
+history are at the top of this file. If a future session thinks one of these is a good
+idea again, ask the user first with a visual mock — do not build ahead of approval.
