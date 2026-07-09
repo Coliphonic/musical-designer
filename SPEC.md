@@ -164,9 +164,9 @@ and read as a script**. Every card's body flows into one continuous, paginated d
 
 ### The rich line editor
 
-A shared `buildRichEditor()` factory (used by both Manuscript Edit and the lyric window's Rich
-tab, so book and lyric editing feel identical). Each line is a typed **element** — Character,
-Lyrics, Dialogue, Parenthetical, Action, Section.
+A `buildRichEditor()` factory, used exclusively by Manuscript Edit mode (its only other caller,
+the lyric window's Rich tab, was removed 2026-07-09 — see "The Workshop" below). Each line is a
+typed **element** — Character, Lyrics, Dialogue, Parenthetical, Action, Section.
 
 - **Tab** cycles element type; **Enter** starts the next logical line; **Ctrl/⌘ + 1–6** jump
   straight to an element type (Final Draft-style).
@@ -240,26 +240,40 @@ clicking one scrolls to the card, flashes the anchored highlight, and opens its 
   `msFocusExit` hook so the global key handler can reach whichever Manuscript instance is live),
   switching to Print View, or navigating to another page — never persisted, since re-entering the
   app into a chromeless screen would be disorienting. Deliberately scoped to Manuscript, not the
-  card-modal Fountain editor, since the modal's rhyme/gutter tools are a different, tool-heavy
-  activity, not sustained drafting.
+  Workshop (the lyric window), since the Workshop's rhyme/gutter tools are a different,
+  tool-heavy activity, not sustained drafting.
 
-### North star: the unified manuscript (future — execution plan exists)
+### The Workshop — the lyric window, kept as a permanent second room
 
-Decided 2026-07-05: the long-term design is **one document, one editor, tools that come to
-you**. The Manuscript becomes the only editing surface; the Board becomes a pure planning
-lens (cards open the Manuscript, focused, rather than a separate editor); the lyric
-window's bench — rhymes, syllables, thesaurus, verse checks, card details — folds into the
-Manuscript as caret-following tools (a right-side inspector rail + a per-line craft margin
-on the active song); and input goes Highland-style flow-typing, with the seamless format's
-inference (`parseLyricLines`) surfaced live while typing and explicit element controls
-demoted to overrides. Rationale: `buildRichEditor` and the line model are already shared —
-what's duplicated is the *room around the editor*, not the editor; song-as-puzzle isolation
-is a view state (Focus + rail), not a separate window. The lyric window survives until the
-folded-in bench reaches parity, then demotes to an opener, then retires.
-**`UNIFIED-MANUSCRIPT-PLAN.md`** (repo root) breaks this into 12 phases across 5 tracks
-(A: Board↔Manuscript connections · B: inspector rail · C: craft margin · D: flow-typing ·
-E: lyric-window retirement) with per-phase code anchors, decided designs, and acceptance
-criteria; it carries the live status table.
+Decided 2026-07-05, then reconsidered 2026-07-09: the original "unified manuscript" direction —
+fold every tool into the Manuscript as caret-following rails, a per-line craft margin, and
+Highland-style flow-typing, eventually retiring the lyric window entirely — was built through
+three phases (board badges, jump menus, navigator pills + a settings toggle) and rejected on
+sight each time. Every addition read as clutter on a surface meant to stay pristine. The design
+settled instead on **two rooms, one gesture apart**:
+
+- **Manuscript** stays pristine — no rails, no margin chips, no badges, no hover menus, no new
+  settings toggles. Its only addition is **beatline editing** (2026-07-09): a beat's sage
+  outline note (`c.note`) is click-to-edit directly from its rendering in Edit mode
+  (`makeBeatlineEditable`), round-tripping with the Board's own editable note field.
+- **The Workshop** (the lyric window, `buildLyricWindow`, opened from a Board card) is the
+  drafting room with the instruments out: syllable gutter, rhyme suggester, sections, verse
+  notes, thesaurus (for prose cards), and card details. Simplified 2026-07-09 to **one form** —
+  a Fountain textarea + gutter; the earlier Fountain/Rich toggle was removed because it
+  duplicated the Manuscript's structured editor (`buildRichEditor`).
+- **Travel, not merging, is the unifying move.** Both surfaces already edit the same card data
+  live, so there's nothing to sync. A **"Manuscript →"** button in the Workshop's header jumps
+  straight to the card's spot in the Manuscript (forcing Edit mode). Bare chevron arrows in the
+  dimmed margin just outside the Workshop window (hidden below ~1100px viewport width) walk to
+  the prev/next card in the show's document order (`displayOrder()`), so a full drafting pass
+  never requires closing and reopening the window.
+
+**`UNIFIED-MANUSCRIPT-PLAN.md`** (repo root) carries the full history — the rejected v1 tracks
+(board badges, jump menus, navigator pills, an inspector rail, a margin gutter, flow-typing,
+lyric-window retirement) and the v2 phases that shipped in their place (R1 revert · W1 one-form
+Workshop · W2 push gesture · W3 prev/next arrows · A4 beatline editing) — all complete as of
+2026-07-09. The binding lesson going forward: mock any user-visible chrome and get it approved
+before building, and never add a settings toggle to make clutter optional.
 
 ---
 
@@ -450,6 +464,7 @@ What's built and working:
 | Revisions — margin asterisks, named revision sets, Lock Pages, revised-pages-only PDF | ✅ |
 | Inline chords — typed `[C]` shorthand, sage floating labels, Page setup toggle | ✅ |
 | Inline notes (v1) — highlight-as-note, popup/popover, Navigator sub-rows | ✅ |
+| The Workshop (§5) — one-form lyric window, push-to-Manuscript, prev/next arrows, beatline editing | ✅ |
 | Platform — accounts, Library, sharing, PWA, deploy | ✅ |
 
 What's next (in dependency order — Revisions, inline chords, and inline notes v1 all shipped, see
