@@ -4833,18 +4833,52 @@ function buildHeaderDrawer(onUpdate) {
   };
   const sectionHead = (t) => el('div', { class: 'ms-hd-section-head', text: t });
 
-  // ── Running header ───────────────────────────────────────────────
+  // ── Sub-panel plumbing ───────────────────────────────────────────
+  // A summary row on the drawer root slides a detail pane in from the
+  // right; the manuscript stays visible behind it for live preview, and a
+  // back arrow returns to the root. (Title pages keeps its own full-screen
+  // sub-mode — it's a page editor, not a settings pane.) mkSubpanel/
+  // mkSummaryRow/openSubpanel are returned so the caller can add its own
+  // panes, e.g. Revisions.
+  const closeSubpanels = () => drawer.querySelectorAll('.ms-hd-subpanel').forEach((p) => p.classList.remove('open'));
+  const mkSubpanel = (title) => {
+    const panel = el('div', { class: 'ms-hd-subpanel' });
+    const bar = el('div', { class: 'ms-hd-titlebar ms-hd-subbar' });
+    const back = el('button', { class: 'ms-hd-back', title: 'Back' });
+    back.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>';
+    back.addEventListener('click', closeSubpanels);
+    bar.appendChild(back);
+    bar.appendChild(el('span', { class: 'ms-hd-title', text: title }));
+    panel.appendChild(bar);
+    const pbody = el('div', { class: 'ms-hd-subbody' });
+    panel.appendChild(pbody);
+    drawer.appendChild(panel);
+    return { panel, body: pbody };
+  };
+  const openSubpanel = (panel) => { closeSubpanels(); panel.classList.add('open'); };
+  const mkSummaryRow = (label, getState, onOpen) => {
+    const row = el('button', { class: 'ms-hd-navrow', type: 'button' });
+    row.appendChild(el('span', { text: label }));
+    const r = el('span', { class: 'ms-hd-navrow-r' });
+    r.appendChild(el('span', { class: 'ms-hd-navrow-val', text: getState() }));
+    r.innerHTML += '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>';
+    row.appendChild(r);
+    row.addEventListener('click', onOpen);
+    return { row, refresh: () => { const v = row.querySelector('.ms-hd-navrow-val'); if (v) v.textContent = getState(); } };
+  };
+
+  // ── Running header (summary row → slide-in sub-panel) ────────────
   // The "Show header on pages" toggle is itself the disclosure: turn the
   // header on and its detail controls (format, date, alignment, first-page)
   // appear below; turn it off and they collapse away. No separate preview —
   // the header is already visible on the pages in the main window.
-  inner.appendChild(sectionHead('Running header'));
+  const { panel: hdPanel, body: hdBody } = mkSubpanel('Running header');
 
   const sub = el('div', { class: 'ms-hd-subgroup' });
   const syncVisibility = () => { sub.style.display = sh.enabled ? '' : 'none'; };
 
-  const enabled = toggle('Show header on pages', sh.enabled, (v) => { sh.enabled = v; syncVisibility(); scheduleSave(); onUpdate(); });
-  inner.appendChild(enabled.row);
+  const enabled = toggle('Show header on pages', sh.enabled, (v) => { sh.enabled = v; syncVisibility(); headerRow.refresh(); scheduleSave(); onUpdate(); });
+  hdBody.appendChild(enabled.row);
 
   // Format template
   const fmtWrap = el('div', { class: 'ms-hd-fmt-wrap' });
@@ -4893,11 +4927,13 @@ function buildHeaderDrawer(onUpdate) {
   const fp = toggle('Show on first page', sh.firstPage, (v) => { sh.firstPage = v; scheduleSave(); onUpdate(); });
   sub.appendChild(fp.row);
 
-  inner.appendChild(sub);
+  hdBody.appendChild(sub);
   syncVisibility();
 
+  const headerRow = mkSummaryRow('Running header', () => sh.enabled ? 'On' : 'Off', () => openSubpanel(hdPanel));
+
   drawer.appendChild(inner);
-  return drawer;
+  return { drawer, inner, headerRow, mkSubpanel, mkSummaryRow, openSubpanel, closeSubpanels };
 }
 
 function buildManuscriptPage(sceneId) {
@@ -5457,6 +5493,7 @@ function buildManuscriptPage(sceneId) {
     const otherDrawer = relevantDrawer === drawer ? bookDrawer : drawer;
     if (otherDrawer) otherDrawer.classList.remove('open');
     if (isSideMode) relevantDrawer.classList.remove('open');
+    if (built) built.closeSubpanels(); // switching views always returns to the drawer root
     // Gear button reflects whichever drawer is relevant to the view we just
     // switched to — closing the other view's drawer above must not leave the
     // gear looking "active" when nothing is actually open anymore.
@@ -5475,20 +5512,27 @@ function buildManuscriptPage(sceneId) {
   titleDoneBtn.addEventListener('click', () => { msMode = lastDocMode; applyMode(); });
 
   // ── Settings drawer ──────────────────────────────────────────────
-  // A quiet chevron row for entries that navigate to a sub-screen (title
-  // pages, book matter) rather than acting inline — visually distinct from
-  // the Revisions section's real action buttons below.
-  const mkNavRow = (label, onOpen) => {
-    const row = el('button', { class: 'ms-hd-navrow', type: 'button' });
-    row.appendChild(el('span', { text: label }));
-    row.innerHTML += '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>';
+  // A "leave to a full page" row for entries that navigate to a sub-screen
+  // (title pages, book matter) rather than sliding a panel in place. The
+  // diagonal arrow + subtitle mark it apart from the summary rows above,
+  // whose chevron promises an in-drawer panel — this one takes you away.
+  const mkNavRow = (label, onOpen, sublabel) => {
+    const row = el('button', { class: 'ms-hd-navrow ms-hd-navrow-leave', type: 'button' });
+    const main = el('span', { class: 'ms-hd-navrow-main' });
+    main.appendChild(el('span', { text: label }));
+    if (sublabel) main.appendChild(el('span', { class: 'ms-hd-navrow-sub', text: sublabel }));
+    row.appendChild(main);
+    row.innerHTML += '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="8 7 17 7 17 16"/></svg>';
     row.addEventListener('click', onOpen);
     return row;
   };
 
-  const drawer = buildHeaderDrawer(() => { if (msMode === 'layout') rebuildSheets(); else rebuildEdit(); });
-  const drawerInner = drawer.querySelector('.ms-hd-inner');
-  drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
+  const built = buildHeaderDrawer(() => { if (msMode === 'layout') rebuildSheets(); else rebuildEdit(); });
+  const drawer = built.drawer;
+  const drawerInner = built.inner;
+  // Daily document toggles sit at the top level; the heavier setup (running
+  // header, title pages, revisions) hangs off summary rows below, so the
+  // drawer root stays short.
   drawerInner.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Document' }));
   const mkDrawerToggle = (label, key, defaultVal) => {
     if (state.msOptions[key] === undefined) state.msOptions[key] = defaultVal !== false;
@@ -5536,25 +5580,26 @@ function buildManuscriptPage(sceneId) {
     drawerInner.appendChild(mkDrawerToggle('Section tags', 'showSectionTags', false));
     drawerInner.appendChild(mkDrawerToggle('Chords', 'showChords', true));
   }
-  // Title pages live here (not in the Edit/Print switcher) — they're document
-  // furniture you set up once, reached like the rest of the front-matter
-  // options, rather than a document mode you'd work in day-to-day.
-  drawerInner.appendChild(mkNavRow('Title pages', () => {
-    drawer.classList.remove('open');
-    settingsBtn.classList.remove('active');
-    msMode = 'title';
-    applyMode();
-  }));
+  drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
+  // Running header opens its slide-in sub-panel (built in buildHeaderDrawer).
+  // Kept next to Revisions below — both are in-drawer panels, unlike Title
+  // pages, which navigates away to a full-page editor and sits on its own.
+  drawerInner.appendChild(built.headerRow.row);
 
-  // ── Revisions (Final Draft-style) ─────────────────────────────────
+  // ── Revisions (Final Draft-style) — summary row → slide-in sub-panel ──
   if (!state.readonly) {
     const rerenderMs = () => { if (msMode === 'layout') rebuildSheets(); else rebuildEdit(); };
-    drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
+    const revPane = built.mkSubpanel('Revisions');
+    const revRow = built.mkSummaryRow('Revisions', () => {
+      const cur = (state.revisions || []).find((r) => r.id === state.currentRev);
+      return cur ? cur.name : 'Off';
+    }, () => built.openSubpanel(revPane.panel));
+    drawerInner.appendChild(revRow.row);
     const revSection = el('div', { class: 'ms-rev-section' });
-    drawerInner.appendChild(revSection);
+    revPane.body.appendChild(revSection);
     const renderRevSection = () => {
+      revRow.refresh();
       revSection.innerHTML = '';
-      revSection.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Revisions' }));
       const cur = (state.revisions || []).find((r) => r.id === state.currentRev);
       if (cur) {
         const row = el('div', { class: 'ms-rev-current' });
@@ -5616,6 +5661,18 @@ function buildManuscriptPage(sceneId) {
     };
     renderRevSection();
   }
+
+  // Title pages sits below its own divider, apart from the header/revisions
+  // slide-in rows — it's document furniture you set up once, and it navigates
+  // to a full-page editor (the diagonal arrow + subtitle signal that it leaves
+  // the drawer rather than opening a panel in place).
+  drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
+  drawerInner.appendChild(mkNavRow('Title pages', () => {
+    drawer.classList.remove('open');
+    settingsBtn.classList.remove('active');
+    msMode = 'title';
+    applyMode();
+  }, 'Opens a full page'));
 
   // ── Book drawer (Prose Plot only) ──────────────────────────────────
   // Book-specific setup lives in its own drawer, opened by the same gear
@@ -5830,6 +5887,8 @@ function buildManuscriptPage(sceneId) {
     const active = (msMode === 'book' && bookDrawer) ? bookDrawer : drawer;
     const inactive = active === drawer ? bookDrawer : drawer;
     if (inactive) { inactive.classList.remove('open'); }
+    // Always reopen at the drawer root, never a sub-panel left open earlier.
+    built.closeSubpanels();
     active.classList.toggle('open');
     settingsBtn.classList.toggle('active', active.classList.contains('open'));
   });

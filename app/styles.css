@@ -374,7 +374,7 @@ body.dark .ms-body { background: var(--bg); }
 .ms-opt-toggle input { cursor: pointer; accent-color: var(--energy); }
 
 /* Header settings drawer */
-.ms-hd-drawer { width: 0; overflow: hidden; background: var(--panel); border-left: 1px solid var(--line); transition: width 0.22s ease; flex-shrink: 0; display: flex; flex-direction: column; }
+.ms-hd-drawer { position: relative; width: 0; overflow: hidden; background: var(--panel); border-left: 1px solid var(--line); transition: width 0.22s ease; flex-shrink: 0; display: flex; flex-direction: column; }
 .ms-hd-drawer.open { width: 288px; }
 .ms-hd-inner { width: 288px; flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 0 16px 22px; }
 /* Sticky title so it stays put while the options scroll */
@@ -414,7 +414,26 @@ body.dark .ms-body { background: var(--bg); }
 .ms-hd-navrow:hover { color: var(--energy); }
 .ms-hd-navrow svg { flex-shrink: 0; color: var(--muted); }
 .ms-hd-navrow:hover svg { color: var(--energy); }
+/* Summary rows carry a current-state value (e.g. "On", "Blue") before the
+   chevron, so the writer sees what's set without opening the sub-panel. */
+.ms-hd-navrow-r { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 400; color: var(--muted); }
+/* "Leave to a full page" rows (Title pages, Front/back matter): a stacked
+   label + subtitle and a diagonal arrow, so they read differently from the
+   summary rows above whose chevron opens an in-drawer panel. */
+.ms-hd-navrow-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.ms-hd-navrow-sub { font-size: 10px; font-weight: 400; color: var(--muted); }
+.ms-hd-navrow-leave { align-items: center; }
 .ms-sheet-hdr-text { flex: 1; }
+
+/* Slide-in settings sub-panel — a detail pane that covers the drawer root
+   and slides in from the right, leaving the manuscript visible behind for
+   live preview. Back arrow returns to the root. */
+.ms-hd-subpanel { position: absolute; inset: 0; z-index: 3; background: var(--panel); transform: translateX(100%); transition: transform 0.22s ease; display: flex; flex-direction: column; }
+.ms-hd-subpanel.open { transform: translateX(0); }
+.ms-hd-subbody { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 0 16px 22px; }
+.ms-hd-subbar { justify-content: flex-start; gap: 8px; padding: 14px 16px 10px; }
+.ms-hd-back { border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 3px 5px; border-radius: 5px; line-height: 0; display: flex; }
+.ms-hd-back:hover { background: var(--hover); color: var(--ink); }
 
 /* Viewport: gray desk, sheets stack vertically */
 .ms-viewport {
