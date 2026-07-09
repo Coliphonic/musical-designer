@@ -5672,7 +5672,7 @@ function buildManuscriptPage(sceneId) {
     settingsBtn.classList.remove('active');
     msMode = 'title';
     applyMode();
-  }, 'Opens a full page'));
+  }));
 
   // ── Book drawer (Prose Plot only) ──────────────────────────────────
   // Book-specific setup lives in its own drawer, opened by the same gear
