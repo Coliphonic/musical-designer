@@ -380,9 +380,8 @@ body.dark .ms-body { background: var(--bg); }
 .ms-hd-toggle-label { font-size: 13px; color: var(--ink); font-weight: 500; }
 .ms-hd-toggle input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--energy); flex-shrink: 0; margin: 0; }
 
-/* Subgroup of header options — dims when header is off */
+/* Subgroup of header options — shown only while the header is enabled */
 .ms-hd-subgroup { display: flex; flex-direction: column; gap: 12px; }
-.ms-hd-subgroup.dimmed { opacity: 0.4; pointer-events: none; }
 
 .ms-hd-fmt-wrap { display: flex; flex-direction: column; gap: 6px; }
 .ms-hd-fmt-input { font-size: 12px; }
@@ -394,8 +393,12 @@ body.dark .ms-body { background: var(--bg); }
 .ms-hd-row .seg { display: flex; width: 100%; }
 .ms-hd-row .seg button { flex: 1; }
 
-.ms-hd-preview-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; }
-.ms-hd-preview { font-family: 'Courier Prime', 'Courier New', Courier, monospace; font-size: 11px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; color: var(--ink); min-height: 32px; display: block; width: 100%; box-sizing: border-box; }
+/* Quiet navigation row (e.g. "Title pages ›") — these open a sub-screen,
+   they're not an action, so they read as a list item rather than a button. */
+.ms-hd-navrow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; border: 0; background: transparent; font-family: inherit; width: 100%; text-align: left; cursor: pointer; color: var(--ink); font-size: 13px; font-weight: 500; }
+.ms-hd-navrow:hover { color: var(--energy); }
+.ms-hd-navrow svg { flex-shrink: 0; color: var(--muted); }
+.ms-hd-navrow:hover svg { color: var(--energy); }
 .ms-sheet-hdr-text { flex: 1; }
 
 /* Viewport: gray desk, sheets stack vertically */

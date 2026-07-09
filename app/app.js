@@ -4772,20 +4772,23 @@ function buildHeaderDrawer(onUpdate) {
   const sectionHead = (t) => el('div', { class: 'ms-hd-section-head', text: t });
 
   // ── Running header ───────────────────────────────────────────────
+  // The "Show header on pages" toggle is itself the disclosure: turn the
+  // header on and its detail controls (format, date, alignment, first-page)
+  // appear below; turn it off and they collapse away. No separate preview —
+  // the header is already visible on the pages in the main window.
   inner.appendChild(sectionHead('Running header'));
 
-  // Subgroup holds the detail options; it dims when the header is turned off.
   const sub = el('div', { class: 'ms-hd-subgroup' });
-  const syncDim = () => sub.classList.toggle('dimmed', !sh.enabled);
+  const syncVisibility = () => { sub.style.display = sh.enabled ? '' : 'none'; };
 
-  const enabled = toggle('Show header on pages', sh.enabled, (v) => { sh.enabled = v; syncDim(); scheduleSave(); onUpdate(); updatePreview(); });
+  const enabled = toggle('Show header on pages', sh.enabled, (v) => { sh.enabled = v; syncVisibility(); scheduleSave(); onUpdate(); });
   inner.appendChild(enabled.row);
 
   // Format template
   const fmtWrap = el('div', { class: 'ms-hd-fmt-wrap' });
   const fmtIn = el('input', { class: 'fi ms-hd-fmt-input', type: 'text', value: sh.format || '' });
   fmtIn.placeholder = '{title} – {date} – {page}.';
-  fmtIn.addEventListener('input', () => { sh.format = fmtIn.value; scheduleSave(); onUpdate(); updatePreview(); });
+  fmtIn.addEventListener('input', () => { sh.format = fmtIn.value; scheduleSave(); onUpdate(); });
   fmtWrap.appendChild(fmtIn);
   const tokens = el('div', { class: 'ms-hd-tokens' });
   ['{title}', '{date}', '{page}'].forEach((tok) => {
@@ -4796,7 +4799,7 @@ function buildHeaderDrawer(onUpdate) {
       fmtIn.selectionStart = fmtIn.selectionEnd = s + tok.length;
       fmtIn.focus();
       sh.format = fmtIn.value;
-      scheduleSave(); onUpdate(); updatePreview();
+      scheduleSave(); onUpdate();
     });
     tokens.appendChild(chip);
   });
@@ -4806,7 +4809,7 @@ function buildHeaderDrawer(onUpdate) {
   // Revision date
   const dateIn = el('input', { class: 'fi', type: 'text', value: sh.revisionDate || '' });
   dateIn.placeholder = '3/30/18, DRAFT, Workshop…';
-  dateIn.addEventListener('input', () => { sh.revisionDate = dateIn.value; scheduleSave(); onUpdate(); updatePreview(); });
+  dateIn.addEventListener('input', () => { sh.revisionDate = dateIn.value; scheduleSave(); onUpdate(); });
   sub.appendChild(stacked('Revision / date', dateIn));
 
   // Alignment
@@ -4818,7 +4821,7 @@ function buildHeaderDrawer(onUpdate) {
       sh.alignment = a;
       alignSeg.querySelectorAll('button').forEach((btn) => btn.classList.remove('active'));
       b.classList.add('active');
-      scheduleSave(); onUpdate(); updatePreview();
+      scheduleSave(); onUpdate();
     });
     alignSeg.appendChild(b);
   });
@@ -4828,21 +4831,8 @@ function buildHeaderDrawer(onUpdate) {
   const fp = toggle('Show on first page', sh.firstPage, (v) => { sh.firstPage = v; scheduleSave(); onUpdate(); });
   sub.appendChild(fp.row);
 
-  // Preview
-  const preview = el('div', { class: 'ms-hd-preview' });
-  function updatePreview() {
-    const text = (sh.format || '')
-      .replace('{title}', (state.title || 'Untitled Show').toUpperCase())
-      .replace('{date}', sh.revisionDate || '')
-      .replace('{page}', '8');
-    preview.textContent = text || ' ';
-    preview.style.textAlign = sh.alignment || 'right';
-  }
-  updatePreview();
-  sub.appendChild(stacked('Preview', preview));
-
   inner.appendChild(sub);
-  syncDim();
+  syncVisibility();
 
   drawer.appendChild(inner);
   return drawer;
@@ -5393,6 +5383,14 @@ function buildManuscriptPage(sceneId) {
     // Title/book-matter modes have their own inline controls, so the settings
     // gear (script options: title/act headers/section tags) is hidden there.
     settingsBtn.style.display = isSideMode ? 'none' : '';
+    // Manuscript and Book each have their own settings drawer — close
+    // whichever one doesn't belong to the view we're switching to, so
+    // re-opening the gear always starts from a closed state. (applyMode()
+    // is only ever invoked after both drawers are constructed below.)
+    const relevantDrawer = (msMode === 'book' && bookDrawer) ? bookDrawer : drawer;
+    const otherDrawer = relevantDrawer === drawer ? bookDrawer : drawer;
+    if (otherDrawer) otherDrawer.classList.remove('open');
+    if (isSideMode) { relevantDrawer.classList.remove('open'); settingsBtn.classList.remove('active'); }
     if (msMode === 'edit') rebuildEdit();
     else if (msMode === 'title') rebuildTitle();
     else if (msMode === 'book-matter') rebuildBookMatter();
@@ -5407,22 +5405,21 @@ function buildManuscriptPage(sceneId) {
   titleDoneBtn.addEventListener('click', () => { msMode = lastDocMode; applyMode(); });
 
   // ── Settings drawer ──────────────────────────────────────────────
+  // A quiet chevron row for entries that navigate to a sub-screen (title
+  // pages, book matter) rather than acting inline — visually distinct from
+  // the Revisions section's real action buttons below.
+  const mkNavRow = (label, onOpen) => {
+    const row = el('button', { class: 'ms-hd-navrow', type: 'button' });
+    row.appendChild(el('span', { text: label }));
+    row.innerHTML += '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>';
+    row.addEventListener('click', onOpen);
+    return row;
+  };
+
   const drawer = buildHeaderDrawer(() => { if (msMode === 'layout') rebuildSheets(); else rebuildEdit(); });
   const drawerInner = drawer.querySelector('.ms-hd-inner');
-  // Title pages live here (not in the Edit/Print switcher) — they're document
-  // furniture you set up once, so they're reached from Page setup like the
-  // rest of the front-matter options.
   drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
-  const titleOpenBtn = el('button', { class: 'ms-rev-btn ms-rev-lockbtn', text: 'Edit title pages…' });
-  titleOpenBtn.addEventListener('click', () => {
-    drawer.classList.remove('open');
-    settingsBtn.classList.remove('active');
-    msMode = 'title';
-    applyMode();
-  });
-  drawerInner.appendChild(titleOpenBtn);
-  drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
-  drawerInner.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Show in document' }));
+  drawerInner.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Document' }));
   const mkDrawerToggle = (label, key, defaultVal) => {
     if (state.msOptions[key] === undefined) state.msOptions[key] = defaultVal !== false;
     const cb = el('input', { type: 'checkbox' });
@@ -5461,20 +5458,6 @@ function buildManuscriptPage(sceneId) {
     seg.appendChild(blockBtn);
     row.appendChild(seg);
     drawerInner.appendChild(row);
-
-    // Book formatting entry point — see BOOK-FORMATTING-PLAN.md. More controls
-    // (themes, trim size…) arrive with their phases.
-    drawerInner.appendChild(el('div', { class: 'ms-hd-divider' }));
-    drawerInner.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Book' }));
-    const bookMatterBtn = el('button', { class: 'ms-rev-btn ms-rev-lockbtn', text: 'Edit book matter…' });
-    bookMatterBtn.addEventListener('click', () => {
-      drawer.classList.remove('open');
-      settingsBtn.classList.remove('active');
-      msMode = 'book-matter';
-      applyMode();
-    });
-    drawerInner.appendChild(bookMatterBtn);
-    drawerInner.appendChild(el('div', { class: 'ms-rev-none', text: 'More book formatting coming in stages.' }));
   } else {
     // Act headers/Section tags/Chords are all Song Plot-only concepts — a
     // novel has no intermission-split acts (Prose Plot's default is always
@@ -5483,6 +5466,15 @@ function buildManuscriptPage(sceneId) {
     drawerInner.appendChild(mkDrawerToggle('Section tags', 'showSectionTags', false));
     drawerInner.appendChild(mkDrawerToggle('Chords', 'showChords', true));
   }
+  // Title pages live here (not in the Edit/Print switcher) — they're document
+  // furniture you set up once, reached like the rest of the front-matter
+  // options, rather than a document mode you'd work in day-to-day.
+  drawerInner.appendChild(mkNavRow('Title pages', () => {
+    drawer.classList.remove('open');
+    settingsBtn.classList.remove('active');
+    msMode = 'title';
+    applyMode();
+  }));
 
   // ── Revisions (Final Draft-style) ─────────────────────────────────
   if (!state.readonly) {
@@ -5553,6 +5545,33 @@ function buildManuscriptPage(sceneId) {
       revSection.appendChild(lockBtn);
     };
     renderRevSection();
+  }
+
+  // ── Book drawer (Prose Plot only) ──────────────────────────────────
+  // Book-specific setup lives in its own drawer, opened by the same gear
+  // while in Book view, rather than a "Book" section bolted onto the
+  // Manuscript drawer — so a manuscript-mode writer never sees book matter,
+  // and a book-mode writer never sees running-header/revision controls that
+  // don't apply to the book render.
+  let bookDrawer = null;
+  if (state.format === 'prose') {
+    bookDrawer = el('div', { class: 'ms-hd-drawer', id: 'ms-book-drawer' });
+    const bkInner = el('div', { class: 'ms-hd-inner' });
+    const bkTitleBar = el('div', { class: 'ms-hd-titlebar' });
+    bkTitleBar.appendChild(el('span', { class: 'ms-hd-title', text: 'Book setup' }));
+    const bkCloseBtn = el('button', { class: 'ms-hd-close', text: '✕', title: 'Close' });
+    bkCloseBtn.addEventListener('click', () => { bookDrawer.classList.remove('open'); settingsBtn.classList.remove('active'); });
+    bkTitleBar.appendChild(bkCloseBtn);
+    bkInner.appendChild(bkTitleBar);
+    bkInner.appendChild(mkNavRow('Front and back matter', () => {
+      bookDrawer.classList.remove('open');
+      settingsBtn.classList.remove('active');
+      msMode = 'book-matter';
+      applyMode();
+    }));
+    bkInner.appendChild(el('div', { class: 'ms-hd-divider' }));
+    bkInner.appendChild(el('div', { class: 'ms-rev-none', text: 'More book formatting — themes, trim sizes, chapter styles — arrives here in stages.' }));
+    bookDrawer.appendChild(bkInner);
   }
 
   const applyZoom = () => {
@@ -5735,9 +5754,14 @@ function buildManuscriptPage(sceneId) {
 
   msWrap.appendChild(msNav);
   msWrap.appendChild(drawer);
+  if (bookDrawer) msWrap.appendChild(bookDrawer);
   settingsBtn.addEventListener('click', () => {
-    drawer.classList.toggle('open');
-    settingsBtn.classList.toggle('active', drawer.classList.contains('open'));
+    // Book view gets its own drawer; every other mode gets the manuscript one.
+    const active = (msMode === 'book' && bookDrawer) ? bookDrawer : drawer;
+    const inactive = active === drawer ? bookDrawer : drawer;
+    if (inactive) { inactive.classList.remove('open'); }
+    active.classList.toggle('open');
+    settingsBtn.classList.toggle('active', active.classList.contains('open'));
   });
 
   body.appendChild(msWrap);
