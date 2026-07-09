@@ -33,7 +33,7 @@ and check.
 | W1 | One-form Workshop — remove the Fountain/Rich tab toggle | ✅ |
 | W2 | "Push into Manuscript" gesture from the Workshop | ✅ |
 | W3 | Walk the show from the Workshop (prev/next card) | ✅ |
-| A4 | Beatline round-trip editing (the one Manuscript addition) | ⬜ |
+| A4 | Beatline round-trip editing (the one Manuscript addition) | ✅ |
 
 **Suggested order:** R1 first (it's cleanup and unblocks nothing else, but the user has
 already rejected that UI — don't leave it live). Then W1 → W2 → W3. A4 is independent —
@@ -324,6 +324,24 @@ in a code comment, acceptable for v1.
 the Workshop's details panel) → Manuscript sage note shows it after rebuild; Print View
 output unchanged (beatline visibility toggle still respected); no stray saves while a
 show is loading (`state.loading` guard).
+
+**What shipped (2026-07-09):** added `makeBeatlineEditable(elm, c)` (app.js, just above
+`renderCardSection`) — same click-to-edit/contenteditable/blur-save pattern as the
+board's `makeCardEditable`, but with its own `mousedown` → `stopPropagation()` so the
+card section's existing mousedown listener (which swaps in the rich editor) doesn't fire
+first and tear the note element out of the DOM. Wired into both Edit-mode render paths:
+the static `renderCardSection` (line ~4768) and the pinned note shown above the active
+rich editor in `enterCardEditRich` (line ~4804) — so it's editable whether or not the
+body text below it is being edited. Blur writes via `setCardBody(c, 'note', v)` +
+`doSave()`, guarded by `state.loading`, and calls `refreshNav()` so the outline stays in
+sync. Board's `.sub.note` field (`buildCard`, already using `makeCardEditable`) needed no
+changes — it already round-tripped. `renderPageToken`'s Print/Layout-mode rendering of
+`.lw-note-ms` was untouched — confirmed no `lw-note-ms-edit` class or edit affordance
+leaks into Print View. CSS: `.lw-note-ms-edit` hover/focus box-shadow mirrors
+`.title.cardedit`. Verified live: edited a beatline in Manuscript Edit mode, confirmed
+`c.note` updated and `state.loading` guard present; switched to Board and confirmed the
+new text appears after `render()`; switched to Print View and confirmed the note renders
+read-only with no editable class. sw bumped to v168.
 
 ---
 

@@ -4750,6 +4750,33 @@ function buildManuscriptPage(sceneId) {
   // `card.lines` identity sidecar) via the top-level cardBodyField.
   const cardField = cardBodyField;
 
+  // A beat's Beatline is editable in place, right from its sage rendering — the
+  // hinge made tangible (A4). mousedown stops propagation first: the section's
+  // own mousedown listener (below) would otherwise swap in the rich editor and
+  // tear this element out of the DOM before its click ever fires.
+  const makeBeatlineEditable = (elm, c) => {
+    if (state.readonly) return elm;
+    elm.classList.add('lw-note-ms-edit');
+    elm.setAttribute('spellcheck', 'false');
+    elm.addEventListener('mousedown', (e) => e.stopPropagation());
+    elm.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (elm.getAttribute('contenteditable') !== 'true') { elm.setAttribute('contenteditable', 'true'); elm.focus(); }
+    });
+    elm.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); elm.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); elm.textContent = c.note || ''; elm.blur(); }
+    });
+    elm.addEventListener('blur', () => {
+      if (state.loading) return;
+      const v = elm.textContent.replace(/\s+/g, ' ').trim();
+      elm.textContent = v;
+      elm.removeAttribute('contenteditable');
+      if (v !== (c.note || '')) { setCardBody(c, 'note', v); doSave(); if (refreshNav) refreshNav(); }
+    });
+    return elm;
+  };
+
   const renderCardSection = (sec, c) => {
     sec.innerHTML = '';
     // A beat's body is specifically `lyrics` — its `note` is the sage outline
@@ -4765,7 +4792,7 @@ function buildManuscriptPage(sceneId) {
     // Beatlines toggle (CSS, under .hide-beatlines) so it round-trips cleanly.
     const hasBeatline = c.type === 'beat' && (c.note || '').trim();
     const inner = el('div', { class: 'ms-card-content ms-sheet-content' + (isEmpty && !hasBeatline ? ' ms-card-section-empty' : '') });
-    if (hasBeatline) inner.appendChild(el('div', { class: 'lw-note-ms', text: c.note }));
+    if (hasBeatline) inner.appendChild(makeBeatlineEditable(el('div', { class: 'lw-note-ms', text: c.note }), c));
     if (isEmpty) {
       const sceneWord = state.format === 'prose' ? 'chapter heading' : 'scene heading';
       const phText = state.readonly
@@ -4801,7 +4828,7 @@ function buildManuscriptPage(sceneId) {
     const hasBeatline = c.type === 'beat' && (c.note || '').trim() && state.msOptions.showBeatlines !== false;
     sec.classList.toggle('ms-has-logline', !!hasBeatline);
     if (hasBeatline) {
-      sec.appendChild(el('div', { class: 'ms-sheet-content ms-edit-logline' }, [el('div', { class: 'lw-note-ms', text: c.note })]));
+      sec.appendChild(el('div', { class: 'ms-sheet-content ms-edit-logline' }, [makeBeatlineEditable(el('div', { class: 'lw-note-ms', text: c.note }), c)]));
     }
     const rich = buildRichEditor({
       text: c[cardField(c)] || '',

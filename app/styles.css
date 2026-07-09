@@ -477,6 +477,8 @@ body.dark .ms-body { background: var(--bg); }
 .ms-sheet-content .lw-note-ms      { margin-top: 12pt; color: #5f7d57; font-style: italic; text-align: left; }
 body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .ms-viewport .lw-note-ms, #pdf-print-root .lw-note-ms { color: #5f7d57; }
+.lw-note-ms-edit { border-radius: 4px; padding: 0 3px; margin-left: -3px; }
+.lw-note-ms-edit:hover, .lw-note-ms-edit[contenteditable="true"] { cursor: text; box-shadow: inset 0 0 0 1px var(--line); }
 /* Avoid double gaps: when a literal blank-line token already precedes an element
    that carries SpaceBefore, drop the margin so the gap is one line, not two. */
 /* Revisions panel in the manuscript settings drawer. */
