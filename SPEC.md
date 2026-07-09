@@ -778,7 +778,7 @@ why this is a skin-per-app model, not a format dropdown.
 | Separate subdomains (`musicaldesigner.` / `proseplot.colincreates.com`), shared login, per-app PWA branding | ✅ (2026-07-04) |
 | **Prose-native Manuscript editor** (see below) | ⬜ still Song Plot's libretto editor, unmodified |
 | Prose-tuned Story DNA labels | ⬜ |
-| Book export — EPUB + print PDF, front/back matter, themes, trim sizes (see below; Manuscript-format PDF for agent submission stays as-is) | 🔶 Phases 0–1b done (data model, front/back-matter editors, Book view render + PDF, 2026-07-09) — see `BOOK-FORMATTING-PLAN.md` |
+| Book export — EPUB + print PDF, front/back matter, themes, trim sizes (see below; Manuscript-format PDF for agent submission stays as-is) | 🔶 Phases 0–2a done (data model, front/back-matter editors, Book view render + PDF, self-hosted serif fonts, 2026-07-09) — see `BOOK-FORMATTING-PLAN.md` |
 
 ### The prose-native editor — what's needed (not yet built)
 

@@ -2634,15 +2634,29 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   styleBar.appendChild(redoBtn);
   styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
   if (isProse) {
-    // Prose promotes italic/bold to primary controls (a novel leans on inline
-    // emphasis constantly; it has no cue/dialogue/dual-column concerns), ahead
-    // of the now-two-option Element select.
+    // Writing font — a per-device comfort preference (state.msOptions.editFont),
+    // separate from emphasis/element controls. Changing it restyles the whole
+    // Edit-mode document (via --edit-font on .ms-edit-doc), not just this line;
+    // Manuscript output is untouched, since it never reads --edit-font.
+    const fontSel = el('select', { class: 'ms-font-sel', title: 'Writing font (Manuscript output stays Courier regardless of this setting)' });
+    Object.entries(EDIT_FONT_LABELS).forEach(([val, label]) => fontSel.appendChild(el('option', { value: val, text: label })));
+    fontSel.value = state.msOptions.editFont || 'courier';
+    fontSel.addEventListener('change', () => {
+      state.msOptions.editFont = fontSel.value;
+      try { localStorage.setItem('md-ms-opts', JSON.stringify(state.msOptions)); } catch (_) {}
+      applyEditFont();
+    });
+    // Ribbon ordered by word-processor convention (Word/Docs), left→right by
+    // scope: history (undo/redo, above) | selectors that pick WHAT you're
+    // styling (writing font, then line element) | character emphasis + the note
+    // highlight, kept as one contiguous cluster rather than split around the
+    // selects.
+    styleBar.appendChild(fontSel);
+    styleBar.appendChild(styleSel);
+    styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
     styleBar.appendChild(boldBtn);
     styleBar.appendChild(italicBtn);
     styleBar.appendChild(underlineBtn);
-    styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
-    styleBar.appendChild(styleSel);
-    styleBar.appendChild(el('span', { class: 'ms-fmt-divider' }));
     styleBar.appendChild(strikeBtn);
     styleBar.appendChild(highlightBtn);
   } else {
@@ -3402,9 +3416,10 @@ function buildBookBlocks(chapters) {
   return blocks;
 }
 
-function paginateBookBlocks(blocks) {
+function paginateBookBlocks(blocks, bookFont) {
   const rig = el('div', { class: 'book-sheet' });
   rig.style.cssText = 'position:absolute; left:-99999px; top:0; visibility:hidden; height:11in; min-height:0;';
+  if (bookFont) rig.style.setProperty('--book-font', bookFont);
   const probe = el('div', { class: 'book-sheet-content' });
   probe.style.cssText = 'flex:0 0 auto;';
   rig.appendChild(probe);
@@ -3467,14 +3482,49 @@ function renderMatterBody(container, text) {
   });
 }
 
+const BOOK_FONT_FAMILIES = {
+  ebgaramond: "'EB Garamond', Georgia, 'Times New Roman', serif",
+  literata: "'Literata', Georgia, 'Times New Roman', serif",
+  crimsonpro: "'Crimson Pro', Georgia, 'Times New Roman', serif",
+};
+function bookFontFamily(id) {
+  return BOOK_FONT_FAMILIES[id] || BOOK_FONT_FAMILIES.ebgaramond;
+}
+
+// Prose Plot's Edit-mode writing font — a per-device comfort preference
+// (state.msOptions, like zoom/paraStyle), independent of Manuscript output,
+// which stays Courier for agent submission regardless of this setting.
+const EDIT_FONT_LABELS = {
+  courier: 'Courier (Manuscript)',
+  ebgaramond: 'EB Garamond',
+  literata: 'Literata',
+  crimsonpro: 'Crimson Pro',
+  iawriterduo: 'iA Writer Duo',
+};
+const EDIT_FONT_FAMILIES = {
+  courier: "'Courier Prime', 'Courier New', Courier, monospace",
+  ebgaramond: "'EB Garamond', Georgia, 'Times New Roman', serif",
+  literata: "'Literata', Georgia, 'Times New Roman', serif",
+  crimsonpro: "'Crimson Pro', Georgia, 'Times New Roman', serif",
+  iawriterduo: "'iA Writer Duo', 'Courier Prime Sans', 'Courier New', Courier, monospace",
+};
+function editFontFamily(id) {
+  return EDIT_FONT_FAMILIES[id] || EDIT_FONT_FAMILIES.courier;
+}
+function applyEditFont() {
+  const doc = document.querySelector('.ms-edit-doc');
+  if (doc) doc.style.setProperty('--edit-font', editFontFamily(state.msOptions.editFont));
+}
+
 // Build the full Book-view sheet list: front matter → chapters → back matter.
 // Shared by the on-screen Book mode (rebuildBook, inside buildManuscriptPage)
 // and exportBookPDF (top-level) so the two can never drift apart.
 function buildBookSheets() {
   const book = state.book;
   const bookTitle = state.title || 'Untitled';
+  const bookFont = bookFontFamily(book.theme.font);
   const chapters = bookChapters();
-  const bodyPages = paginateBookBlocks(buildBookBlocks(chapters));
+  const bodyPages = paginateBookBlocks(buildBookBlocks(chapters), bookFont);
   // First body-page (1-based) each chapter starts on — for the TOC. Real book
   // page numbering (including front matter) is Phase 3b; this is a stable
   // reference into the chapters flow only.
@@ -3486,6 +3536,7 @@ function buildBookSheets() {
   const sheets = [];
   const addSheet = (contentEl) => {
     const sheet = el('div', { class: 'book-sheet' });
+    sheet.style.setProperty('--book-font', bookFont);
     sheet.appendChild(el('div', { class: 'book-sheet-content' }, [contentEl]));
     sheets.push(sheet);
   };
@@ -3528,6 +3579,7 @@ function buildBookSheets() {
     const content = el('div', { class: 'book-sheet-content' });
     pageToks.forEach((tok) => renderBookToken(tok, content));
     const sheet = el('div', { class: 'book-sheet' });
+    sheet.style.setProperty('--book-font', bookFont);
     sheet.appendChild(content);
     sheets.push(sheet);
   });
@@ -5257,7 +5309,7 @@ function buildManuscriptPage(sceneId) {
   // Assigned once the navigator is built (below); called after each rebuild.
   let refreshNav = null;
   // Assigned in rebuildEdit: mounts the active editor's style ribbon into the one
-  // persistent bar (or restores the idle hint when nothing is being edited).
+  // persistent bar (or restores the idle disabled bar when nothing is being edited).
   let setActiveFormatBar = null;
 
   const rebuildEdit = () => {
@@ -5277,11 +5329,13 @@ function buildManuscriptPage(sceneId) {
       ['↶', '↷'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
       bar.appendChild(el('span', { class: 'ms-fmt-divider' }));
       if (isProse) {
-        ['<b>B</b>', '<i>I</i>', '<u>U</u>'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
-        bar.appendChild(el('span', { class: 'ms-fmt-divider' }));
+        // Mirror the active bar's grouping exactly (selectors | emphasis), so the
+        // bar's shape never shifts between idle and editing.
+        const curFontLabel = EDIT_FONT_LABELS[state.msOptions.editFont] || EDIT_FONT_LABELS.courier;
+        bar.appendChild(el('select', { class: 'ms-font-sel', disabled: 'disabled' }, [el('option', { text: curFontLabel })]));
         bar.appendChild(el('select', { class: 'ms-style-sel', disabled: 'disabled' }, [el('option', { text: 'Body' })]));
         bar.appendChild(el('span', { class: 'ms-fmt-divider' }));
-        bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: '<s>S</s>' }));
+        ['<b>B</b>', '<i>I</i>', '<u>U</u>', '<s>S</s>'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
       } else {
         bar.appendChild(el('select', { class: 'ms-style-sel', disabled: 'disabled' }, [el('option', { text: 'Element' })]));
         bar.appendChild(el('button', { class: 'ms-dual-btn', type: 'button', disabled: 'disabled', text: 'Dual ⇄' }));
@@ -5289,7 +5343,8 @@ function buildManuscriptPage(sceneId) {
         ['<b>B</b>', '<i>I</i>', '<u>U</u>', '<s>S</s>'].forEach((h) => bar.appendChild(el('button', { class: 'ms-fmt-btn', type: 'button', disabled: 'disabled', html: h })));
       }
       bar.appendChild(el('button', { class: 'ms-fmt-btn ms-fmt-hl', type: 'button', disabled: 'disabled', html: '<mark>H</mark>' }));
-      bar.appendChild(el('span', { class: 'ms-style-hint', text: 'Click any line to edit' }));
+      // No "click a line to edit" hint — the dimmed, disabled controls already
+      // read as "inactive," and the instruction states the obvious.
       return bar;
     })();
     setActiveFormatBar = (styleBarEl) => {
@@ -5305,6 +5360,7 @@ function buildManuscriptPage(sceneId) {
     const doc = el('div', { class: 'ms-edit-doc'
       + (state.msOptions.showSectionTags === false ? ' hide-sections' : '')
       + (state.msOptions.showBeatlines === false ? ' hide-beatlines' : '') });
+    if (state.format === 'prose') doc.style.setProperty('--edit-font', editFontFamily(state.msOptions.editFont));
 
     editOrder().forEach((idx) => {
       const c = state.cards[idx];

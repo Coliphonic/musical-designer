@@ -14,7 +14,7 @@ print-ready PDF"); this document is the how.
 | 0 | `state.book` data model + Book setup drawer skeleton | ✅ |
 | 1a | Front/back matter — data + editors | ✅ |
 | 1b | Front/back matter — rendered into Book view + PDF | ✅ |
-| 2a | Ship serif fonts (OFL, self-hosted) | ⬜ |
+| 2a | Ship serif fonts (OFL, self-hosted) | ✅ |
 | 2b | Theme presets + chapter-opener styles | ⬜ |
 | 2c | Scene-break ornaments + drop caps | ⬜ |
 | 3a | Trim sizes + book margins | ⬜ |
@@ -316,6 +316,64 @@ fonts dir.
 **Acceptance:** Book view renders in EB Garamond (check `getComputedStyle` fontFamily,
 not just eyeballs); Network tab shows woff2 loading then served from SW cache on reload;
 Manuscript view still Courier.
+
+**What shipped (2026-07-09):** `app/fonts/` gained 12 woff2 files (EB Garamond, Literata,
+Crimson Pro × Regular/Italic/Bold/BoldItalic), pulled from Google Fonts' `css2` API
+filtered to the `/* latin */` subset block (avoids shipping cyrillic/greek glyph data),
+plus each family's `OFL.txt` saved as `EB-GARAMOND-LICENSE.md` / `LITERATA-LICENSE.md` /
+`CRIMSON-PRO-LICENSE.md`. `@font-face` rules added to styles.css alongside the existing
+Courier Prime Sans / iA Writer Duo block. `.book-sheet-content`'s `font-family` now reads
+`var(--book-font, Georgia, 'Times New Roman', serif)` — the fallback keeps Book view
+readable even before the variable is set. New `BOOK_FONT_FAMILIES` map + `bookFontFamily(id)`
+helper in app.js (top-level, beside `buildBookSheets`) resolves `state.book.theme.font`
+(`'ebgaramond'|'literata'|'crimsonpro'`) to its CSS font stack; unrecognized ids fall back
+to EB Garamond. `buildBookSheets()`'s `addSheet()` and the chapter-body sheet loop both set
+`--book-font` as an inline style on each `.book-sheet` (not on a single shared ancestor,
+since `exportBookPDF`'s `#pdf-print-root` and the on-screen Book viewport are different
+containers). `paginateBookBlocks()` now takes a `bookFont` param and sets the same variable
+on its offscreen measurement rig — pagination must measure text in the font it will
+actually render in, since line-wrapping differs by typeface. `serve.js` already served
+`.woff2` as `font/woff2` and sw.js's runtime cache-first fetch handler already covers any
+static asset not in `SHELL` — neither needed changes; per the ground rules, fonts stay out
+of `SHELL` precache (lazy-cached on first fetch instead). sw bumped to v176. Verified live
+against `tide-keeper` (real Prose Plot show, `theme.font: 'ebgaramond'`): Book view's
+`.book-sheet-content` computed `font-family` resolved to `"EB Garamond", Georgia, "Times
+New Roman", serif`; Network tab showed `EBGaramond-Regular/Italic/Bold.woff2` loading with
+200s from the local server; switching to Manuscript view showed `.ms-sheet` still computing
+`"Courier Prime", "Courier New", Courier, monospace` — unaffected, confirming the two
+render paths stay isolated as the ground rules require.
+
+**Add-on (2026-07-09, user-requested, outside the phase plan):** a writing-font picker
+for Prose Plot's Manuscript **Edit** mode, reusing the fonts this phase shipped. A
+per-device preference (`state.msOptions.editFont`, localStorage — never touches show
+data or Manuscript/Book output), with a `<select class="ms-font-sel">` in the Edit-mode
+format bar, positioned immediately before the existing element picker (`ms-style-sel`,
+"Body"/"Scene break") in both its active (`buildRichEditor`'s `styleBar`) and idle
+(`rebuildEdit`'s `idleBar`) forms. Options: Courier (Manuscript) — the default, matching
+current/legacy behavior exactly — EB Garamond, Literata, Crimson Pro, and iA Writer Duo
+(already self-hosted for the old plaintext lyric editor). New `EDIT_FONT_LABELS` /
+`EDIT_FONT_FAMILIES` maps + `editFontFamily(id)` / `applyEditFont()` helpers sit beside
+`bookFontFamily()`. `applyEditFont()` sets `--edit-font` on `.ms-edit-doc`; CSS scopes the
+variable with `.ms-edit-doc .ms-sheet-content { font-family: var(--edit-font, ...) }` —
+`.ms-edit-doc` is Edit-mode's own wrapper (never used by Print/Manuscript's `.ms-sheet` or
+Book's `.book-sheet`), so this cannot leak into either output despite all three sharing
+the `.ms-sheet-content` class for layout. Verified live against `tide-keeper`: switched
+the picker to Literata mid-edit — the active line editor AND the static (non-focused)
+card content both picked up Literata immediately (both are `.ms-edit-doc` descendants);
+switched to Manuscript view and confirmed `.ms-sheet-content` there still computed
+Courier Prime; reset the local preference back to `courier` afterward (this is a
+localStorage-only setting, so there was no show data to revert).
+
+Follow-up (same day): reorganized the prose format ribbon to word-processor convention
+after the font picker made the old layout lopsided. Both the active (`styleBar`) and idle
+(`idleBar`) forms now run **history (↶ ↷) | selectors (Font, Element) | emphasis
+(B I U S H)** left→right — the two selects grouped, all five character-formatting controls
+contiguous (previously B/I/U sat ahead of the selects with S/H stranded after them, so the
+emphasis cluster was split). Also dropped the idle bar's "Click any line to edit" hint —
+the dimmed/disabled controls already read as inactive, so it just stated the obvious; the
+active bar keeps its genuinely-useful keyboard-shortcut hint (`Enter · next line   Tab ·
+cycle   ⌘1–2 · jump`). Pure JS append-order change (no CSS), verified live that idle and
+active bars share an identical shape so the bar never shifts when a line is focused.
 
 ---
 
