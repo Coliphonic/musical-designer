@@ -1,3 +1,9 @@
+/* Self-hosted (Courier Prime Sans isn't on Google Fonts). OFL license: fonts/COURIER-PRIME-SANS-LICENSE.md */
+@font-face { font-family: 'Courier Prime Sans'; src: url('/fonts/CourierPrimeSans-Regular.ttf') format('truetype'); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Courier Prime Sans'; src: url('/fonts/CourierPrimeSans-Bold.ttf') format('truetype'); font-weight: 700; font-style: normal; font-display: swap; }
+@font-face { font-family: 'Courier Prime Sans'; src: url('/fonts/CourierPrimeSans-Italic.ttf') format('truetype'); font-weight: 400; font-style: italic; font-display: swap; }
+@font-face { font-family: 'Courier Prime Sans'; src: url('/fonts/CourierPrimeSans-BoldItalic.ttf') format('truetype'); font-weight: 700; font-style: italic; font-display: swap; }
+
 :root {
   --bg: #faf8f4;
   --panel: #ffffff;
@@ -629,7 +635,7 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .lwgutter::-webkit-scrollbar { display: none; }
 .lwg-row { height: 30px; line-height: 30px; display: flex; gap: 6px; align-items: center; justify-content: flex-end; padding-right: 9px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .lwg-row .g-letter { color: var(--energy); font-weight: 700; width: 11px; text-align: center; }
-textarea.lweditor { border: 0; resize: none; outline: none; padding: 20px 26px; font-family: 'Iowan Old Style', Palatino, Georgia, serif; font-size: 16px; line-height: 30px; color: var(--ink); white-space: pre; overflow: auto; background: var(--panel); }
+textarea.lweditor { border: 0; resize: none; outline: none; padding: 20px 26px; font-family: 'Courier Prime Sans', 'Courier New', Courier, monospace; font-size: 16px; line-height: 30px; color: var(--ink); white-space: pre; overflow: auto; background: var(--panel); }
 textarea.lweditor::placeholder { color: #c5beb0; }
 .lwside { border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--bg); }
 .lwside .fl { color: var(--energy); }

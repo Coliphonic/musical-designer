@@ -60,6 +60,9 @@ const TYPES = {
   '.png': 'image/png',
   '.txt': 'text/plain; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
+  '.ttf': 'font/ttf',
+  '.woff': 'font/woff',
+  '.woff2': 'font/woff2',
 };
 
 function sendJSON(res, code, obj) {

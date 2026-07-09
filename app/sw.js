@@ -1,7 +1,7 @@
 // Service worker for Song Plot (Musical Designer).
 // App-shell cache for offline launch + fast loads. Bump CACHE on each deploy
 // so clients pick up new HTML/CSS/JS.
-const CACHE = 'songplot-v169';
+const CACHE = 'songplot-v170';
 
 // Core static assets. cmudict.txt (2MB) and thesaurus.txt (9MB) are intentionally
 // left out of precache and cached lazily at runtime when first fetched.
@@ -16,6 +16,10 @@ const SHELL = [
   '/icon-192.png',
   '/icon-512.png',
   '/apple-touch-icon.png',
+  '/fonts/CourierPrimeSans-Regular.ttf',
+  '/fonts/CourierPrimeSans-Bold.ttf',
+  '/fonts/CourierPrimeSans-Italic.ttf',
+  '/fonts/CourierPrimeSans-BoldItalic.ttf',
 ];
 
 self.addEventListener('install', (e) => {
