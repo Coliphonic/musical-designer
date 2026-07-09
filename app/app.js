@@ -306,6 +306,16 @@ function openProject(id, afterOpen) {
     state.readonly = state.role === 'viewer';
     state.loading = false;
     render();
+    // render() only rebuilds the Board (#board). The show switcher popover
+    // (unlike a Library card) doesn't navigate away first, so if the writer
+    // switches shows while sitting on Manuscript/Notes/Characters/Story DNA,
+    // that page's DOM is still built from the show just left and would keep
+    // showing its stale content until some other click happened to force a
+    // rebuild. Rebuild whichever of those pages is currently active too.
+    if (state.page === 'manuscript') buildManuscriptPage();
+    else if (state.page === 'notes') buildNotesPage();
+    else if (state.page === 'characters') buildCharactersPage();
+    else if (state.page === 'storydna') buildStoryDnaPage();
     setSaveInd(state.role === 'viewer' ? 'viewonly' : 'saved');
     if (afterOpen) afterOpen();
   }).catch(() => setSaveInd('error'));
@@ -5446,7 +5456,11 @@ function buildManuscriptPage(sceneId) {
     const relevantDrawer = (msMode === 'book' && bookDrawer) ? bookDrawer : drawer;
     const otherDrawer = relevantDrawer === drawer ? bookDrawer : drawer;
     if (otherDrawer) otherDrawer.classList.remove('open');
-    if (isSideMode) { relevantDrawer.classList.remove('open'); settingsBtn.classList.remove('active'); }
+    if (isSideMode) relevantDrawer.classList.remove('open');
+    // Gear button reflects whichever drawer is relevant to the view we just
+    // switched to — closing the other view's drawer above must not leave the
+    // gear looking "active" when nothing is actually open anymore.
+    settingsBtn.classList.toggle('active', relevantDrawer.classList.contains('open'));
     if (msMode === 'edit') rebuildEdit();
     else if (msMode === 'title') rebuildTitle();
     else if (msMode === 'book-matter') rebuildBookMatter();
