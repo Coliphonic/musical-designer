@@ -186,6 +186,12 @@ function countWords(text) {
   return m ? m.length : 0;
 }
 function totalShowWords() {
+  // Reference novels carry no typed body text (their chapters hold `words`,
+  // the published word-count ballpark, instead) — sum that instead so the
+  // Words stat isn't just 0 for a read-only study object.
+  if (state.readonly && state.showKey && NOVELS[state.showKey]) {
+    return state.cards.reduce((s, c) => s + (c.type === 'scene' ? (c.words || 0) : 0), 0);
+  }
   return state.cards.reduce((s, c) => s + countWords(c[cardBodyField(c)] || ''), 0);
 }
 
