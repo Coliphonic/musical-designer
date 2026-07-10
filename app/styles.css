@@ -1373,6 +1373,9 @@ body.dark .ribbon, body.dark .ms-toolbar { background: #211e2c; }
   font-family: inherit; cursor: pointer; transition: background 0.12s, color 0.12s;
 }
 .ms-nav-btn:hover, .ms-print-btn:hover, .ms-settings-btn:hover, .ms-focus-btn:hover { background: var(--hover); color: var(--ink); }
+/* Focus and Print share one slot (one shows per view); a common fixed width
+   keeps the Edit | Print View toggle pinned when you tab between views. */
+.ms-focus-btn, .ms-print-btn { min-width: 84px; justify-content: center; }
 .ms-nav-btn.active, .ms-settings-btn.active, .ms-focus-btn.active, .ms-title-done { background: var(--energy); color: #fff; border-color: var(--energy); }
 .ms-tb-divider { width: 1px; height: 22px; background: var(--line); flex-shrink: 0; }
 /* Segmented toggles in a ribbon share the nav-pill language: a tinted track

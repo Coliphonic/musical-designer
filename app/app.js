@@ -5010,9 +5010,12 @@ function buildManuscriptPage(sceneId) {
   const tbRight = el('div', { class: 'ms-tb-right' });
   tbRight.appendChild(modeSeg);
   tbRight.appendChild(titleDoneBtn); // occupies the switcher's slot while title pages are open
-  tbRight.appendChild(focusBtn); // Focus is a way of viewing Edit mode — lives beside the view switcher
-  tbRight.appendChild(el('span', { class: 'ms-tb-divider' }));
+  // Focus (Edit-only) and Print (Print View/Book-only) share one slot and one
+  // fixed width: exactly one shows per mode, so the row's width stays constant
+  // and the Edit | Print View toggle never shifts when you tab between views.
+  tbRight.appendChild(focusBtn);
   tbRight.appendChild(printBtn);
+  tbRight.appendChild(el('span', { class: 'ms-tb-divider' }));
   tbRight.appendChild(settingsBtn); // settings last — it opens the right-edge drawer
   toolbar.appendChild(tbRight);
 
@@ -5484,6 +5487,11 @@ function buildManuscriptPage(sceneId) {
     // Persist only real document modes — a reload should never land on title pages/book matter.
     try { localStorage.setItem('md-ms-mode', lastDocMode); } catch (_) {}
     if (msMode !== 'edit' && focusMode) exitFocus(); // Focus is an Edit-only concept
+    // Print swaps into the Focus slot: it's meaningful only where there are
+    // pages to print (Print View, Book), and its fixed width matches Focus so
+    // the toggle beside it never shifts. Hidden on Edit (Focus shows there) and
+    // on the side modes (title/book-matter have their own Done control).
+    printBtn.style.display = (msMode === 'layout' || msMode === 'book') ? '' : 'none';
     applyNav(); // outline panel + Navigation button reflect Edit/Print state
     applyFocus();
     // Title/book-matter modes have their own inline controls, so the settings
