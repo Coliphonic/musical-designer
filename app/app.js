@@ -134,8 +134,8 @@ function cardFromTuple(t) {
 }
 function cardFromObj(o) {
   const act = o.lane || o.act;
-  if (o.type === 'beat') return { id: uid(), type: 'beat', act, title: o.title, note: o.note || '', min: o.min || 1.5 };
-  if (o.type === 'scene') return { id: uid(), type: 'scene', act, title: o.title };
+  if (o.type === 'beat') return { id: uid(), type: 'beat', act, title: o.title, note: o.note || '', min: o.min || 1.5, beatFn: o.beatFn || '' };
+  if (o.type === 'scene') return { id: uid(), type: 'scene', act, title: o.title, words: o.words || 0 };
   return { id: uid(), type: 'song', act, title: o.title, fn: o.fn, voicing: o.voicing, min: o.min };
 }
 function assignLanes(numbers) {
@@ -206,7 +206,9 @@ function openReference(key) {
   // opened *project*, so reopening the app returns to the user's own work.
   state.loading = true;
   state.showKey = key;
-  const show = SHOWS[key];
+  const isNovel = !SHOWS[key] && !!NOVELS[key];
+  const show = SHOWS[key] || NOVELS[key];
+  const fmt = isNovel ? 'prose' : 'song';
   if (show.cards) state.cards = show.cards.map(cardFromObj);
   else { const lanes = assignLanes(show.numbers); state.cards = show.numbers.map((t, i) => { const c = cardFromTuple(t); c.act = lanes[i]; return c; }); }
   // Enriched references may carry a character registry and a title page (no lyrics).
@@ -215,18 +217,18 @@ function openReference(key) {
   state.characters = show.characters ? JSON.parse(JSON.stringify(show.characters)) : {};
   state.notes = show.notes ? JSON.parse(JSON.stringify(show.notes)) : [];
   state.storyDna = migrateDna(show.storyDna);
-  const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
+  const tpDefaults = { subtitle: isNovel ? 'A novel' : 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
   state.titlePage = Object.assign({}, tpDefaults, show.titlePage || {});
   state.titlePage.include = Object.assign({}, tpDefaults.include, (show.titlePage || {}).include || {});
   state.scriptHeader = { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false };
-  state.book = bookDefaults(); // reference shows are Song Plot-only for now
+  state.book = bookDefaults();
   state.title = show.title;
   state.projectId = null;
   state.readonly = true;
   state.folder = '';
-  state.mode = show.form === 'one-act-90' ? 'oneact' : 'full';
-  state.format = 'song'; // the reference library is Song Plot-only for now
-  state.currentApp = 'song';
+  state.mode = isNovel ? 'oneact' : (show.form === 'one-act-90' ? 'oneact' : 'full');
+  state.format = fmt;
+  state.currentApp = fmt;
   state.wordTarget = 0;
   state.wordCountBaseline = 0;
   state.wordCountBaselineDate = '';
@@ -454,14 +456,15 @@ function buildLibraryPage() {
     Object.keys(folders).sort((a, b) => a.localeCompare(b)).forEach((f) => host.appendChild(libSection(f, folders[f].map((p) => () => libCard(p)))));
   }
 
-  // Reference shows — read-only examples, always in their own folder. Song
-  // Plot-only for now (Prose Plot has no reference library yet).
-  const refKeys = state.currentApp === 'song' ? Object.keys(SHOWS) : [];
+  // Reference library — read-only study examples, always in their own
+  // section. Song Plot studies musicals (SHOWS); Prose Plot studies novels
+  // (NOVELS) — fully separate shelves, per the partitioned-library rule.
+  const refKeys = Object.keys(state.currentApp === 'song' ? SHOWS : NOVELS);
   if (refKeys.length) host.appendChild(libSection('Reference', refKeys.map((k) => () => libRefCard(k))));
 }
 
 function libRefCard(key) {
-  const r = SHOWS[key];
+  const r = SHOWS[key] || NOVELS[key];
   const card = el('div', { class: 'lib-card lib-card-ref' });
   card.addEventListener('click', () => { closeCardMenu(); openReference(key); navigateTo('board'); });
   const top = el('div', { class: 'lib-card-top' });
@@ -1037,7 +1040,7 @@ function setSaveInd(s) {
 }
 function renderShowBtn() {
   const nameEl = document.getElementById('sb-show-name');
-  if (nameEl) nameEl.textContent = state.title || (state.showKey && SHOWS[state.showKey] ? SHOWS[state.showKey].title : '—');
+  if (nameEl) nameEl.textContent = state.title || (state.showKey && (SHOWS[state.showKey] || NOVELS[state.showKey]) ? (SHOWS[state.showKey] || NOVELS[state.showKey]).title : '—');
   // Snapshots and Find & Replace apply to the user's own editable shows, not
   // read-only references.
   const snap = document.getElementById('sb-snapshots');
@@ -1542,6 +1545,7 @@ function buildCard(c, trueIdx, pct) {
     kids.push(el('div', { class: 'foot' }, [changeControl(c), makeCardEditable(el('span', { class: 'conflict', text: c.conflict || '' }), () => c.conflict, (v) => { c.conflict = v; }, '+ Conflict'), statusControl(c)]));
   } else if (c.type === 'scene') {
     kids.push(el('div', { class: 'title scene-title', text: c.title }));
+    if (state.readonly && c.words) kids.push(el('div', { class: 'sub', text: '~' + c.words.toLocaleString() + ' words' }));
     const readBtn = el('button', { class: 'scene-read-btn', title: 'Read this scene' }, [el('span', { text: '▶' })]);
     readBtn.addEventListener('click', (e) => { e.stopPropagation(); openManuscript(c.id); });
     kids.push(readBtn);
@@ -6362,7 +6366,7 @@ function render() {
   const board = document.getElementById('board');
   board.innerHTML = '';
   // Reference shows announce what they teach — turns a song list into a study object.
-  const refShow = state.readonly && state.showKey && SHOWS[state.showKey];
+  const refShow = state.readonly && state.showKey && (SHOWS[state.showKey] || NOVELS[state.showKey]);
   if (refShow && refShow.teaches) {
     const banner = el('div', { class: 'ref-teach' });
     banner.appendChild(el('span', { class: 'ref-teach-tag', text: 'Reference' }));
