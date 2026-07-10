@@ -112,7 +112,18 @@ const state = {
   dragFrom: null,
   openAct: null,
   lyricWinId: null,
+  lyricWinMode: 'edit', // 'edit' | 'sheet' — lyric window pane, session-only (not persisted to disk)
 };
+
+// ---- Song Sheet options (lyric window's Sheet mode) -----------------------
+// Independent of Manuscript's state.msOptions (per-device, not per-show) — a
+// reader flipping Chords/Section tags off in a card's Sheet shouldn't touch
+// the writer's Manuscript print settings, and vice versa.
+const sheetOpts = (() => {
+  try { return Object.assign({ showChords: true, showSectionTags: true }, JSON.parse(localStorage.getItem('md-sheet-opts') || '{}')); }
+  catch (_) { return { showChords: true, showSectionTags: true }; }
+})();
+function saveSheetOpts() { try { localStorage.setItem('md-sheet-opts', JSON.stringify(sheetOpts)); } catch (_) {} }
 
 function el(tag, attrs, kids) {
   const svgTags = ['svg', 'path', 'polyline', 'line', 'circle', 'polygon', 'text', 'rect', 'g'];
@@ -6055,6 +6066,103 @@ function buildDetailsPanel(c, onChange) {
   return wrap;
 }
 
+// ---- Song Sheet (lyric window read-only render) ---------------------------
+// A single-card slice of the same tokenizer + static renderer the Manuscript
+// Print View uses (cardBodyTokens / renderPageToken / paginateTokens) — no
+// second lyric-formatting codepath, just a different token list assembled
+// from one card instead of the whole show.
+function buildSheetTokens(c) {
+  const toks = [];
+  if (c.type === 'song') {
+    // 'ms-title' is the same token type buildContentTokens uses for the show
+    // title page — same underlined heading look, just for one song.
+    toks.push({ type: 'ms-title', text: (c.title || 'Untitled').toUpperCase() });
+    toks.push({ type: 'blank' });
+    if (c.lyrics && c.lyrics.trim()) {
+      cardBodyTokens(c).forEach((t) => {
+        if (t.type === 'section' && t.subtype === 'section' && sheetOpts.showSectionTags === false) return;
+        toks.push(t);
+      });
+    } else {
+      toks.push({ type: 'action', text: '(no lyrics yet)' });
+    }
+  } else if (c.type === 'beat') {
+    // Beat sheet = title + the Beatline/outline note — the outline reference,
+    // not a script dump (matches how the Beatline reads in Manuscript).
+    toks.push({ type: 'scene-header', text: c.title || 'Beat' });
+    toks.push({ type: 'blank' });
+    if (c.note && c.note.trim()) toks.push({ type: 'note', text: c.note });
+    else toks.push({ type: 'action', text: '(no beatline yet)' });
+  }
+  return toks;
+}
+
+// Builds the paper-styled DOM for one card's Sheet — reused by both the
+// lyric window's on-screen Sheet pane and its Print button.
+function renderSheetContent(c, host) {
+  host.innerHTML = '';
+  host.classList.toggle('lw-sheet-hide-chords', sheetOpts.showChords === false);
+  buildSheetTokens(c).forEach((t) => renderPageToken(t, host));
+}
+
+// Print just this one card. Same pattern as exportPDF: build a fresh
+// #pdf-print-root off-screen, print, clean up on afterprint. Paginated via
+// the shared paginateTokens/buildBlocks (lock: null — a single-card print has
+// no relationship to the show's frozen page numbers) so a long song still
+// spans multiple sheets instead of clipping against the fixed-height print page.
+function printSheetCard(c) {
+  const prev = document.getElementById('pdf-print-root');
+  if (prev) prev.remove();
+  const root = el('div', { id: 'pdf-print-root' });
+  const pages = paginateTokens(buildSheetTokens(c), null);
+  pages.forEach((pageToks) => {
+    const sheet = el('div', { class: 'ms-sheet' });
+    const content = el('div', { class: 'ms-sheet-content' });
+    content.classList.toggle('lw-sheet-hide-chords', sheetOpts.showChords === false);
+    pageToks.forEach((t) => renderPageToken(t, content));
+    sheet.appendChild(content);
+    root.appendChild(sheet);
+  });
+  document.body.appendChild(root);
+  const cleanup = () => { root.remove(); window.removeEventListener('afterprint', cleanup); };
+  window.addEventListener('afterprint', cleanup);
+  setTimeout(() => window.print(), 60);
+}
+
+// Sheet mode's pane: toolbar (Chords / Section tags / Print) + the paper itself.
+// Rebuilt fresh each time the lyric window switches into Sheet mode, so it
+// always reflects the card's latest saved text.
+function buildSheetPane(c) {
+  const wrap = el('div', { class: 'lw-sheet-pane' });
+  const bar = el('div', { class: 'lw-sheet-bar' });
+
+  const mkOpt = (label, key) => {
+    const cb = el('input', { type: 'checkbox' });
+    cb.checked = sheetOpts[key] !== false;
+    const lbl = el('label', { class: 'lw-sheet-opt' }, [cb, el('span', { text: label })]);
+    cb.addEventListener('change', () => { sheetOpts[key] = cb.checked; saveSheetOpts(); renderSheetContent(c, content); });
+    return lbl;
+  };
+  bar.appendChild(mkOpt('Chords', 'showChords'));
+  bar.appendChild(mkOpt('Section tags', 'showSectionTags'));
+  bar.appendChild(el('span', { style: 'flex:1' }));
+  const printBtn = el('button', { class: 'pbtn lw-sheet-print', type: 'button', text: 'Print' });
+  printBtn.addEventListener('click', () => printSheetCard(c));
+  bar.appendChild(printBtn);
+
+  const scroll = el('div', { class: 'lw-sheet-scroll' });
+  const paper = el('div', { class: 'ms-sheet' });
+  const content = el('div', { class: 'ms-sheet-content' });
+  paper.appendChild(content);
+  scroll.appendChild(paper);
+
+  renderSheetContent(c, content);
+
+  wrap.appendChild(bar);
+  wrap.appendChild(scroll);
+  return wrap;
+}
+
 function buildLyricWindow(c) {
   const win = el('div', { class: 'lyricwin' });
   const summary = el('span', { class: 'lwsummary' });
@@ -6099,6 +6207,19 @@ function buildLyricWindow(c) {
   // Body/Scene-break element set automatically (buildRichEditor reads
   // state.format itself), so it stays available for beats.
   const richTools = !plain && !isProse;
+
+  // Edit | Sheet segmented toggle — song/beat cards in Song Plot only (the
+  // same richTools gate: no rhyme/section tooling in Prose Plot, no Sheet
+  // either — a chapter/scene has no song-sheet analogue). Styled like the
+  // Manuscript mode segment (.ms-mode-seg). Mode lives in state.lyricWinMode
+  // so it carries across prev/next navigation but resets on app reload.
+  let editModeBtn, sheetModeBtn;
+  if (richTools) {
+    editModeBtn = el('button', { type: 'button', text: 'Edit' });
+    sheetModeBtn = el('button', { type: 'button', text: 'Sheet' });
+    const modeSeg = el('div', { class: 'ms-mode-seg lw-mode-seg' }, [editModeBtn, sheetModeBtn]);
+    head.insertBefore(modeSeg, pushBtn);
+  }
 
   // Keep the editor header in sync when a basic is changed in the Details panel.
   const syncHead = () => {
@@ -6247,8 +6368,31 @@ function buildLyricWindow(c) {
   editor.addEventListener('scroll', () => { gutter.scrollTop = editor.scrollTop; });
   rin.addEventListener('input', () => { rin._touched = true; showRhymes(rin.value); });
 
+  // Sheet mode swaps editPane out for a read-only render of just this card —
+  // built fresh each time (so it always reflects the latest saved text), while
+  // editPane itself is a single long-lived instance whose listeners/scroll
+  // position survive being detached and reattached.
+  const startSheet = richTools && state.lyricWinMode === 'sheet';
+  let activePane = startSheet ? buildSheetPane(c) : editPane;
+  const setLyricWinMode = (mode) => {
+    state.lyricWinMode = mode;
+    const nextPane = (mode === 'sheet' && richTools) ? buildSheetPane(c) : editPane;
+    if (nextPane !== activePane) { win.replaceChild(nextPane, activePane); activePane = nextPane; }
+    if (richTools) {
+      editModeBtn.classList.toggle('active', mode !== 'sheet');
+      sheetModeBtn.classList.toggle('active', mode === 'sheet');
+    }
+    if (mode !== 'sheet') setTimeout(() => editor.focus(), 0);
+  };
+  if (richTools) {
+    editModeBtn.addEventListener('click', () => setLyricWinMode('edit'));
+    sheetModeBtn.addEventListener('click', () => setLyricWinMode('sheet'));
+    editModeBtn.classList.toggle('active', !startSheet);
+    sheetModeBtn.classList.toggle('active', startSheet);
+  }
+
   win.appendChild(head);
-  win.appendChild(editPane);
+  win.appendChild(activePane);
 
   if (richTools) {
     updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
@@ -6259,7 +6403,7 @@ function buildLyricWindow(c) {
     tin.value = LYRIC.lastWord(lastNonEmptyLine(c[bodyField] || ''));
     renderSynonymsInsertable(tin.value, tres, editor, refresh);
   }
-  setTimeout(() => editor.focus(), 0);
+  if (!startSheet) setTimeout(() => editor.focus(), 0);
   return win;
 }
 // Walk the show from the Workshop without bouncing back to the Board — bare
