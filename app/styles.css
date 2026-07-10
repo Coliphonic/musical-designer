@@ -621,7 +621,17 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
   /* Exact letter sizing in inches avoids px→page rounding (blank pages / right-edge clipping) */
   #pdf-print-root .ms-sheet {
     width: 8.5in;
-    height: 11in;
+    /* Deliberately less than the full 11in page. WebKit (Safari) double-fires
+       a page break when a box exactly fills the page AND carries a forced
+       break-after: the natural page-boundary break and the forced break both
+       trigger, producing an extra blank page after every sheet (Chrome does
+       not have this bug). Shaving to 10.4in is safe: paginateBlocks() in
+       app.js budgets content against an 11in sheet whose .ms-sheet-content
+       has 72px (0.75in) bottom padding, so ink never extends below ~10.25in —
+       the shaved region is always empty. Chrome's output is unchanged since
+       break positions are forced per sheet regardless of box height. Do not
+       "fix" this back to 11in. */
+    height: 10.4in;
     min-height: 0;
     box-shadow: none !important;
     border-radius: 0 !important;
@@ -636,7 +646,14 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
   #pdf-print-root [contenteditable] { outline: none; }
   #pdf-print-root .book-sheet {
     width: 8.5in;
-    height: 11in;
+    /* Deliberately less than the full 11in page — same WebKit double-break
+       fix as .ms-sheet above (a box exactly filling the page plus a forced
+       break-after makes Safari fire both the natural and forced breaks,
+       producing a blank page after every sheet). Safe here too: .book-sheet
+       contains only a single flex:1 .book-sheet-content with 96px (1in) top/
+       bottom padding and no bottom-anchored folio/footer element, so ink
+       never extends below ~10in. Do not "fix" this back to 11in. */
+    height: 10.4in;
     min-height: 0;
     box-shadow: none !important;
     border-radius: 0 !important;
