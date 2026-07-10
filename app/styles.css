@@ -491,7 +491,11 @@ body.dark .lyricwin .ms-sheet { box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
 /* Chord labels: the sheet's paper is always white, so pin the dark sage
    regardless of theme — var(--sage) goes light in dark mode and washes out
    on the page (same reasoning as the section-tag override above). */
-.lw-sheet-pane mark.chord-tag::after { color: #2c3f26; font-weight: 700; font-size: 1em; letter-spacing: 0.02em; }
+/* -webkit-text-fill-color is load-bearing here: the global highlight rule
+   (mark { -webkit-text-fill-color: var(--hl-ink) }) is inherited by the
+   chord's ::after and paints OVER `color`, which is how the label stayed
+   pale no matter what color was set. */
+.lw-sheet-pane mark.chord-tag::after { color: #5f7d57; -webkit-text-fill-color: #5f7d57; font-weight: 700; font-size: 1em; letter-spacing: 0.02em; }
 /* The chord name floats one line-height up (bottom: 100%), but the static
    sheet is single-spaced (line-height 1), so with no clearance it lands on
    the lyric line above and blends in. Give any chord-bearing lyric line room
@@ -1679,7 +1683,10 @@ mark.chord-tag::after {
   content: attr(data-chord);
   position: absolute; left: 1px; bottom: 100%;
   font-size: 0.72em; font-weight: 700; line-height: 1; white-space: nowrap;
-  color: var(--sage); font-family: inherit;
+  /* text-fill-color too, not just color: the highlight rule
+     (mark { -webkit-text-fill-color: var(--hl-ink) }) is inherited by this
+     ::after and paints over `color`, turning chords hl-ink-pale otherwise. */
+  color: var(--sage); -webkit-text-fill-color: var(--sage); font-family: inherit;
   /* Lyric lines (.lw-sung) render upper-case for the manuscript look — the
      chord name itself must stay exactly as typed, or Bb and B# both read "BB". */
   text-transform: none;
