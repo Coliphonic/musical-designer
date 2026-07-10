@@ -505,8 +505,10 @@ body.dark .lyricwin .ms-sheet { box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
 .lw-sheet-pane .ms-sheet-content .lw-sung:has(mark.chord-tag) { padding-top: 1.5em; }
 /* Chords checkbox (Sheet mode only, independent of Manuscript's own Chords
    toggle) — same hide pattern as body.ms-hide-chords, scoped to the sheet's
-   own content host instead of the whole document. */
+   own content host instead of the whole document. Collapse the reserved
+   clearance too, or hidden chords still leave the line double-spaced. */
 .ms-sheet-content.lw-sheet-hide-chords mark.chord-tag { display: none; }
+.lw-sheet-pane .ms-sheet-content.lw-sheet-hide-chords .lw-sung:has(mark.chord-tag) { padding-top: 0; }
 .ms-edit-doc .ms-sheet-content { color: var(--ink); }
 .ms-edit-doc .ms-sheet-content .lw-paren { color: var(--muted); }
 /* Prose Plot's Edit-mode writing font (--edit-font, set from state.msOptions.editFont via
