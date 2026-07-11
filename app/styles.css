@@ -1335,7 +1335,8 @@ body.dark .pbtn.primary:hover { background: #564ab0; }
    see buildManuscriptPage's "Focus mode" block in app.js for the toggle. */
 body.ms-focus #topnav,
 body.ms-focus .ms-toolbar,
-body.ms-focus .ms-nav { display: none !important; }
+body.ms-focus .ms-nav,
+body.ms-focus .ms-format-bar { display: none !important; }
 body.ms-focus .ms-edit-doc .ms-card-section {
   opacity: 0.35;
   transition: opacity 0.2s ease;
@@ -1344,11 +1345,6 @@ body.ms-focus .ms-edit-doc .ms-card-section.ms-card-focused,
 body.ms-focus .ms-edit-doc .ms-card-section:hover {
   opacity: 1;
 }
-/* The sticky format bar stays available but recedes until you touch it or
-   move the mouse, so it doesn't read as chrome while you're just reading/typing. */
-body.ms-focus .ms-format-bar { opacity: 0.2; transition: opacity 0.2s ease; }
-body.ms-focus .ms-format-bar:hover,
-body.ms-focus .ms-format-bar:focus-within { opacity: 1; }
 .ms-focus-exit-pill {
   position: absolute;
   top: 14px;

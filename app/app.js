@@ -1788,6 +1788,45 @@ function splitCueMode(label, defaultSung) {
   return { name, sung };
 }
 
+// Classify a single raw line in context. `ctx = { inCharBlock, blockSung }`
+// carries the running block state the same way parseLyricLines' loop locals
+// did; the returned `ctx` is the state to hand to the *next* line. Split out
+// of parseLyricLines so the rich editor's inference engine can classify one
+// line on demand (replaying prior context) without a parallel classifier that
+// could drift from the canonical parse. Behavior must stay byte-identical to
+// the original inline loop — parseLyricLines below is now a thin wrapper.
+function classifyLyricLine(ln, ctx, defaultSung) {
+  let { inCharBlock, blockSung } = ctx;
+  const t = ln.trim();
+  if (!t) return { tok: { type: 'blank', text: '' }, ctx: { inCharBlock: false, blockSung } };
+  if (/^\*{3,}$/.test(t)) return { tok: { type: 'scenebreak', text: t }, ctx: { inCharBlock: false, blockSung } };
+  if (/^\[.+\]$/.test(t)) {
+    const inner = t.slice(1, -1);
+    let subtype = 'section';
+    if (/^act[\s\d]/i.test(inner)) subtype = 'act';
+    else if (/^scene[\s\d]/i.test(inner)) subtype = 'scene';
+    else if (/^#\d+[\s\-]/i.test(inner)) subtype = 'song-num';
+    return { tok: { type: 'section', subtype, text: inner }, ctx: { inCharBlock: false, blockSung } };
+  }
+  // Fountain dual-dialogue marker: a trailing ^ means "simultaneous with the
+  // previous cue" — the two render side by side. Strip it before classifying.
+  let dual = false, body = t;
+  if (/\s*\^$/.test(t)) { dual = true; body = t.replace(/\s*\^\s*$/, '').trim(); }
+  if (/^@.+/.test(body)) {
+    const { name, sung } = splitCueMode(body.slice(1).trim(), defaultSung);
+    return { tok: { type: 'cue', text: name, dual }, ctx: { inCharBlock: true, blockSung: sung } };
+  }
+  if (/^~/.test(t)) return { tok: { type: 'sung', text: t.slice(1).trim() }, ctx: { inCharBlock: true, blockSung } }; // ~ forces this line only
+  if (/^\(.*\)$/.test(t)) return { tok: { type: 'paren', text: t }, ctx: { inCharBlock, blockSung } };
+  // Implicit cue: an ALL-CAPS line that opens a block (Fountain convention —
+  // a blank line or section/cue must precede it, so caps lyrics aren't eaten).
+  if (!inCharBlock && looksLikeCue(body)) {
+    const { name, sung } = splitCueMode(body, defaultSung);
+    return { tok: { type: 'cue', text: name, dual }, ctx: { inCharBlock: true, blockSung: sung } };
+  }
+  if (inCharBlock) return { tok: (blockSung ? { type: 'sung', text: t } : { type: 'dialogue', text: ln }), ctx: { inCharBlock, blockSung } };
+  return { tok: { type: 'action', text: ln }, ctx: { inCharBlock, blockSung } };
+}
 // Classify each text line into exactly one token (1:1 with input lines, so the
 // result can drive the syllable gutter and rhyme tools as well as rendering).
 // `defaultSung` decides whether unmarked lines in a character block are sung
@@ -1795,40 +1834,11 @@ function splitCueMode(label, defaultSung) {
 // parse, so older shows are unaffected.
 function parseLyricLines(text, defaultSung) {
   const out = [];
-  let inCharBlock = false, blockSung = !!defaultSung;
+  let ctx = { inCharBlock: false, blockSung: !!defaultSung };
   for (const ln of (text || '').split('\n')) {
-    const t = ln.trim();
-    if (!t) { inCharBlock = false; out.push({ type: 'blank', text: '' }); continue; }
-    if (/^\*{3,}$/.test(t)) { inCharBlock = false; out.push({ type: 'scenebreak', text: t }); continue; }
-    if (/^\[.+\]$/.test(t)) {
-      inCharBlock = false;
-      const inner = t.slice(1, -1);
-      let subtype = 'section';
-      if (/^act[\s\d]/i.test(inner)) subtype = 'act';
-      else if (/^scene[\s\d]/i.test(inner)) subtype = 'scene';
-      else if (/^#\d+[\s\-]/i.test(inner)) subtype = 'song-num';
-      out.push({ type: 'section', subtype, text: inner }); continue;
-    }
-    // Fountain dual-dialogue marker: a trailing ^ means "simultaneous with the
-    // previous cue" — the two render side by side. Strip it before classifying.
-    let dual = false, body = t;
-    if (/\s*\^$/.test(t)) { dual = true; body = t.replace(/\s*\^\s*$/, '').trim(); }
-    if (/^@.+/.test(body)) {
-      const { name, sung } = splitCueMode(body.slice(1).trim(), defaultSung);
-      inCharBlock = true; blockSung = sung;
-      out.push({ type: 'cue', text: name, dual }); continue;
-    }
-    if (/^~/.test(t)) { inCharBlock = true; out.push({ type: 'sung', text: t.slice(1).trim() }); continue; } // ~ forces this line only
-    if (/^\(.*\)$/.test(t)) { out.push({ type: 'paren', text: t }); continue; }
-    // Implicit cue: an ALL-CAPS line that opens a block (Fountain convention —
-    // a blank line or section/cue must precede it, so caps lyrics aren't eaten).
-    if (!inCharBlock && looksLikeCue(body)) {
-      const { name, sung } = splitCueMode(body, defaultSung);
-      inCharBlock = true; blockSung = sung;
-      out.push({ type: 'cue', text: name, dual }); continue;
-    }
-    if (inCharBlock) { out.push(blockSung ? { type: 'sung', text: t } : { type: 'dialogue', text: ln }); continue; }
-    out.push({ type: 'action', text: ln });
+    const { tok, ctx: next } = classifyLyricLine(ln, ctx, defaultSung);
+    out.push(tok);
+    ctx = next;
   }
   return out;
 }
@@ -2215,6 +2225,79 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     // of displayed text) and shows the glyph instead.
     if (type === 'scenebreak') div.innerHTML = emphToHtml('⁂');
   };
+  // ---- Highland/Fountain-style live inference ----
+  // As you type, a committed line's element type is inferred from its own text
+  // plus the block context of the rows above it — Tab/⌘N/dropdown stay a silent
+  // override (setOrInsertType / the Tab handler mark the row dataset.man='1',
+  // which locks it out of inference for good). Reuses classifyLyricLine (the
+  // same function parseLyricLines calls) so the editor's guess and the printed
+  // parse can never drift apart.
+  // Replay the block state classifyLyricLine would be carrying by the time it
+  // reached `row`, from the ACTUAL committed types of the rows above (not by
+  // re-parsing their text — a manually-overridden row's text may no longer
+  // match its type, and its type is the ground truth). A cue always resets
+  // blockSung to the card default because the (sings)/(spoken) tag that would
+  // override it was already stripped out of the row's stored text when it was
+  // first classified; a sung/dialogue row seen afterward corrects it.
+  const blockCtxBefore = (row) => {
+    let inCharBlock = false, blockSung = !!isSong;
+    for (let p = lineEd.firstElementChild; p && p !== row; p = p.nextElementSibling) {
+      const type = p.dataset.type;
+      if (type === 'cue') { inCharBlock = true; blockSung = !!isSong; }
+      else if (type === 'sung') { if (inCharBlock) blockSung = true; }
+      else if (type === 'dialogue') { if (inCharBlock) blockSung = false; }
+      else if (type === 'blank' || type === 'scenebreak' || type === 'section') { inCharBlock = false; }
+      // paren/action never change the block state (action only ever occurs
+      // when already out of a block, so there's nothing to flip back).
+    }
+    return { inCharBlock, blockSung };
+  };
+  // Infer and (if it changed) retype exactly this one row — never a neighbor,
+  // never a row above the caret. Only runs on a row the user actually edited
+  // this session (dataset.dirty) and skips a manually-typed row (dataset.man).
+  const inferRow = (row) => {
+    if (!row || row.dataset.man === '1' || row.dataset.dirty !== '1') return;
+    const type = row.dataset.type;
+    if (type === 'blank' || type === 'scenebreak') { delete row.dataset.dirty; return; } // nothing to reclassify from
+    // emphFromNode (not textContent) so bold/italic/underline survive a retype —
+    // it round-trips back through emphToHtml exactly like the rest of the editor.
+    const rowMarkup = emphFromNode(row);
+    const raw = type === 'paren' ? '(' + rowMarkup + ')'
+      : type === 'section' ? '[' + rowMarkup + ']'
+      : rowMarkup;
+    if (!raw.trim()) { delete row.dataset.dirty; return; }
+    if (isProse) {
+      // Prose's element set has no cue/dialogue/paren/section vocabulary (see
+      // RICH_EL_CYCLE_PROSE) — the only inference that applies is the
+      // scene-break marker; a bracketed heading stays plain Body text.
+      if (type !== 'scenebreak' && /^\*{3,}$/.test(raw.trim())) { setLineType(row, 'scenebreak'); if (getFocusedLine(lineEd) === row) styleSel.value = 'scenebreak'; pushHistory(); }
+      delete row.dataset.dirty;
+      return;
+    }
+    const { tok } = classifyLyricLine(raw, blockCtxBefore(row), isSong);
+    const newType = tok.type === 'blank' ? type : tok.type; // classifyLyricLine only yields blank for empty text, already excluded above
+    const sameSubtype = newType !== 'section' || tok.subtype === row.dataset.subtype;
+    const sameDual = newType !== 'cue' || !!tok.dual === (row.dataset.dual === '1');
+    if (newType === type && sameSubtype && sameDual) { delete row.dataset.dirty; return; }
+    const focused = getFocusedLine(lineEd) === row;
+    const caretOff = focused ? caretOffsetIn(row) : 0;
+    setLineType(row, newType);
+    if (newType === 'section' && tok.subtype) row.dataset.subtype = tok.subtype; else delete row.dataset.subtype;
+    if (newType === 'cue' && tok.dual) row.dataset.dual = '1'; else if (newType !== 'cue') delete row.dataset.dual;
+    // Strip the marker that triggered the retype (~, @, [...], (...), a
+    // trailing sung/spoken tag) from the displayed text — classifyLyricLine's
+    // tok.text is already the stripped form for every marker-driven type.
+    if (newType === 'cue' || newType === 'sung' || newType === 'paren' || newType === 'section' || newType === 'scenebreak') {
+      const display = newType === 'scenebreak' ? '⁂'
+        : newType === 'paren' ? (tok.text || '').replace(/^\(/, '').replace(/\)$/, '')
+        : (tok.text || '');
+      row.innerHTML = emphToHtml(display);
+      if (focused) placeCaretAtOffset(row, Math.min(caretOff, (row.textContent || '').length));
+    }
+    if (focused) styleSel.value = newType;
+    delete row.dataset.dirty;
+    pushHistory(); // fold the retype into its own undo step, distinct from the text edit that triggered it
+  };
   // Read the DOM rows back as identified lines — text re-wrapped so each row's
   // text matches parseLyricLines output (so the blob round-trips exactly).
   const rowsFrom = (lineEd) => [...lineEd.querySelectorAll('.ms-el')].map((div) => {
@@ -2378,14 +2461,14 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       if (node.nodeType === 1 && node.classList.contains('ms-el')) {
         // Keep b/i/u; flatten any other nested markup back to clean emphasis HTML.
         if (hasDisallowedMarkup(node) && (node.textContent || '').trim()) node.innerHTML = emphToHtml(emphFromNode(node));
-        if (!node.dataset.type) setLineType(node, prev ? prev.dataset.type : (isSong ? 'sung' : 'action'));
+        if (!node.dataset.type) { setLineType(node, prev ? prev.dataset.type : (isSong ? 'sung' : 'action')); node.dataset.dirty = '1'; }
         if (!node.dataset.id) node.dataset.id = lid();
-        if (node.dataset.type === 'blank' && (node.textContent || '').trim()) setLineType(node, isSong ? 'sung' : 'action');
+        if (node.dataset.type === 'blank' && (node.textContent || '').trim()) { setLineType(node, isSong ? 'sung' : 'action'); node.dataset.dirty = '1'; }
         prev = node;
       } else {
         const txt = node.textContent || '';
-        if (prev && txt.trim()) { prev.appendChild(document.createTextNode(txt)); node.remove(); } // append (don't reset prev's textContent — that would drop its emphasis)
-        else if (txt.trim()) { const nl = mkLine(isSong ? 'sung' : 'action', txt.trim()); lineEd.insertBefore(nl, node); node.remove(); prev = nl; }
+        if (prev && txt.trim()) { prev.appendChild(document.createTextNode(txt)); node.remove(); prev.dataset.dirty = '1'; } // append (don't reset prev's textContent — that would drop its emphasis)
+        else if (txt.trim()) { const nl = mkLine(isSong ? 'sung' : 'action', txt.trim()); nl.dataset.dirty = '1'; lineEd.insertBefore(nl, node); node.remove(); prev = nl; }
         else node.remove();
       }
     });
@@ -2740,6 +2823,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     const line = ac.line, name = ac.items[ac.index];
     if (!line || !name) return;
     line.textContent = name;
+    line.dataset.dirty = '1';
     closeAc();
     if (advance) {
       const newType = smartNext(line.dataset.type);
@@ -2767,8 +2851,16 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     acBox.style.display = '';
   };
 
+  // Tracks whichever row last held the caret, so a caret move (arrow keys,
+  // click into another row) can infer the row just left — inference only ever
+  // fires on the row being *committed*, never the one now under the caret.
+  let lastActiveLine = null;
   const syncPicker = () => {
     const line = getFocusedLine(lineEd);
+    if (line !== lastActiveLine) {
+      if (lastActiveLine && lineEd.contains(lastActiveLine)) inferRow(lastActiveLine);
+      lastActiveLine = line;
+    }
     if (line) styleSel.value = line.dataset.type;
     dualBtn.disabled = !(line && line.dataset.type === 'cue');
     dualBtn.classList.toggle('active', !!(line && line.dataset.dual === '1'));
@@ -2788,7 +2880,14 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   };
   lineEd.addEventListener('keyup', syncPicker);
   lineEd.addEventListener('click', syncPicker);
-  lineEd.addEventListener('input', () => { tryAutoConvertChord(); trySmartTypography(); if (needsNormalize()) normalize(true); refreshAc(getFocusedLine(lineEd)); queueHistory(); });
+  lineEd.addEventListener('input', () => {
+    tryAutoConvertChord(); trySmartTypography();
+    if (needsNormalize()) normalize(true);
+    const cl = getFocusedLine(lineEd);
+    if (cl) cl.dataset.dirty = '1'; // edited this session — eligible for inference once committed
+    refreshAc(cl);
+    queueHistory();
+  });
   // Paste as plain text, splitting on newlines into typed rows (strip rich markup).
   lineEd.addEventListener('paste', (e) => {
     e.preventDefault();
@@ -2805,12 +2904,21 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     const whole = line.textContent || '';
     const after = whole.slice(off);
     line.textContent = whole.slice(0, off) + segs[0];
+    line.dataset.dirty = '1';
     let anchor = line;
     for (let i = 1; i < segs.length; i++) {
-      const nl = mkLine(line.dataset.type, segs[i] + (i === segs.length - 1 ? after : ''));
+      const txt = segs[i] + (i === segs.length - 1 ? after : '');
+      // empty pasted lines are stanza breaks, not empty rows of the cloned type
+      const nl = txt.trim() ? mkLine(line.dataset.type, txt) : mkLine('blank', '');
+      nl.dataset.dirty = '1';
       anchor.after(nl); anchor = nl;
     }
     placeCaretAtOffset(anchor, segs[segs.length - 1].length);
+    // Classify the pasted rows like typed ones (Highland behavior). Document
+    // order matters: each row's block-context replay must see the corrected
+    // types of the rows above it.
+    const stop = anchor.nextElementSibling;
+    for (let n = line; n && n !== stop; n = n.nextElementSibling) inferRow(n);
     syncPicker();
     pushHistory();
   });
@@ -2822,10 +2930,12 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const setOrInsertType = (line, type) => {
     if (type === 'blank' && (line.textContent || '').trim()) {
       const nl = mkLine('blank', '');
+      nl.dataset.man = '1'; // explicitly chosen — inference never touches it
       line.after(nl);
       placeCursorAt(nl, false);
     } else {
       setLineType(line, type);
+      line.dataset.man = '1'; // manual override (dropdown / ⌘1–7) locks the row out of inference
       placeCursorAt(line, true);
     }
     styleSel.value = type;
@@ -2894,12 +3004,14 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       const sel = window.getSelection();
       if (sel && !sel.isCollapsed) sel.deleteFromDocument();
       const cur = getFocusedLine(lineEd) || line;
+      inferRow(cur); // classify the line being committed before computing what follows it
       const curType = cur.dataset.type;
       const off = caretOffsetIn(cur);
       const whole = cur.textContent || '';
       cur.textContent = whole.slice(0, off);
       const newType = e.shiftKey ? curType : smartNext(curType);
       const newLine = mkLine(newType, whole.slice(off));
+      newLine.dataset.dirty = '1'; // carries user text into a new row this session
       cur.after(newLine);
       placeCursorAt(newLine, false);
       styleSel.value = newType;
@@ -2909,6 +3021,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       e.preventDefault();
       const newType = tabNext(line.dataset.type);
       setLineType(line, newType);
+      line.dataset.man = '1'; // manual cycle — locks the row out of inference
       styleSel.value = newType;
       refreshAc(line);
       pushHistory();
@@ -2927,6 +3040,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       } else {
         const at = (prev.textContent || '').length;
         prev.textContent = (prev.textContent || '') + (line.textContent || '');
+        prev.dataset.dirty = '1';
         line.remove();
         placeCaretAtOffset(prev, at);
         styleSel.value = prev.dataset.type;
@@ -2944,6 +3058,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       else {
         const at = (line.textContent || '').length;
         line.textContent = (line.textContent || '') + (next.textContent || '');
+        line.dataset.dirty = '1';
         next.remove();
         placeCaretAtOffset(line, at);
       }
@@ -2960,6 +3075,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const commit = () => {
     if (committed) return;
     committed = true;
+    inferRow(lastActiveLine); // classify the last row touched before serializing
     closeAc();
     hideNoteToolbar();
     closeNotePopup(false);
@@ -5820,6 +5936,43 @@ function buildManuscriptPage(sceneId) {
     if (!sec) return;
     msWrap.querySelectorAll('.ms-card-section.ms-card-focused').forEach((s) => { if (s !== sec) s.classList.remove('ms-card-focused'); });
     sec.classList.add('ms-card-focused');
+  });
+  // Typewriter scrolling — a blank page with a cursor keeps the cursor still and
+  // moves the page instead. rAF-coalesced so a burst of keystrokes only scrolls
+  // once per frame; 'auto' (not 'smooth') so it reads as the page moving under a
+  // fixed cursor rather than a lagging animated scroll. Focus-only; independent
+  // of the .ms-card-focused dimming tracked above.
+  let twRaf = null;
+  const typewriterScroll = () => {
+    if (twRaf) return;
+    twRaf = requestAnimationFrame(() => {
+      twRaf = null;
+      if (!focusMode) return;
+      const active = document.activeElement;
+      if (!active || !active.closest || !active.closest('.ms-line-editor')) return;
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return;
+      const body = msWrap.querySelector('.ms-body');
+      if (!body) return;
+      const range = sel.getRangeAt(0).cloneRange();
+      range.collapse(true);
+      let rect = range.getClientRects()[0];
+      if (!rect) rect = range.startContainer && range.startContainer.nodeType === 1
+        ? range.startContainer.getBoundingClientRect()
+        : (range.startContainer && range.startContainer.parentElement && range.startContainer.parentElement.getBoundingClientRect());
+      if (!rect) return;
+      const bodyRect = body.getBoundingClientRect();
+      const targetY = bodyRect.top + bodyRect.height * 0.45;
+      const delta = rect.top - targetY;
+      if (Math.abs(delta) < 2) return;
+      body.scrollTo({ top: body.scrollTop + delta, behavior: 'auto' });
+    });
+  };
+  msWrap.addEventListener('input', (e) => { if (e.target && e.target.closest && e.target.closest('.ms-line-editor')) typewriterScroll(); });
+  msWrap.addEventListener('keyup', (e) => {
+    if (!(e.target && e.target.closest && e.target.closest('.ms-line-editor'))) return;
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight'
+      || e.key === 'Enter' || e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Tab') typewriterScroll();
   });
   applyFocus();
 

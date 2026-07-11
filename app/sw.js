@@ -1,7 +1,7 @@
 // Service worker for Song Plot (Musical Designer).
 // App-shell cache for offline launch + fast loads. Bump CACHE on each deploy
 // so clients pick up new HTML/CSS/JS.
-const CACHE = 'songplot-v189';
+const CACHE = 'songplot-v190';
 
 // Core static assets. cmudict.txt (2MB) and thesaurus.txt (9MB) are intentionally
 // left out of precache and cached lazily at runtime when first fetched.
