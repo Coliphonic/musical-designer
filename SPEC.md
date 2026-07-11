@@ -168,14 +168,25 @@ A `buildRichEditor()` factory, used exclusively by Manuscript Edit mode (its onl
 the lyric window's Rich tab, was removed 2026-07-09 — see "The Workshop" below). Each line is a
 typed **element** — Character, Lyrics, Dialogue, Parenthetical, Action, Section.
 
-- **Tab** cycles element type; **Enter** starts the next logical line; **Ctrl/⌘ + 1–6** jump
-  straight to an element type (Final Draft-style).
+- **Live inference, not a mode-switcher (2026-07-11).** As you write, a committed line's element
+  type is inferred from its own text and the block context above it — the same read Highland/
+  Fountain give plain text. An ALL-CAPS line after a blank/section becomes a Character cue; a
+  parenthesized line becomes a Parenthetical; lines inside a character block default to sung
+  (songs) or spoken (scenes/beats); `[Bracket]` becomes a Section. Feedback is **styling only** —
+  no labels, chips, or popovers — so a blank page stays a blank page. Classification happens once
+  per line, at the moment it's left (Enter, caret leaving the row, or editor blur), never
+  retroactively above the caret.
+- **Tab / Ctrl/⌘ + 1–6 / the element dropdown still work** as a silent, permanent override: retyping
+  a line by hand locks it out of inference for the rest of the session (`dataset.man`), so the two
+  models never fight over the same line. **Enter** still starts the next logical Final Draft-style
+  element after the line commits.
 - **Character-name autocomplete** on cue lines, fed by the Characters registry.
-- **Seamless input format.** No markup required: an ALL-CAPS line is a character cue; lines default
-  to **sung** in songs / **spoken** in scenes & beats; a trailing `(sings)` / `(spoken)` overrides
-  the block. `parseLyricLines(text, defaultSung)` is the single source of truth — it classifies
-  each line 1:1 and drives rendering, the syllable gutter, rhyme tools, and the pages. Legacy
-  `@cue` / `~sung` still parse.
+- **Seamless input format**, unchanged underneath. `classifyLyricLine` — the exact per-line
+  classifier `parseLyricLines(text, defaultSung)` loops over — is now shared between the editor's
+  live inference and the print parser, so the two can never drift. It also still drives rendering,
+  the syllable gutter, rhyme tools, and the pages. A trailing `(sings)` / `(spoken)` overrides a
+  block's default mode; legacy `@cue` / `~sung` still parse. Pasting multi-line text classifies
+  each pasted line the same way, in document order, with empty lines becoming stanza breaks.
 
 ### Pagination engine
 
@@ -231,17 +242,20 @@ clicking one scrolls to the card, flashes the anchored highlight, and opens its 
   Print · Settings. The Page setup drawer ("Show in document") toggles document elements: show
   title, act headers, **section tags**, and **chords** — all hide/show in both Print View and the
   Edit editor without stripping the underlying markup.
-- **Focus mode** (Edit only, 2026-07-05) — a `body.ms-focus` class hides the topbar, ribbon, and
-  outline navigator via CSS, and dims every card section to 35% opacity except the one the caret is
-  currently in (tracked by a delegated `focusin` listener, so it follows click, keyboard nav, or
-  Tab equally). The sticky format bar recedes to 20% opacity until hovered/focused-within, so it
-  doesn't read as chrome while just reading or typing. A floating **✕ Exit focus** pill fades in on
-  mouse movement and fades back out after ~1.8s idle. Exits via the pill, `Esc` (module-level
-  `msFocusExit` hook so the global key handler can reach whichever Manuscript instance is live),
-  switching to Print View, or navigating to another page — never persisted, since re-entering the
-  app into a chromeless screen would be disorienting. Deliberately scoped to Manuscript, not the
-  Workshop (the lyric window), since the Workshop's rhyme/gutter tools are a different,
-  tool-heavy activity, not sustained drafting.
+- **Focus mode** (Edit only, 2026-07-05; blank-page pass 2026-07-11) — a `body.ms-focus` class
+  hides the topbar, ribbon, outline navigator, **and now the sticky format bar entirely** (it used
+  to recede to 20% opacity; with live inference doing the typing work, it's no longer needed at
+  all), and dims every card section to 35% opacity except the one the caret is currently in
+  (tracked by a delegated `focusin` listener, so it follows click, keyboard nav, or Tab equally).
+  **Typewriter scrolling** keeps the caret pinned at ~45% of the viewport — the page moves under a
+  still cursor instead of the cursor drifting down the screen — rAF-coalesced so a burst of
+  keystrokes scrolls once per frame. Goal stated by the designer: "a blank page with a cursor and
+  nothing more." A floating **✕ Exit focus** pill fades in on mouse movement and fades back out
+  after ~1.8s idle. Exits via the pill, `Esc` (module-level `msFocusExit` hook so the global key
+  handler can reach whichever Manuscript instance is live), switching to Print View, or navigating
+  to another page — never persisted, since re-entering the app into a chromeless screen would be
+  disorienting. Deliberately scoped to Manuscript, not the Workshop (the lyric window), since the
+  Workshop's rhyme/gutter tools are a different, tool-heavy activity, not sustained drafting.
 
 ### The Workshop — the lyric window, kept as a permanent second room
 
@@ -791,7 +805,10 @@ to the author's discretion. Concretely, in priority order:
 
 1. **Collapse the Element dropdown.** Cue / Dialogue / Parenthetical / Action / Lyric has no prose
    analog. Prose's paragraph-style choices are just **Body · Chapter heading · Scene break**
-   (a centered `* * *` / `⁂` divider) — most text never needs to leave "Body."
+   (a centered `* * *` / `⁂` divider) — most text never needs to leave "Body." *Partly addressed by
+   the 2026-07-11 inference pass above:* Prose already narrows the editor's cycle to `action` /
+   `scenebreak` only, and `***` now infers to a scene break live as you type (no Tab needed) — the
+   dropdown mostly just sits unused already.
 2. **Promote inline character styling — italics above all.** Screenplay text barely uses inline
    emphasis; prose leans on *italics* constantly (internal thought, emphasis, titles, foreign
    words), occasional **bold**, and rarely small caps. ⌘I needs to be as central as Tab-cycle-element
@@ -807,9 +824,11 @@ to the author's discretion. Concretely, in priority order:
 5. **Word count is the primary metric**, already threaded into the ribbon (§ above) — the natural
    next layer is a **live per-chapter count** in the Navigator/outline rows, alongside the
    whole-manuscript target.
-6. **Long-form writing affordances**, once the base editor exists: a focus/typewriter mode (current
-   line or paragraph centered, everything else dimmed), and full-screen distraction-free view —
-   novels are drafted in long sessions, unlike a song's short lyric bursts.
+6. **Long-form writing affordances — shipped for free, 2026-07-11.** Prose Plot's Manuscript already
+   reuses `buildRichEditor`, so the same Focus mode upgrade landed here too: format bar fully
+   hidden, current card dimmed-out from the rest, and typewriter scrolling holding the caret at 45%
+   of the viewport. Novels are drafted in long sessions, unlike a song's short lyric bursts, so this
+   was worth pulling forward ahead of the rest of the prose-native editor.
 7. **Deferred, no analog needed yet:** POV/tense/location scene metadata (an inspector panel, à la
    Scrivener); prose-craft feedback — filter words, adverbs, repeated-word/echo detection, passive
    voice, sentence-length variance — as the prose equivalent of the lyric bench's rhyme tools
