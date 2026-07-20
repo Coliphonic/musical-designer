@@ -202,6 +202,12 @@ function chapterWordCount(sceneId) {
   const order = displayOrder();
   const startPos = order.findIndex((i) => state.cards[i] && state.cards[i].id === sceneId);
   if (startPos < 0) return 0;
+  // Reference novels carry no typed body — the chapter's `words` ballpark is
+  // its count (mirrors totalShowWords), so per-chapter numbers still sum to the
+  // book total on a read-only study object instead of reading 0.
+  if (state.readonly && state.showKey && NOVELS[state.showKey]) {
+    return state.cards[order[startPos]].words || 0;
+  }
   let sum = 0;
   for (let j = startPos; j < order.length; j++) {
     const c = state.cards[order[j]];
@@ -6000,10 +6006,17 @@ function buildManuscriptPage(sceneId) {
         navList.appendChild(el('div', { class: 'ms-nav-act', text: LANE_LABELS[c.act] || c.act }));
       }
       const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '◦';
-      const row = el('button', { class: 'ms-nav-row ms-nav-' + c.type }, [
+      const rowKids = [
         el('span', { class: 'ms-nav-icon', text: icon }),
         el('span', { class: 'ms-nav-label', text: c.title || 'Untitled' }),
-      ]);
+      ];
+      // Prose: show each chapter's running word count on its Navigator row, so
+      // the outline reads as a weight map at a glance (the footer only covers
+      // the chapter you're currently scrolled into).
+      if (isProse && c.type === 'scene') {
+        rowKids.push(el('span', { class: 'ms-nav-count', text: chapterWordCount(c.id).toLocaleString() }));
+      }
+      const row = el('button', { class: 'ms-nav-row ms-nav-' + c.type }, rowKids);
       row.addEventListener('click', () => {
         const target = bodyEl.querySelector('.ms-card-divider[data-card-id="' + c.id + '"]');
         if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });

@@ -790,7 +790,7 @@ why this is a skin-per-app model, not a format dropdown.
 | Word-target ribbon stat (click-to-edit) | ✅ |
 | Prose-ified copy — Board, Characters, Find, New-novel modal, Manuscript placeholders | ✅ |
 | Separate subdomains (`musicaldesigner.` / `proseplot.colincreates.com`), shared login, per-app PWA branding | ✅ (2026-07-04) |
-| **Prose-native Manuscript editor** (see below) | 🔶 phases 1–3 + focus done (narrowed elements, live inference, smart typography, per-novel indent/block, blank-page focus); per-chapter word counts + metadata/craft/export remain |
+| **Prose-native Manuscript editor** (see below) | 🔶 phases 1–4 + focus done (narrowed elements, live inference, smart typography, per-novel indent/block, per-chapter word counts, blank-page focus); metadata/craft/export remain |
 | Prose-tuned Story DNA labels | ⬜ |
 | Book export — EPUB + print PDF, front/back matter, themes, trim sizes (see below; Manuscript-format PDF for agent submission stays as-is) | 🔶 Phases 0–2a done (data model, front/back-matter editors, Book view render + PDF, self-hosted serif fonts, 2026-07-09) — see `BOOK-FORMATTING-PLAN.md` |
 
@@ -828,9 +828,12 @@ to the author's discretion. Concretely, in priority order:
    first-paragraph flush added 2026-07-20; the segmented control itself shipped with the original
    Prose Plot build.)* Still deferred: dialogue-as-new-paragraph-per-speaker has no special
    handling beyond the author starting a new line.
-5. **Word count is the primary metric**, already threaded into the ribbon (§ above) — the natural
-   next layer is a **live per-chapter count** in the Navigator/outline rows, alongside the
-   whole-manuscript target.
+5. **Word count is the primary metric** — threaded into the ribbon (§ above), the Navigator footer
+   (active-chapter + book total), and, as of 2026-07-20, a **per-chapter count on every Navigator
+   row** (`chapterWordCount` per `scene` card, faint right-aligned tabular figure, prose-only). The
+   outline now reads as a weight map at a glance instead of only showing the chapter you're scrolled
+   into. Reference novels (no typed body) fall back to each chapter's published `words` ballpark, so
+   the per-row numbers still sum to the book total on a study object.
 6. **Long-form writing affordances — shipped for free, 2026-07-11.** Prose Plot's Manuscript already
    reuses `buildRichEditor`, so the same Focus mode upgrade landed here too: format bar fully
    hidden, current card dimmed-out from the rest, and typewriter scrolling holding the caret at 45%
@@ -848,7 +851,8 @@ Element dropdown to Body/Chapter/Scene-break + promote italic/bold — **shipped
 `RICH_EL_CYCLE_PROSE`, live inference retypes as you write, 2026-07-11). (2) Smart-typography
 auto-substitution — **shipped** (`trySmartTypography`, prose-gated). (3) Paragraph-convention
 toggle (indent vs. block) — **shipped** (per-novel `state.paraStyle`, first-para flush, 2026-07-20).
-(4) Per-chapter word counts in the Navigator — **next up, not yet built.** (5) Focus mode — **shipped
+(4) Per-chapter word counts in the Navigator — **shipped 2026-07-20** (per-row faint count on chapter
+rows, prose-gated, reference-novel `words` fallback). (5) Focus mode — **shipped
 2026-07-11** (blank-page pass: format bar hidden + typewriter scrolling), on the shared
 libretto-based Manuscript Prose Plot reuses. (6) Metadata inspector, prose-craft feedback, and
 EPUB/DOCX export — each a later, independent phase.

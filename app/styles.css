@@ -1410,7 +1410,9 @@ body.dark .ms-body { background: var(--bg); }
 .ms-nav-row.active { background: var(--hover); color: var(--ink); }
 .ms-nav-icon { flex-shrink: 0; width: 13px; text-align: center; font-size: 12px; color: var(--muted); }
 .ms-nav-row.active .ms-nav-icon { color: var(--energy); }
-.ms-nav-label { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-nav-label { flex: 1; min-width: 0; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-nav-count { flex-shrink: 0; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.ms-nav-row.active .ms-nav-count { color: var(--muted); }
 /* Contextual ribbon — the per-page tool row directly under the top nav.
    Shared so each page's toolbar reads as one consistent system. */
 .ribbon, .ms-toolbar {
