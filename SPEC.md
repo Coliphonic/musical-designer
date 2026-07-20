@@ -790,7 +790,7 @@ why this is a skin-per-app model, not a format dropdown.
 | Word-target ribbon stat (click-to-edit) | ✅ |
 | Prose-ified copy — Board, Characters, Find, New-novel modal, Manuscript placeholders | ✅ |
 | Separate subdomains (`musicaldesigner.` / `proseplot.colincreates.com`), shared login, per-app PWA branding | ✅ (2026-07-04) |
-| **Prose-native Manuscript editor** (see below) | ⬜ still Song Plot's libretto editor, unmodified |
+| **Prose-native Manuscript editor** (see below) | 🔶 phases 1–3 + focus done (narrowed elements, live inference, smart typography, per-novel indent/block, blank-page focus); per-chapter word counts + metadata/craft/export remain |
 | Prose-tuned Story DNA labels | ⬜ |
 | Book export — EPUB + print PDF, front/back matter, themes, trim sizes (see below; Manuscript-format PDF for agent submission stays as-is) | 🔶 Phases 0–2a done (data model, front/back-matter editors, Book view render + PDF, self-hosted serif fonts, 2026-07-09) — see `BOOK-FORMATTING-PLAN.md` |
 
@@ -818,9 +818,16 @@ to the author's discretion. Concretely, in priority order:
    a real ellipsis character — auto-substituted as you type (iA Writer / Ulysses convention), not
    left to the author to type correctly. Screenplay convention doesn't care about this; prose readers
    notice straight quotes immediately.
-4. **Paragraph convention as a per-show or per-app setting**, not per-line markup: first-line
-   indent / no blank line (print-novel default) vs. block paragraph / blank line between (manuscript
-   / web-serial default). Dialogue is a new paragraph per speaker — no character-cue margin at all.
+4. **Paragraph convention — shipped.** A per-novel **Indent / Block** segmented control in the
+   Page-setup drawer (`state.paraStyle`, serialized with the novel like `wordTarget`, defaulting to
+   Indent). Indent = first-line indent, paragraphs flowing tight with no gap (print-novel); Block =
+   no indent, a gap between paragraphs (manuscript / web-serial). Rendered by a `body.ms-para-block`
+   class in both Edit and Print View, so no reflow/reparse. In Indent mode the first paragraph of
+   every chapter/scene stays flush-left (adjacent-sibling rule: only a paragraph that follows
+   another is indented) — standard book typography. *(Persistence moved per-device → per-novel and
+   first-paragraph flush added 2026-07-20; the segmented control itself shipped with the original
+   Prose Plot build.)* Still deferred: dialogue-as-new-paragraph-per-speaker has no special
+   handling beyond the author starting a new line.
 5. **Word count is the primary metric**, already threaded into the ribbon (§ above) — the natural
    next layer is a **live per-chapter count** in the Navigator/outline rows, alongside the
    whole-manuscript target.
@@ -837,11 +844,13 @@ to the author's discretion. Concretely, in priority order:
    script's.
 
 **Phasing (UI-first, mirroring how every other Plot Suite piece shipped):** (1) Collapse the
-Element dropdown to Body/Chapter/Scene-break + promote italic/bold — the editor stops looking like
-a screenplay tool. (2) Smart-typography auto-substitution. (3) Paragraph-convention toggle
-(indent vs. block). (4) Per-chapter word counts in the Navigator. (5) Focus mode — **shipped
-2026-07-05**, but only for the shared libretto-based Manuscript Prose Plot currently reuses; revisit
-once the prose-native editor above exists. (6) Metadata inspector, prose-craft feedback, and
+Element dropdown to Body/Chapter/Scene-break + promote italic/bold — **shipped** (prose narrows to
+`RICH_EL_CYCLE_PROSE`, live inference retypes as you write, 2026-07-11). (2) Smart-typography
+auto-substitution — **shipped** (`trySmartTypography`, prose-gated). (3) Paragraph-convention
+toggle (indent vs. block) — **shipped** (per-novel `state.paraStyle`, first-para flush, 2026-07-20).
+(4) Per-chapter word counts in the Navigator — **next up, not yet built.** (5) Focus mode — **shipped
+2026-07-11** (blank-page pass: format bar hidden + typewriter scrolling), on the shared
+libretto-based Manuscript Prose Plot reuses. (6) Metadata inspector, prose-craft feedback, and
 EPUB/DOCX export — each a later, independent phase.
 
 ### Book export — EPUB + print-ready PDF (future, not yet built)

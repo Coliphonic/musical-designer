@@ -1000,9 +1000,15 @@ body.app-prose .lw-action { padding-left: 0; }
    first-line indent with paragraphs flowing tight, no gap (print-novel
    convention). "Block" swaps to no indent + a visible gap between paragraphs
    (manuscript/web-serial convention). Applies in both Edit and Print View. */
-body.app-prose .ms-sheet-content .lw-action { margin-left: 0; margin-top: 0; text-indent: 1.5em; }
+body.app-prose .ms-sheet-content .lw-action { margin-left: 0; margin-top: 0; text-indent: 0; }
+/* Only indent a paragraph that directly follows another paragraph — so the
+   first paragraph of every chapter, scene break, or section stays flush-left,
+   the way a printed book opens. Structure-independent (adjacent siblings), so
+   it holds identically in Edit, the static edit-doc, and Print View. */
+body.app-prose .ms-sheet-content .lw-action + .lw-action { text-indent: 1.5em; }
 body.app-prose .lw-action { margin-top: 0; }
 body.app-prose.ms-para-block .ms-sheet-content .lw-action { text-indent: 0; margin-top: 0.5em; }
+body.app-prose.ms-para-block .ms-sheet-content .lw-action + .lw-action { text-indent: 0; }
 body.app-prose.ms-para-block .lw-action { margin-top: 0.4em; }
 /* Standard manuscript format is double-spaced (Shunn convention) — Song Plot's
    screenplay sheet is single-spaced (line-height: 1, §5), so Prose Plot needs

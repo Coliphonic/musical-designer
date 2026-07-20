@@ -249,6 +249,7 @@ function openReference(key) {
   state.wordTarget = 0;
   state.wordCountBaseline = 0;
   state.wordCountBaselineDate = '';
+  state.paraStyle = 'indent';
   state.loading = false;
   render();
   setSaveInd('ref');
@@ -302,6 +303,7 @@ function applyShowData(d) {
   state.wordTarget = d.wordTarget || 0;
   state.wordCountBaseline = d.wordCountBaseline || 0;
   state.wordCountBaselineDate = d.wordCountBaselineDate || '';
+  state.paraStyle = d.paraStyle || 'indent';
 }
 
 function openProject(id, afterOpen) {
@@ -347,6 +349,7 @@ function serialize() {
     wordTarget: state.wordTarget || 0,
     wordCountBaseline: state.wordCountBaseline || 0,
     wordCountBaselineDate: state.wordCountBaselineDate || '',
+    paraStyle: state.paraStyle || 'indent',
     cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
     revisions: state.revisions,
     currentRev: state.currentRev,
@@ -5132,7 +5135,7 @@ function buildManuscriptPage(sceneId) {
   // indent) vs Block (no indent, gap between paragraphs). A body class, so
   // Edit and Print View both pick it up via the CSS in the app-prose block —
   // no reflow/reparse needed, just like chord/section visibility above.
-  const applyParaStyle = () => { document.body.classList.toggle('ms-para-block', state.msOptions.paraStyle === 'block'); };
+  const applyParaStyle = () => { document.body.classList.toggle('ms-para-block', state.paraStyle === 'block'); };
   applyParaStyle();
 
   toolbar.appendChild(navBtn); // leftmost — the outline opens on the left
@@ -5706,12 +5709,15 @@ function buildManuscriptPage(sceneId) {
     const indentBtn = el('button', { type: 'button', text: 'Indent' });
     const blockBtn = el('button', { type: 'button', text: 'Block' });
     const sync = () => {
-      const isBlock = state.msOptions.paraStyle === 'block';
+      const isBlock = state.paraStyle === 'block';
       indentBtn.classList.toggle('active', !isBlock);
       blockBtn.classList.toggle('active', isBlock);
     };
-    indentBtn.addEventListener('click', () => { state.msOptions.paraStyle = 'indent'; saveMsOpts(); applyParaStyle(); sync(); });
-    blockBtn.addEventListener('click', () => { state.msOptions.paraStyle = 'block'; saveMsOpts(); applyParaStyle(); sync(); });
+    // Paragraph convention is a property of the book (it changes the printed
+    // output), so it persists per-novel via scheduleSave — not per-device like
+    // the writing font above.
+    indentBtn.addEventListener('click', () => { state.paraStyle = 'indent'; scheduleSave(); applyParaStyle(); sync(); });
+    blockBtn.addEventListener('click', () => { state.paraStyle = 'block'; scheduleSave(); applyParaStyle(); sync(); });
     sync();
     seg.appendChild(indentBtn);
     seg.appendChild(blockBtn);
