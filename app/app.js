@@ -3984,6 +3984,268 @@ function exportBookPDF() {
   setTimeout(() => window.print(), 60);
 }
 
+// ─── EPUB export (Prose Plot) — Phase 4a: packaging + chapter XHTML ───────────
+// Dependency-free EPUB 3. A stored-only (no compression) ZIP writer keeps this to
+// vanilla JS: the `mimetype` entry just has to be written first. Phase 4a produces
+// a minimally-valid, openable book (container + OPF + nav + chapter XHTML + themed
+// CSS with the embedded serif face); full metadata, cover, front/back matter, and
+// the user-facing download button are Phase 4b.
+
+// CRC-32 (IEEE, reflected) — the one checksum ZIP entries require.
+const CRC32_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (let i = 0; i < bytes.length; i++) c = CRC32_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+// Assemble a ZIP archive with every entry STORED (method 0). Entries are
+// { name, bytes:Uint8Array }; `mimetype` must be caller's first entry. Returns a
+// Blob(application/epub+zip). Local headers → central directory → EOCD, the
+// minimal spec-legal layout; a fixed 1980-01-01 DOS date avoids the invalid
+// zero-date some validators flag (and keeps output deterministic).
+function zipStore(entries) {
+  const parts = [];
+  let offset = 0;
+  const u16 = (n) => new Uint8Array([n & 0xFF, (n >>> 8) & 0xFF]);
+  const u32 = (n) => new Uint8Array([n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF]);
+  const push = (a) => { parts.push(a); offset += a.length; };
+  const DOS_DATE = 0x0021; // 1980-01-01
+  const DOS_TIME = 0x0000; // 00:00:00
+
+  const records = entries.map((e) => {
+    const nameBytes = new TextEncoder().encode(e.name);
+    const crc = crc32(e.bytes);
+    const localOffset = offset;
+    push(u32(0x04034b50)); // local file header signature
+    push(u16(20));         // version needed
+    push(u16(0));          // flags
+    push(u16(0));          // method 0 = stored
+    push(u16(DOS_TIME)); push(u16(DOS_DATE));
+    push(u32(crc));
+    push(u32(e.bytes.length)); // compressed size (== uncompressed, stored)
+    push(u32(e.bytes.length)); // uncompressed size
+    push(u16(nameBytes.length));
+    push(u16(0));          // extra length
+    push(nameBytes);
+    push(e.bytes);
+    return { nameBytes, crc, size: e.bytes.length, localOffset };
+  });
+
+  const cdStart = offset;
+  records.forEach((r) => {
+    push(u32(0x02014b50)); // central directory signature
+    push(u16(20)); push(u16(20)); // version made by / needed
+    push(u16(0)); push(u16(0));    // flags / method
+    push(u16(DOS_TIME)); push(u16(DOS_DATE));
+    push(u32(r.crc));
+    push(u32(r.size)); push(u32(r.size));
+    push(u16(r.nameBytes.length));
+    push(u16(0)); push(u16(0));    // extra / comment length
+    push(u16(0)); push(u16(0));    // disk # start / internal attrs
+    push(u32(0));                  // external attrs
+    push(u32(r.localOffset));
+    push(r.nameBytes);
+  });
+  const cdSize = offset - cdStart;
+
+  push(u32(0x06054b50)); // end of central directory
+  push(u16(0)); push(u16(0)); // disk numbers
+  push(u16(records.length)); push(u16(records.length));
+  push(u32(cdSize));
+  push(u32(cdStart));
+  push(u16(0));          // comment length
+
+  let total = 0; parts.forEach((p) => { total += p.length; });
+  const out = new Uint8Array(total);
+  let at = 0; parts.forEach((p) => { out.set(p, at); at += p.length; });
+  return new Blob([out], { type: 'application/epub+zip' });
+}
+
+// Text → escaped XML content (element bodies only — quotes stay literal, which is
+// fine outside attributes). Strips app-only markup (notes/chords/highlight/strike)
+// exactly like the Fountain exporter — those must never leak into a book — then
+// applies book emphasis. Bold/italic/underline survive; nothing else does.
+function emphToXhtml(text) {
+  let s = escHtml(stripToFountainText(text || ''));
+  s = s.replace(/\*\*\*([^*]+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+       .replace(/\*\*([^*]+?)\*\*/g, '<strong>$1</strong>')
+       .replace(/\*([^*]+?)\*/g, '<em>$1</em>')
+       .replace(/_([^_]+?)_/g, '<u>$1</u>');
+  return s;
+}
+
+const EPUB_FONT_FILES = {
+  ebgaramond: { family: 'EB Garamond', files: { regular: 'EBGaramond-Regular.woff2', italic: 'EBGaramond-Italic.woff2', bold: 'EBGaramond-Bold.woff2', bolditalic: 'EBGaramond-BoldItalic.woff2' } },
+  literata: { family: 'Literata', files: { regular: 'Literata-Regular.woff2', italic: 'Literata-Italic.woff2', bold: 'Literata-Bold.woff2', bolditalic: 'Literata-BoldItalic.woff2' } },
+  crimsonpro: { family: 'Crimson Pro', files: { regular: 'CrimsonPro-Regular.woff2', italic: 'CrimsonPro-Italic.woff2', bold: 'CrimsonPro-Bold.woff2', bolditalic: 'CrimsonPro-BoldItalic.woff2' } },
+};
+
+// One chapter card → an XHTML5 document. Chapter opener (label + optional title)
+// and paragraphs come from the same theme + cardBodyTokens() the print book uses,
+// so the ebook matches the PDF. Openers/scene-breaks are driven by body classes +
+// book.css (reflow-safe: drop/raised caps via ::first-letter, small caps via
+// ::first-line — no per-word span markup that ereaders mangle).
+function epubChapterXhtml(chapter, num) {
+  const theme = state.book.theme;
+  const label = escHtml(chapterLabelText(theme, num));
+  const cardTitle = (chapter.title || '').trim();
+  const showName = theme.showChapterTitle && cardTitle && cardTitle.toLowerCase() !== chapterLabelText(theme, num).trim().toLowerCase();
+  let head = '<h1 class="chapter-title">';
+  if (label) head += '<span class="ch-label">' + label + '</span>';
+  if (showName) head += '<span class="ch-name">' + emphToXhtml(cardTitle) + '</span>';
+  head += '</h1>';
+
+  const body = [];
+  let firstDone = false;
+  chapter.tokens.forEach((t) => {
+    if (t.type === 'blank') return;
+    if (t.type === 'scenebreak') {
+      const g = sceneBreakGlyph(theme.sceneBreak);
+      body.push(g ? '<p class="scene-break">' + escHtml(g) + '</p>' : '<p class="scene-break scene-break-space"></p>');
+      return;
+    }
+    if (t.type !== 'action') return; // prose chapters carry only action/scenebreak
+    const cls = (!firstDone) ? ' class="first-para"' : '';
+    if (!firstDone) firstDone = true;
+    body.push('<p' + cls + '>' + emphToXhtml(t.text) + '</p>');
+  });
+
+  const title = escHtml((label ? chapterLabelText(theme, num) : cardTitle) || cardTitle || 'Chapter');
+  return '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<!DOCTYPE html>\n' +
+    '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">\n' +
+    '<head>\n<meta charset="utf-8"/>\n<title>' + title + '</title>\n' +
+    '<link rel="stylesheet" type="text/css" href="book.css"/>\n</head>\n' +
+    '<body class="opener-' + theme.opener + '">\n' + head + '\n' + body.join('\n') + '\n</body>\n</html>\n';
+}
+
+// The in-book stylesheet: the theme's serif face (embedded when fetched), justified
+// indented body, chapter-title layout, scene-break + opener flourishes.
+function epubBookCss(fontMeta, haveFonts) {
+  const fam = fontMeta ? fontMeta.family : 'Georgia';
+  let css = '';
+  if (fontMeta && haveFonts) {
+    const f = fontMeta.files, F = fontMeta.family;
+    css +=
+      "@font-face{font-family:'" + F + "';font-weight:normal;font-style:normal;src:url(fonts/" + f.regular + ") format('woff2');}\n" +
+      "@font-face{font-family:'" + F + "';font-weight:normal;font-style:italic;src:url(fonts/" + f.italic + ") format('woff2');}\n" +
+      "@font-face{font-family:'" + F + "';font-weight:bold;font-style:normal;src:url(fonts/" + f.bold + ") format('woff2');}\n" +
+      "@font-face{font-family:'" + F + "';font-weight:bold;font-style:italic;src:url(fonts/" + f.bolditalic + ") format('woff2');}\n";
+  }
+  css +=
+    "body{font-family:'" + fam + "',Georgia,'Times New Roman',serif;line-height:1.5;margin:0;padding:0 1em;}\n" +
+    "p{margin:0;text-indent:1.5em;text-align:justify;-webkit-hyphens:auto;hyphens:auto;}\n" +
+    "h1.chapter-title{text-align:center;margin:2.5em 0 2em;font-weight:normal;}\n" +
+    ".ch-label{display:block;font-size:1.5em;letter-spacing:0.12em;text-transform:uppercase;}\n" +
+    ".ch-name{display:block;margin-top:0.5em;font-size:1.05em;font-style:italic;}\n" +
+    ".first-para{text-indent:0;}\n" +
+    ".scene-break{text-align:center;text-indent:0;margin:1.5em 0;letter-spacing:0.3em;}\n" +
+    ".scene-break-space{margin:2.2em 0;}\n" +
+    ".opener-dropcap .first-para::first-letter{float:left;font-size:3.4em;line-height:0.82;padding:0.02em 0.08em 0 0;font-weight:bold;}\n" +
+    ".opener-raisedcap .first-para::first-letter{font-size:2.2em;line-height:1;font-weight:bold;}\n" +
+    ".opener-smallcaps .first-para::first-line{font-variant:small-caps;letter-spacing:0.03em;}\n";
+  return css;
+}
+
+// Build a complete (Phase-4a-scope) EPUB as a Blob. Async: it fetches the theme
+// font's woff2 files to embed them (degrades to a system-serif fallback if any
+// fetch fails — e.g. offline). Chapters only for now; front/back matter + cover
+// are Phase 4b.
+async function buildEpub() {
+  const enc = new TextEncoder();
+  const T = (s) => enc.encode(s);
+  const book = state.book;
+  const title = state.title || 'Untitled';
+  const author = book.meta.authorName || 'Unknown';
+  const chapters = bookChapters();
+  const fontMeta = EPUB_FONT_FILES[book.theme.font] || null;
+
+  // Try to embed the theme font. All-or-nothing per family so we never emit a
+  // book.css @font-face that points at a file we failed to include.
+  const fontEntries = [];
+  let haveFonts = false;
+  if (fontMeta) {
+    try {
+      const names = Object.values(fontMeta.files);
+      const bufs = await Promise.all(names.map((n) => fetch('fonts/' + n).then((r) => { if (!r.ok) throw new Error(n); return r.arrayBuffer(); })));
+      names.forEach((n, i) => fontEntries.push({ name: 'OEBPS/fonts/' + n, bytes: new Uint8Array(bufs[i]) }));
+      haveFonts = true;
+    } catch (_) { haveFonts = false; }
+  }
+
+  const uuid = (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => { const r = (self.crypto ? crypto.getRandomValues(new Uint8Array(1))[0] : 0) % 16; const v = ch === 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }));
+  const modified = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+  const chapterFiles = chapters.map((ch, i) => ({ id: 'ch' + (i + 1), href: 'ch' + (i + 1) + '.xhtml', xhtml: epubChapterXhtml(ch, i + 1), title: ch.title || ('Chapter ' + (i + 1)) }));
+
+  // OPF package: metadata, manifest (css + fonts + nav + chapters), spine.
+  const manifestItems = [];
+  manifestItems.push('<item id="css" href="book.css" media-type="text/css"/>');
+  manifestItems.push('<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>');
+  if (haveFonts) Object.values(fontMeta.files).forEach((n, i) => manifestItems.push('<item id="font' + i + '" href="fonts/' + n + '" media-type="font/woff2"/>'));
+  chapterFiles.forEach((c) => manifestItems.push('<item id="' + c.id + '" href="' + c.href + '" media-type="application/xhtml+xml"/>'));
+  const spineItems = chapterFiles.map((c) => '<itemref idref="' + c.id + '"/>').join('\n    ');
+
+  const opf = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="en">\n' +
+    '  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n' +
+    '    <dc:identifier id="bookid">urn:uuid:' + uuid + '</dc:identifier>\n' +
+    '    <dc:title>' + escHtml(title) + '</dc:title>\n' +
+    '    <dc:creator>' + escHtml(author) + '</dc:creator>\n' +
+    '    <dc:language>en</dc:language>\n' +
+    '    <meta property="dcterms:modified">' + modified + '</meta>\n' +
+    '  </metadata>\n' +
+    '  <manifest>\n    ' + manifestItems.join('\n    ') + '\n  </manifest>\n' +
+    '  <spine>\n    ' + spineItems + '\n  </spine>\n' +
+    '</package>\n';
+
+  // EPUB 3 nav document (toc). Front/back-matter entries are Phase 4b.
+  const navList = chapterFiles.map((c) => '      <li><a href="' + c.href + '">' + escHtml(c.title) + '</a></li>').join('\n');
+  const nav = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<!DOCTYPE html>\n' +
+    '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="en" lang="en">\n' +
+    '<head><meta charset="utf-8"/><title>' + escHtml(title) + '</title></head>\n' +
+    '<body>\n  <nav epub:type="toc" id="toc">\n    <h1>Contents</h1>\n    <ol>\n' + navList + '\n    </ol>\n  </nav>\n</body>\n</html>\n';
+
+  const container = '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n' +
+    '  <rootfiles>\n    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>\n  </rootfiles>\n</container>\n';
+
+  // Entry order: mimetype FIRST (spec), then container, then the OEBPS payload.
+  const entries = [
+    { name: 'mimetype', bytes: T('application/epub+zip') },
+    { name: 'META-INF/container.xml', bytes: T(container) },
+    { name: 'OEBPS/content.opf', bytes: T(opf) },
+    { name: 'OEBPS/nav.xhtml', bytes: T(nav) },
+    { name: 'OEBPS/book.css', bytes: T(epubBookCss(fontMeta, haveFonts)) },
+  ];
+  chapterFiles.forEach((c) => entries.push({ name: 'OEBPS/' + c.href, bytes: T(c.xhtml) }));
+  fontEntries.forEach((e) => entries.push(e));
+
+  return { blob: zipStore(entries), entries: entries.map((e) => e.name), haveFonts, chapters: chapterFiles.length };
+}
+
+// Dev-only trigger (Phase 4a has no UI button — that's 4b). Call from the console:
+// `downloadEpub()`.
+async function downloadEpub() {
+  const { blob } = await buildEpub();
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (state.title || 'book').replace(/[^\w.-]+/g, '_') + '.epub';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+}
+
 const VOICE_TYPES = ['Soprano', 'Mezzo-Soprano', 'Alto', 'Tenor', 'Baritone', 'Bass', 'Child', 'Ensemble', 'Speaking'];
 const LANE_LABELS = { '1': 'Act 1', '2A': 'Act 2A', '2B': 'Act 2B', '3': 'Act 3' };
 

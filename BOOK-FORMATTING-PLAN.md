@@ -19,7 +19,7 @@ print-ready PDF"); this document is the how.
 | 2c | Scene-break ornaments + drop caps | ✅ (one deferral — see note) |
 | 3a | Trim sizes + book margins | ✅ |
 | 3b | Recto/verso, running heads, book page numbering | ✅ |
-| 4a | EPUB — ZIP writer + chapter XHTML | ⬜ |
+| 4a | EPUB — ZIP writer + chapter XHTML | ✅ |
 | 4b | EPUB — metadata, cover, nav/TOC, download | ⬜ |
 | 5 | Custom themes (Atticus-style theme editor) | ⬜ |
 
@@ -611,6 +611,51 @@ toggle yet for the same reason.
 first, (2) opens in Apple Books / Calibre with chapters intact, emphasis rendered, no
 leaked markup. (Automate what you can: in Node, re-parse the ZIP structure and assert
 entry order + CRC correctness.)
+
+**What shipped (2026-07-20):** dependency-free EPUB 3 packaging, all top-level beside
+`exportBookPDF`:
+- `crc32()` (256-entry reflected IEEE table, built once) + `zipStore(entries)` — a
+  **stored-only** (method 0) ZIP writer: local file headers → central directory → EOCD,
+  fixed 1980-01-01 DOS date (deterministic + dodges the invalid-zero-date some validators
+  flag). Returns a `Blob('application/epub+zip')`. Because nothing is compressed, the EPUB
+  `mimetype`-first-and-stored rule is satisfied just by making it the caller's first entry.
+- `emphToXhtml(text)` — the book-side sibling of `emphToHtml`: strips app-only markup
+  (notes/chords/editorial-highlight/strikethrough) via `stripToFountainText` first — none
+  belong in a finished book — then escapes and applies only book emphasis
+  (`<strong>/<em>/<u>`). Element-content escaping only (quotes stay literal, fine outside
+  attributes).
+- `epubChapterXhtml(chapter, num)` — one XHTML5 doc per chapter card. Chapter opener
+  (label via `chapterLabelText` + optional card title) and paragraphs come from the same
+  theme + `cardBodyTokens()` the print book uses, so the ebook matches the PDF. Openers and
+  small-caps are **reflow-safe CSS**, not per-word markup: `<body class="opener-…">` + a
+  `first-para` class drive `::first-letter` (drop/raised cap) and `::first-line` (small
+  caps) in book.css — no spans for ereaders to mangle. Scene breaks honour the theme glyph
+  (`* * *` / `⁂` / empty for space).
+- `epubBookCss(fontMeta, haveFonts)` — the in-book stylesheet: embedded-face `@font-face`
+  (only when the fonts were actually fetched), justified indented body, chapter-title
+  layout, scene-break + opener rules.
+- `buildEpub()` (async) — fetches the theme font's four woff2 files to embed them
+  (all-or-nothing per family; degrades to a system-serif fallback if any fetch fails),
+  generates chapters + a minimal-but-valid `container.xml`, EPUB 3 OPF (`dc:title`,
+  `dc:creator`, `urn:uuid` identifier via `crypto.randomUUID`, `dcterms:modified`, manifest,
+  spine) and `nav.xhtml` (toc). Returns `{ blob, entries, haveFonts, chapters }`.
+- `downloadEpub()` — the Phase-4a dev trigger (no UI button until 4b): call from the console.
+- **Scope note:** front/back matter XHTML, cover image, ISBN-based identifier, and the
+  Export-drawer button are Phase 4b; 4a intentionally emits chapters only, but a complete,
+  openable book (minimal OPF/nav/container so a reader mounts it).
+- Verified live (Carol reference, injected original prose carrying **/*/_/~~/==/[[note]]**
+  and a `***` scene break, readonly — nothing saved): parsed the output bytes back —
+  mimetype first + stored + exact bytes; 14 entries, every one stored with a CRC that
+  re-computes correctly; local-header count == central-directory count == EOCD count (14),
+  EOCD's CD offset matches the real central-directory start. Every XHTML/OPF/nav/container
+  doc parses as **well-formed XML** via `DOMParser`. Chapter 1: bold/italic/underline
+  preserved; strike/highlight/note markup gone but their text kept; `first-para` only on the
+  true first paragraph; scene break = `<p class="scene-break">* * *</p>`; body class
+  `opener-plain`; label "Chapter One" + name "The Harbour". OPF carries title/creator/uuid/
+  modified; nav lists 5 chapters; book.css has the `@font-face` block + EB Garamond body;
+  the four EBGaramond woff2 embedded. All three scene-break themes emit the right glyph.
+  (A real Apple Books/Calibre open + epubcheck run is Phase 4b's acceptance gate — deferred
+  to when the download button exists.) sw bumped v195→**v196**.
 
 ---
 
