@@ -3577,9 +3577,13 @@ function buildBookBlocks(chapters) {
   return blocks;
 }
 
-function paginateBookBlocks(blocks, bookFont) {
+function paginateBookBlocks(blocks, bookFont, dims) {
   const rig = el('div', { class: 'book-sheet' });
-  rig.style.cssText = 'position:absolute; left:-99999px; top:0; visibility:hidden; height:11in; min-height:0;';
+  rig.style.cssText = 'position:absolute; left:-99999px; top:0; visibility:hidden; min-height:0;';
+  if (dims) applyBookDims(rig, dims);
+  // A fixed measurement height (page height), not min-height, so clientHeight is
+  // exactly the page — the content budget is that minus the sheet's own padding.
+  rig.style.height = dims ? (dims.hIn * BOOK_DPI) + 'px' : '11in';
   if (bookFont) rig.style.setProperty('--book-font', bookFont);
   const probe = el('div', { class: 'book-sheet-content' });
   probe.style.cssText = 'flex:0 0 auto;';
@@ -3747,6 +3751,43 @@ function applyThemePreset(id) {
   // leave them untouched across a preset switch.
 }
 
+// Book trim (page) sizes. Book view/PDF render at these real dimensions rather
+// than US Letter. 96 CSS px per inch — sizing in inches (not px) keeps the
+// print @page and the on-screen sheet exactly aligned.
+const BOOK_DPI = 96;
+const BOOK_TRIM_SIZES = {
+  '5x8': { w: 5, h: 8, label: '5 × 8″' },
+  '5.25x8': { w: 5.25, h: 8, label: '5.25 × 8″' },
+  '5.5x8.5': { w: 5.5, h: 8.5, label: '5.5 × 8.5″' },
+  '6x9': { w: 6, h: 9, label: '6 × 9″' },
+};
+// Resolve the active trim to page dimensions + margins (all inches). Left/right
+// are a single uniform value for now — the inside≈outside average; true mirrored
+// gutters (recto/verso) arrive in Phase 3b.
+function bookTrimDims() {
+  const t = (state.book && state.book.trim) || {};
+  const size = BOOK_TRIM_SIZES[t.size] || BOOK_TRIM_SIZES['6x9'];
+  const gutter = t.gutterIn != null ? t.gutterIn : 0.75;
+  const outside = t.outsideIn != null ? t.outsideIn : 0.5;
+  return {
+    wIn: size.w,
+    hIn: size.h,
+    sideIn: (gutter + outside) / 2,
+    topIn: t.topIn != null ? t.topIn : 0.75,
+    bottomIn: t.bottomIn != null ? t.bottomIn : 0.75,
+  };
+}
+// Stamp the page/margin CSS variables the .book-sheet + .book-sheet-content
+// rules read. Applied to every sheet AND the pagination probe so measurement
+// wraps text at the exact same content width the render does.
+function applyBookDims(node, dims) {
+  node.style.setProperty('--book-page-w', (dims.wIn * BOOK_DPI) + 'px');
+  node.style.setProperty('--book-page-h', (dims.hIn * BOOK_DPI) + 'px');
+  node.style.setProperty('--book-pad-top', (dims.topIn * BOOK_DPI) + 'px');
+  node.style.setProperty('--book-pad-bottom', (dims.bottomIn * BOOK_DPI) + 'px');
+  node.style.setProperty('--book-pad-side', (dims.sideIn * BOOK_DPI) + 'px');
+}
+
 // Prose Plot's Edit-mode writing font — a per-device comfort preference
 // (state.msOptions, like zoom/paraStyle), independent of Manuscript output,
 // which stays Courier for agent submission regardless of this setting.
@@ -3779,8 +3820,9 @@ function buildBookSheets() {
   const book = state.book;
   const bookTitle = state.title || 'Untitled';
   const bookFont = bookFontFamily(book.theme.font);
+  const dims = bookTrimDims();
   const chapters = bookChapters();
-  const bodyPages = paginateBookBlocks(buildBookBlocks(chapters), bookFont);
+  const bodyPages = paginateBookBlocks(buildBookBlocks(chapters), bookFont, dims);
   // First body-page (1-based) each chapter starts on — for the TOC. Real book
   // page numbering (including front matter) is Phase 3b; this is a stable
   // reference into the chapters flow only.
@@ -3793,6 +3835,7 @@ function buildBookSheets() {
   const addSheet = (contentEl) => {
     const sheet = el('div', { class: 'book-sheet' });
     sheet.style.setProperty('--book-font', bookFont);
+    applyBookDims(sheet, dims);
     sheet.appendChild(el('div', { class: 'book-sheet-content' }, [contentEl]));
     sheets.push(sheet);
   };
@@ -3836,6 +3879,7 @@ function buildBookSheets() {
     pageToks.forEach((tok) => renderBookToken(tok, content));
     const sheet = el('div', { class: 'book-sheet' });
     sheet.style.setProperty('--book-font', bookFont);
+    applyBookDims(sheet, dims);
     sheet.appendChild(content);
     sheets.push(sheet);
   });
@@ -3854,10 +3898,22 @@ function buildBookSheets() {
 function exportBookPDF() {
   const prev = document.getElementById('pdf-print-root');
   if (prev) prev.remove();
+  const prevStyle = document.getElementById('book-trim-print');
+  if (prevStyle) prevStyle.remove();
+  // @page can't read runtime CSS variables, so emit the trim's literal page size
+  // (and a matching sheet box) as a one-off <style> just for this print. The
+  // sheet height is shaved 0.4in below the page — same WebKit double-break guard
+  // as the Letter rule in styles.css; ink never reaches there (bottom margin ≥ 0.4in).
+  const dims = bookTrimDims();
+  const style = el('style', { id: 'book-trim-print' });
+  style.textContent =
+    '@media print{@page{size:' + dims.wIn + 'in ' + dims.hIn + 'in;margin:0}' +
+    '#pdf-print-root .book-sheet{width:' + dims.wIn + 'in;height:' + (dims.hIn - 0.4) + 'in}}';
+  document.head.appendChild(style);
   const root = el('div', { id: 'pdf-print-root' });
   buildBookSheets().forEach((sheet) => root.appendChild(sheet));
   document.body.appendChild(root);
-  const cleanup = () => { root.remove(); window.removeEventListener('afterprint', cleanup); };
+  const cleanup = () => { root.remove(); style.remove(); window.removeEventListener('afterprint', cleanup); };
   window.addEventListener('afterprint', cleanup);
   setTimeout(() => window.print(), 60);
 }
@@ -6011,6 +6067,23 @@ function buildManuscriptPage(sceneId) {
       themeHost.appendChild(tgl);
     }
     renderThemePicker();
+
+    // ── Page (trim size) ── real book dimensions for the Book render + PDF.
+    bkInner.appendChild(el('div', { class: 'ms-hd-divider' }));
+    bkInner.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Page' }));
+    const pageHost = el('div', { class: 'bk-theme-host' });
+    const trimField = el('label', { class: 'bk-knob bk-knob-wide' });
+    trimField.appendChild(el('span', { class: 'bk-knob-label', text: 'Trim size' }));
+    const trimSel = el('select');
+    Object.keys(BOOK_TRIM_SIZES).forEach((k) => {
+      const o = el('option', { value: k, text: BOOK_TRIM_SIZES[k].label });
+      if ((state.book.trim.size || '6x9') === k) o.selected = true;
+      trimSel.appendChild(o);
+    });
+    trimSel.addEventListener('change', () => { state.book.trim.size = trimSel.value; scheduleSave(); if (msMode === 'book') rebuildBook(); });
+    trimField.appendChild(trimSel);
+    pageHost.appendChild(trimField);
+    bkInner.appendChild(pageHost);
 
     bookDrawer.appendChild(bkInner);
   }

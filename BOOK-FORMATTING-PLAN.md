@@ -17,7 +17,7 @@ print-ready PDF"); this document is the how.
 | 2a | Ship serif fonts (OFL, self-hosted) | ✅ |
 | 2b | Theme presets + chapter-opener styles | ✅ |
 | 2c | Scene-break ornaments + drop caps | ✅ (one deferral — see note) |
-| 3a | Trim sizes + book margins | ⬜ |
+| 3a | Trim sizes + book margins | ✅ |
 | 3b | Recto/verso, running heads, book page numbering | ⬜ |
 | 4a | EPUB — ZIP writer + chapter XHTML | ⬜ |
 | 4b | EPUB — metadata, cover, nav/TOC, download | ⬜ |
@@ -482,6 +482,32 @@ Book view and in the printed PDF; pagination doesn't overlap or clip drop caps.
 
 **Acceptance:** each trim produces correctly-sized pages in the print preview (measure the
 generated PDF page size); text re-flows correctly between trims; TOC page numbers update.
+
+**What shipped (2026-07-20):** `BOOK_TRIM_SIZES` (5×8, 5.25×8, 5.5×8.5, 6×9) + `BOOK_DPI`
+(96) + `bookTrimDims()` (resolves the active `state.book.trim` to page W/H and margins in
+inches — left/right is the uniform inside≈outside **average** for now, `(gutterIn+outsideIn)/2`;
+true mirrored gutters are 3b) + `applyBookDims(node, dims)` which stamps `--book-page-w`,
+`--book-page-h`, `--book-pad-top/-bottom/-side` on a sheet. `.book-sheet` width/min-height and
+`.book-sheet-content` padding now read those vars (fallbacks = the old Letter/1in values for
+any un-stamped sheet). Threaded through `buildBookSheets` (computes `dims` once, stamps every
+sheet — front matter, body, back matter) and `paginateBookBlocks(blocks, bookFont, dims)`,
+which sets the same vars **and a fixed measurement height** on its offscreen rig so the probe
+wraps text at the identical content width the render uses — the classic engine bug is avoided
+by construction (same code path stamps both). PDF: `exportBookPDF()` injects a one-off
+`<style id="book-trim-print">` with the literal `@page{size:<W>in <H>in;margin:0}` and a matching
+`#pdf-print-root .book-sheet{width:<W>in;height:<H-0.4>in}` (the 0.4in shave is the same WebKit
+double-break guard as the Letter `.ms-sheet` rule — ink never reaches there since bottom margin
+≥ 0.4in), removed in the afterprint cleanup alongside the print root. UI: a **Page** section in
+the Book-setup drawer with a single **Trim size** select (margins stay at sensible defaults —
+not exposed as knobs yet, keeping the drawer uncluttered; add later if asked). Verified live
+(Carol, injected original prose, readonly): all four trims computed exact px dimensions
+(5×8→480×768, 5.25×8→504×768, 5.5×8.5→528×816, 6×9→576×864) with 72px/60px margins; a 40-paragraph
+chapter re-paginated 17 sheets at 5×8 vs 14 at 6×9 (smaller page → more pages); `trim` round-trips
+`serialize()`; Manuscript view stayed 816px Letter/Courier; PDF injected
+`@page{size:5.5in 8.5in}` + 8.1in sheet. sw v193→**v194**.
+
+**Deferred to 3b (as planned):** mirrored recto/verso gutters (this phase uses the uniform
+average), and the four per-margin controls are not user-editable yet (defaults only).
 
 ---
 

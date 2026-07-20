@@ -671,8 +671,10 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
    --book-font is set per-show from state.book.theme.font (see bookFontFamily() in app.js);
    falls back to system serif if the theme value is ever unrecognized. */
 .book-sheet {
-  width: 816px;
-  min-height: 1056px;
+  /* Dimensions + margins come from the active trim (applyBookDims in app.js);
+     the fallbacks are US Letter with 1in/1.125in margins for any un-stamped sheet. */
+  width: var(--book-page-w, 816px);
+  min-height: var(--book-page-h, 1056px);
   background: #fff;
   color: #111;
   box-shadow: 0 4px 24px #0005;
@@ -684,7 +686,7 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 96px 108px;
+  padding: var(--book-pad-top, 96px) var(--book-pad-side, 108px) var(--book-pad-bottom, 96px);
   font-family: var(--book-font, Georgia, 'Times New Roman', serif);
   font-size: 16px;
   line-height: 1.5;
