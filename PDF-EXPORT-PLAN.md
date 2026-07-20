@@ -149,6 +149,23 @@ the same engine:
   text layer carries `[CHORUS]`/`[BRIDGE]` intact and `[VERSE 1]` as adjacent
   positioned runs, all sage `#5f7d57` Courier 9.6pt; dark-mode edit view reads
   the bright sage. Sheet-toolbar "Section tags" toggle still hides them.
+- **Sheet reading font (cache v209)** — a font dropdown in the sheet bar
+  (`sheetOpts.font`, persisted) lets a song sheet read in a book face while the
+  Manuscript stays Courier. `.ms-sheet`/`.ms-sheet-content` font-family became
+  `var(--sheet-font, <Courier>)`; only the lyric Sheet pane + its Print/PDF export
+  roots set the var, so the Manuscript (never sets it) keeps Courier via the
+  fallback. Five faces: Courier Prime, Courier Prime Sans, Crimson Pro, Literata,
+  Helvetica. Screen + Print are exact (DOM). **PDF**: the transcriber measures on
+  screen but draws in the PDF font, so metrics must match — Crimson/Literata are
+  now **embedded** (pdfTranscribeSheet takes optional `fonts` from pdfLoadBookFonts
+  and draws via textEmbed per word; base-14 Times would collapse the inter-word
+  spaces). **Courier Prime Sans** is also embedded (its .ttf is bundled) so the PDF
+  shows the real sans monospace, not base-14 Courier's serifs — exact fidelity.
+  Courier Prime → base-14 Courier (no bundled file; it renders as Courier New,
+  which base-14 Courier matches) and Helvetica → base-14 Helvetica (system font,
+  metrics already match). Also fixed a latent `pdfBase14` bug: the
+  "sans-serif" generic contains "serif", so Helvetica had mis-mapped to Times —
+  sans families are now tested first.
 
 Still absent (pre-existing): chords in the whole-show Manuscript PDF (its
 render path never calls the materializer) — deliberate until the Manuscript

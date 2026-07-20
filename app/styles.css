@@ -461,7 +461,10 @@ body.dark .ms-body { background: var(--bg); }
   box-shadow: 0 4px 24px #0005;
   display: flex;
   flex-direction: column;
-  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  /* --sheet-font is set only on the lyric-window Sheet pane + its Print/PDF
+     export roots (sheetOpts.font); the Manuscript never sets it, so it falls
+     back to Courier and stays a typewriter script. */
+  font-family: var(--sheet-font, 'Courier Prime', 'Courier New', Courier, monospace);
   font-size: 12pt;
   line-height: 1.0; /* FD Spacing="1" Leading="Regular" — 6 lines/inch typewriter standard */
   flex-shrink: 0;
@@ -478,7 +481,7 @@ body.dark .ms-body { background: var(--bg); }
 .ms-sheet-content {
   flex: 1;
   padding: 12px 120px 72px; /* top: hdr(72px)+12px = 84px = 0.875" from top; bottom: 0.75" = 72px */
-  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-family: var(--sheet-font, 'Courier Prime', 'Courier New', Courier, monospace);
   font-size: 12pt;
   line-height: 1.0;
   color: #111;

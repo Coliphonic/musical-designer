@@ -120,8 +120,8 @@ const state = {
 // reader flipping Chords/Section tags off in a card's Sheet shouldn't touch
 // the writer's Manuscript print settings, and vice versa.
 const sheetOpts = (() => {
-  try { return Object.assign({ showChords: true, showSectionTags: true }, JSON.parse(localStorage.getItem('md-sheet-opts') || '{}')); }
-  catch (_) { return { showChords: true, showSectionTags: true }; }
+  try { return Object.assign({ showChords: true, showSectionTags: true, font: 'courierprime' }, JSON.parse(localStorage.getItem('md-sheet-opts') || '{}')); }
+  catch (_) { return { showChords: true, showSectionTags: true, font: 'courierprime' }; }
 })();
 function saveSheetOpts() { try { localStorage.setItem('md-sheet-opts', JSON.stringify(sheetOpts)); } catch (_) {} }
 
@@ -3836,6 +3836,26 @@ const EDIT_FONT_FAMILIES = {
 function editFontFamily(id) {
   return EDIT_FONT_FAMILIES[id] || EDIT_FONT_FAMILIES.courier;
 }
+
+// Song Sheet reading font — a presentation choice for the lyric-window Sheet
+// view (screen, Print, and PDF), picked from the sheet bar and persisted in
+// sheetOpts.font. The Manuscript is deliberately excluded: it always stays
+// Courier (it never reads --sheet-font, so the fallback below applies).
+const SHEET_FONT_LABELS = {
+  courierprime: 'Courier Prime',
+  courierprimesans: 'Courier Prime Sans',
+  crimsonpro: 'Crimson Pro',
+  literata: 'Literata',
+  helvetica: 'Helvetica',
+};
+const SHEET_FONT_FAMILIES = {
+  courierprime: "'Courier Prime', 'Courier New', Courier, monospace",
+  courierprimesans: "'Courier Prime Sans', 'Courier New', Courier, monospace",
+  crimsonpro: "'Crimson Pro', Georgia, 'Times New Roman', serif",
+  literata: "'Literata', Georgia, 'Times New Roman', serif",
+  helvetica: "Helvetica, Arial, sans-serif",
+};
+function sheetFontFamily(id) { return SHEET_FONT_FAMILIES[id] || SHEET_FONT_FAMILIES.courierprime; }
 function applyEditFont() {
   const doc = document.querySelector('.ms-edit-doc');
   if (doc) doc.style.setProperty('--edit-font', editFontFamily(state.msOptions.editFont));
@@ -5414,8 +5434,11 @@ async function pdfDeflate(bytes) {
 // The base-14 font a (family, bold, italic) run maps to.
 function pdfBase14(family, bold, italic) {
   const f = (family || '').toLowerCase();
-  const fam = /times|serif|garamond|literata|crimson|georgia/.test(f) ? 'Times'
+  // Sans checks come first: the "sans-serif" generic contains the substring
+  // "serif", so a serif-first test would misroute Helvetica/Arial to Times.
+  const fam = /helvetica|arial|sans-serif/.test(f) ? 'Helvetica'
     : /courier|mono/.test(f) ? 'Courier'
+    : /times|serif|garamond|literata|crimson|georgia/.test(f) ? 'Times'
     : 'Helvetica';
   if (fam === 'Times') {
     if (bold && italic) return 'Times-BoldItalic';
@@ -5686,7 +5709,13 @@ function pdfWordRuns(text) {
 }
 
 // Transcribe one rendered sheet element onto a new PDF page (sized to the sheet).
-function pdfTranscribeSheet(pdf, sheet) {
+// `fonts`/`fontId` are optional embedded fonts (from pdfLoadBookFonts): when the
+// sheet uses a proportional book font (Crimson/Literata), we must DRAW the same
+// font we MEASURED with — base-14 substitution (Times) has different metrics, so
+// word positions measured on-screen would collapse the inter-word spaces. The
+// mono/Helvetica fonts skip this: their base-14 equivalent matches the screen
+// metrics, so page.text() stays correct (and needs no font embedding).
+function pdfTranscribeSheet(pdf, sheet, fonts, fontId) {
   const sr = sheet.getBoundingClientRect();
   const pageHpx = sr.height;
   const page = pdf.addPage(sr.width * PDF_PX_TO_PT, pageHpx * PDF_PX_TO_PT);
@@ -5719,6 +5748,8 @@ function pdfTranscribeSheet(pdf, sheet) {
     // identical either way — draw what the reader sees. (Same treatment the
     // Book transcriber has had since Phase 2.)
     const tt = cs.textTransform || 'none';
+    const styleName = (bold && italic) ? 'bolditalic' : bold ? 'bold' : italic ? 'italic' : 'regular';
+    const ttf = fonts ? fonts[styleName] : null;
 
     for (const run of pdfWordRuns(node.nodeValue)) {
       const range = document.createRange();
@@ -5727,7 +5758,14 @@ function pdfTranscribeSheet(pdf, sheet) {
       if (rects.length) {
         const rect = rects[0];
         const drawn = tt === 'uppercase' ? run.text.toUpperCase() : tt === 'lowercase' ? run.text.toLowerCase() : run.text;
-        page.text(xPt(rect.left), yPt((rect.top - sr.top) + ascent), drawn, { family, size: sizePt, bold, italic, color });
+        // Embed the real font when we have it and it covers this word; otherwise
+        // fall back to the base-14 mapping (per-word, so a stray missing glyph
+        // never breaks the whole line).
+        if (ttf && pdfFontHasAll(ttf, drawn)) {
+          page.textEmbed(xPt(rect.left), yPt((rect.top - sr.top) + ascent), drawn, { ttf, fontKey: fontId + '-' + styleName, psname: ttf.psname, size: sizePt, color });
+        } else {
+          page.text(xPt(rect.left), yPt((rect.top - sr.top) + ascent), drawn, { family, size: sizePt, bold, italic, color });
+        }
       }
     }
 
@@ -5860,10 +5898,18 @@ async function exportManuscriptPDF(includeTitlePages, revisedOnly) {
 // The book uses real proportional serif fonts (EB Garamond / Literata / Crimson),
 // so the PDF embeds them (see createPdf's textEmbed / TTF path). TrueType copies
 // live beside the woff2 the screen uses (same metrics), fetched only at export.
+// Fonts we can embed in a PDF (a bundled .ttf per style). Keyed by the id used
+// in the Book font picker AND the Sheet font picker (sheetOpts.font) — pdfLoadBookFonts
+// + exportSheetPDF look up here to decide whether to embed vs. fall back to base-14.
+// Courier Prime Sans is here for the Sheet: base-14 Courier would draw it as plain
+// Courier, so we embed its .ttf for exact fidelity. (Plain "Courier Prime" has no
+// bundled file — it renders as Courier New, which base-14 Courier already matches —
+// and Helvetica is a system font, so neither is embeddable.)
 const PDF_BOOK_FONT_FILES = {
   ebgaramond: { regular: 'EBGaramond-Regular', bold: 'EBGaramond-Bold', italic: 'EBGaramond-Italic', bolditalic: 'EBGaramond-BoldItalic', family: 'EB Garamond' },
   literata: { regular: 'Literata-Regular', bold: 'Literata-Bold', italic: 'Literata-Italic', bolditalic: 'Literata-BoldItalic', family: 'Literata' },
   crimsonpro: { regular: 'CrimsonPro-Regular', bold: 'CrimsonPro-Bold', italic: 'CrimsonPro-Italic', bolditalic: 'CrimsonPro-BoldItalic', family: 'Crimson Pro' },
+  courierprimesans: { regular: 'CourierPrimeSans-Regular', bold: 'CourierPrimeSans-Bold', italic: 'CourierPrimeSans-Italic', bolditalic: 'CourierPrimeSans-BoldItalic', family: 'Courier Prime Sans' },
 };
 const _pdfBookFontCache = {};
 async function pdfLoadBookFonts(id) {
@@ -7880,6 +7926,7 @@ function printSheetCard(c) {
   const prev = document.getElementById('pdf-print-root');
   if (prev) prev.remove();
   const root = el('div', { id: 'pdf-print-root' });
+  root.style.setProperty('--sheet-font', sheetFontFamily(sheetOpts.font || 'courierprime'));
   const pages = paginateTokens(buildSheetTokens(c), null);
   pages.forEach((pageToks) => {
     const sheet = el('div', { class: 'ms-sheet' });
@@ -7909,6 +7956,7 @@ async function exportSheetPDF(c) {
   // base-14 Courier's width, which would swallow the following space).
   root.style.cssText = 'display:block; position:absolute; left:-99999px; top:0; width:816px;'
     + ' font-variant-ligatures:none; font-feature-settings:"liga" 0, "clig" 0, "dlig" 0, "hlig" 0;';
+  root.style.setProperty('--sheet-font', sheetFontFamily(sheetOpts.font || 'courierprime'));
   const pages = paginateTokens(buildSheetTokens(c), null);
   pages.forEach((pageToks) => {
     const sheet = el('div', { class: 'ms-sheet' });
@@ -7929,7 +7977,15 @@ async function exportSheetPDF(c) {
     creator: 'Song Plot', producer: 'Song Plot',
     date: pdfDateString(new Date()),
   });
-  root.querySelectorAll('.ms-sheet').forEach((sheet) => pdfTranscribeSheet(pdf, sheet));
+  // Proportional book fonts (Crimson/Literata) must be embedded so the PDF draws
+  // the same metrics we measured on screen; the mono/Helvetica fonts stay on the
+  // base-14 path (pdfTranscribeSheet falls back automatically when fonts is null).
+  const sheetFont = sheetOpts.font || 'courierprime';
+  let embedFonts = null;
+  if (PDF_BOOK_FONT_FILES[sheetFont]) {
+    try { embedFonts = await pdfLoadBookFonts(sheetFont); } catch (e) { embedFonts = null; }
+  }
+  root.querySelectorAll('.ms-sheet').forEach((sheet) => pdfTranscribeSheet(pdf, sheet, embedFonts, sheetFont));
 
   const blob = await pdf.toBlob();
   root.remove();
@@ -7956,6 +8012,17 @@ function buildSheetPane(c) {
   };
   bar.appendChild(mkOpt('Chords', 'showChords'));
   bar.appendChild(mkOpt('Section tags', 'showSectionTags'));
+
+  // Reading font for this sheet (screen + Print + PDF). Manuscript stays Courier.
+  const fontSel = el('select', { class: 'ms-font-sel lw-sheet-font', title: 'Reading font for this song sheet (the Manuscript always stays Courier)' });
+  Object.entries(SHEET_FONT_LABELS).forEach(([val, label]) => fontSel.appendChild(el('option', { value: val, text: label })));
+  fontSel.value = sheetOpts.font || 'courierprime';
+  fontSel.addEventListener('change', () => {
+    sheetOpts.font = fontSel.value; saveSheetOpts();
+    wrap.style.setProperty('--sheet-font', sheetFontFamily(sheetOpts.font));
+  });
+  bar.appendChild(fontSel);
+
   bar.appendChild(el('span', { style: 'flex:1' }));
   // PDF beside Print — the sheet is the one deliberate per-object exception to
   // the unified Export drawer (it exports this card, so it stays with the card).
@@ -7988,6 +8055,7 @@ function buildSheetPane(c) {
 
   renderSheetContent(c, content);
 
+  wrap.style.setProperty('--sheet-font', sheetFontFamily(sheetOpts.font || 'courierprime'));
   wrap.appendChild(bar);
   wrap.appendChild(scroll);
   return wrap;
