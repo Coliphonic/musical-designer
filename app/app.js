@@ -1216,14 +1216,14 @@ function openSnapshotsDrawer() {
   const drawer = el('div', { class: 'snap-drawer', id: 'snap-drawer' });
   const head = el('div', { class: 'snap-head' });
   head.appendChild(el('span', { class: 'snap-title', text: '⟲  Snapshots' }));
-  const saveBtn = el('button', { class: 'snap-save-btn', text: '＋ Save snapshot' });
+  const saveBtn = el('button', { class: 'pbtn primary snap-save-btn', text: '+ Save snapshot' });
   saveBtn.addEventListener('click', () => {
     const label = prompt('Name this snapshot:', snapDefaultLabel());
     if (label === null) return;
     saveSnapshot(label.trim() || snapDefaultLabel(), renderSnapList);
   });
   head.appendChild(saveBtn);
-  const xBtn = el('button', { class: 'snap-close', text: '✕', title: 'Close' });
+  const xBtn = el('button', { class: 'snap-close xclose', text: '✕', title: 'Close' });
   xBtn.addEventListener('click', closeSnapshotsDrawer);
   head.appendChild(xBtn);
   drawer.appendChild(head);
@@ -2152,7 +2152,7 @@ function showReadOnlyNotePopover(mark) {
   const text = b64decode(mark.dataset.noteText || '');
   const pop = el('div', { class: 'note-popup note-popup-ro' }, [
     el('div', { class: 'note-popup-text', text: text || '(empty note)' }),
-    el('button', { class: 'note-popup-close', type: 'button', text: '×', title: 'Close' }),
+    el('button', { class: 'note-popup-close xclose', type: 'button', text: '✕', title: 'Close' }),
   ]);
   document.body.appendChild(pop);
   const rect = mark.getBoundingClientRect();
@@ -3507,9 +3507,9 @@ function renderPageToken(tok, container) {
     if (tok.subtype === 'act') container.appendChild(el('div', { class: 'lw-act-header', text: tok.text.toUpperCase() }));
     else if (tok.subtype === 'scene') container.appendChild(el('div', { class: 'lw-scene-header', text: tok.text.toUpperCase() }));
     else if (tok.subtype === 'song-num') { const m = tok.text.match(/^#(\d+)[\s\-](.*)/i); container.appendChild(el('div', { class: 'lw-song-header', text: m ? `(#${m[1]}) ${m[2].toUpperCase()}` : tok.text })); }
-    else container.appendChild(el('div', { class: 'lw-section-row' }, [el('span', { class: 'lw-section-tag', text: tok.text })]));
+    else container.appendChild(el('div', { class: 'lw-section-row' }, [el('span', { class: 'lw-section-tag', text: '[' + tok.text + ']' })]));
   } else if (tok.type === 'cue')      { container.appendChild(el('div', { class: 'lw-char', html: emphToHtml(tok.text.toUpperCase()) + (tok.contd ? " (CONT'D)" : '') }));
-  } else if (tok.type === 'sung')     { container.appendChild(el('div', { class: 'lw-sung', html: emphToHtml(tok.text) }));
+  } else if (tok.type === 'sung')     { container.appendChild(el('div', { class: 'lw-sung' + (tok.lane ? ' lw-chord-lane' : ''), html: emphToHtml(tok.text) }));
   } else if (tok.type === 'paren')    { container.appendChild(el('div', { class: 'lw-paren', html: emphToHtml(tok.text) }));
   } else if (tok.type === 'dialogue') { container.appendChild(el('div', { class: 'lw-dialogue', html: emphToHtml(tok.text) }));
   } else if (tok.type === 'action')   { container.appendChild(el('div', { class: 'lw-action', html: emphToHtml(tok.text) }));
@@ -4488,7 +4488,9 @@ function buildCharactersPage() {
 
   const isProse = state.format === 'prose';
   const toolbar = el('div', { class: 'ch-toolbar ribbon' });
-  const syncBtn = el('button', { class: 'pbtn', text: isProse ? '⟳ Sync from manuscript' : '⟳ Sync from lyrics' });
+  const syncBtn = el('button', { class: 'pbtn pbtn-ico' });
+  syncBtn.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><polyline points="21 3 21 9 15 9"/></svg>';
+  syncBtn.appendChild(el('span', { text: isProse ? 'Sync from manuscript' : 'Sync from lyrics' }));
   syncBtn.addEventListener('click', () => {
     state.characters = extractCharacters().merged;
     scheduleSave();
@@ -5711,6 +5713,12 @@ function pdfTranscribeSheet(pdf, sheet) {
     const family = cs.fontFamily;
     const deco = cs.textDecorationLine || cs.textDecoration || '';
     const underline = /underline/.test(deco), strike = /line-through/.test(deco);
+    // text-transform is paint-time: node.nodeValue is the untransformed source,
+    // but the sheet lays out and displays the transformed text (lyric lines are
+    // upper-cased by CSS). Courier is monospace so per-char geometry is
+    // identical either way — draw what the reader sees. (Same treatment the
+    // Book transcriber has had since Phase 2.)
+    const tt = cs.textTransform || 'none';
 
     for (const run of pdfWordRuns(node.nodeValue)) {
       const range = document.createRange();
@@ -5718,7 +5726,8 @@ function pdfTranscribeSheet(pdf, sheet) {
       const rects = range.getClientRects();
       if (rects.length) {
         const rect = rects[0];
-        page.text(xPt(rect.left), yPt((rect.top - sr.top) + ascent), run.text, { family, size: sizePt, bold, italic, color });
+        const drawn = tt === 'uppercase' ? run.text.toUpperCase() : tt === 'lowercase' ? run.text.toLowerCase() : run.text;
+        page.text(xPt(rect.left), yPt((rect.top - sr.top) + ascent), drawn, { family, size: sizePt, bold, italic, color });
       }
     }
 
@@ -5733,6 +5742,29 @@ function pdfTranscribeSheet(pdf, sheet) {
     }
   }
   return page;
+}
+
+// Chord labels are ::after pseudo-elements (content: attr(data-chord)) — a
+// text-node walker can't see them, so they'd silently vanish from a
+// transcribed PDF. Before transcribing, replace each with a real
+// absolutely-positioned span carrying the same computed metrics (the
+// .pdf-chords-real class on the root suppresses the ::after so the label
+// isn't doubled if the same root also goes through the print dialog).
+// Absolute positioning means zero reflow — lyric geometry is untouched.
+// Hidden chords (display:none marks under a Chords-off toggle) are skipped.
+function pdfMaterializeChords(root) {
+  root.classList.add('pdf-chords-real');
+  root.querySelectorAll('mark.chord-tag').forEach((m) => {
+    if (getComputedStyle(m).display === 'none') return;
+    const cs = getComputedStyle(m, '::after');
+    const s = el('span', { text: m.dataset.chord || '' });
+    // Sage pinned dark, like the Sheet pane's override: the paper is always
+    // white, and var(--sage) computes washy-light under body.dark.
+    s.style.cssText = 'position:absolute; left:1px; bottom:100%; line-height:1; white-space:nowrap;'
+      + ' text-transform:none; color:#5f7d57; -webkit-text-fill-color:#5f7d57;'
+      + ' font-size:' + cs.fontSize + '; font-weight:' + cs.fontWeight + ';';
+    m.appendChild(s);
+  });
 }
 
 // PDF date string: D:YYYYMMDDHHmmSS±HH'mm' (Info CreationDate/ModDate).
@@ -6068,7 +6100,7 @@ function openExportDrawer(ctx) {
   const drawer = el('div', { class: 'snap-drawer', id: 'exp-drawer' });
   const head = el('div', { class: 'snap-head' });
   head.appendChild(el('span', { class: 'snap-title', text: 'Export' }));
-  const xBtn = el('button', { class: 'snap-close', text: '✕', title: 'Close' });
+  const xBtn = el('button', { class: 'snap-close xclose', text: '✕', title: 'Close' });
   xBtn.addEventListener('click', closeExportDrawer);
   head.appendChild(xBtn);
   drawer.appendChild(head);
@@ -6346,7 +6378,7 @@ function buildHeaderDrawer(onUpdate) {
   // Sticky title bar
   const titleBar = el('div', { class: 'ms-hd-titlebar' });
   titleBar.appendChild(el('span', { class: 'ms-hd-title', text: 'Page setup' }));
-  const closeBtn = el('button', { class: 'ms-hd-close', text: '✕', title: 'Close' });
+  const closeBtn = el('button', { class: 'ms-hd-close xclose', text: '✕', title: 'Close' });
   closeBtn.addEventListener('click', () => { drawer.classList.remove('open'); });
   titleBar.appendChild(closeBtn);
   inner.appendChild(titleBar);
@@ -6703,7 +6735,7 @@ function buildManuscriptPage(sceneId) {
         }
       } else {
         const fileIn = el('input', { type: 'file', accept: 'image/*', class: 'bm-cover-input', id: 'bm-cover-input' });
-        const lbl = el('label', { class: 'pbtn bm-cover-btn', for: 'bm-cover-input', text: '＋ Choose cover image…' });
+        const lbl = el('label', { class: 'pbtn bm-cover-btn', for: 'bm-cover-input', text: '+ Choose cover image…' });
         if (state.readonly) fileIn.disabled = true;
         fileIn.addEventListener('change', () => {
           const f = fileIn.files && fileIn.files[0];
@@ -7270,7 +7302,7 @@ function buildManuscriptPage(sceneId) {
     const bkInner = el('div', { class: 'ms-hd-inner' });
     const bkTitleBar = el('div', { class: 'ms-hd-titlebar' });
     bkTitleBar.appendChild(el('span', { class: 'ms-hd-title', text: 'Book setup' }));
-    const bkCloseBtn = el('button', { class: 'ms-hd-close', text: '✕', title: 'Close' });
+    const bkCloseBtn = el('button', { class: 'ms-hd-close xclose', text: '✕', title: 'Close' });
     bkCloseBtn.addEventListener('click', () => { bookDrawer.classList.remove('open'); settingsBtn.classList.remove('active'); });
     bkTitleBar.appendChild(bkCloseBtn);
     bkInner.appendChild(bkTitleBar);
@@ -7812,6 +7844,22 @@ function buildSheetTokens(c) {
     if (c.note && c.note.trim()) toks.push({ type: 'note', text: c.note });
     else toks.push({ type: 'action', text: '(no beatline yet)' });
   }
+  // Stanza-level chord lane: if any line of a contiguous sung run carries a
+  // chord, every line in the run reserves the label lane (tok.lane →
+  // .lw-chord-lane in renderPageToken), so the stanza sits on one even grid
+  // instead of alternating double/single spacing per line — the classic
+  // chord-chart look. Flagged on the tokens, not post-render, so
+  // paginateTokens measures exactly what the printed sheet gets. Safe to
+  // mutate: cardBodyTokens builds fresh token objects per call. Manuscript's
+  // buildContentTokens never sets .lane, so its output is untouched.
+  const chordRe = new RegExp(CHORD_RE.source); // fresh — CHORD_RE is /g (stateful lastIndex)
+  let run = [];
+  const flushRun = () => {
+    if (run.some((t) => chordRe.test(t.text || ''))) run.forEach((t) => { t.lane = true; });
+    run = [];
+  };
+  toks.forEach((t) => { if (t.type === 'sung') run.push(t); else flushRun(); });
+  flushRun();
   return toks;
 }
 
@@ -7847,6 +7895,51 @@ function printSheetCard(c) {
   setTimeout(() => window.print(), 60);
 }
 
+// One-card Sheet → PDF, through the same transcription engine as the
+// Manuscript export (createPdf + pdfTranscribeSheet). Builds the identical
+// paginated ms-sheets printSheetCard does, but offscreen-visible (so they
+// get real geometry) and transcribed to a downloaded file instead of routed
+// through the system print dialog. Chords are materialized into real spans
+// first — the transcriber's text walker can't see ::after labels.
+async function exportSheetPDF(c) {
+  const old = document.getElementById('pdf-print-root'); if (old) old.remove();
+  const root = el('div', { id: 'pdf-print-root' });
+  // Same forced-visible + ligatures-off treatment as exportManuscriptPDF (see
+  // the comment there: Courier Prime's fi/fl ligatures shrink a word below
+  // base-14 Courier's width, which would swallow the following space).
+  root.style.cssText = 'display:block; position:absolute; left:-99999px; top:0; width:816px;'
+    + ' font-variant-ligatures:none; font-feature-settings:"liga" 0, "clig" 0, "dlig" 0, "hlig" 0;';
+  const pages = paginateTokens(buildSheetTokens(c), null);
+  pages.forEach((pageToks) => {
+    const sheet = el('div', { class: 'ms-sheet' });
+    const content = el('div', { class: 'ms-sheet-content' });
+    content.classList.toggle('lw-sheet-hide-chords', sheetOpts.showChords === false);
+    pageToks.forEach((t) => renderPageToken(t, content));
+    sheet.appendChild(content);
+    root.appendChild(sheet);
+  });
+  document.body.appendChild(root);
+  if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) { /* fonts already loaded */ } }
+  pdfMaterializeChords(root);
+
+  const pdf = createPdf({
+    title: c.title || 'Untitled',
+    author: (state.titlePage && state.titlePage.authors) || '',
+    subject: (c.type === 'song' ? 'Song sheet — ' : 'Beat sheet — ') + (state.title || 'Untitled'),
+    creator: 'Song Plot', producer: 'Song Plot',
+    date: pdfDateString(new Date()),
+  });
+  root.querySelectorAll('.ms-sheet').forEach((sheet) => pdfTranscribeSheet(pdf, sheet));
+
+  const blob = await pdf.toBlob();
+  root.remove();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = pdfFilename(c.title, 'pdf');
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 // Sheet mode's pane: toolbar (Chords / Section tags / Print) + the paper itself.
 // Rebuilt fresh each time the lyric window switches into Sheet mode, so it
 // always reflects the card's latest saved text.
@@ -7864,7 +7957,26 @@ function buildSheetPane(c) {
   bar.appendChild(mkOpt('Chords', 'showChords'));
   bar.appendChild(mkOpt('Section tags', 'showSectionTags'));
   bar.appendChild(el('span', { style: 'flex:1' }));
-  const printBtn = el('button', { class: 'pbtn lw-sheet-print', type: 'button', text: 'Print' });
+  // PDF beside Print — the sheet is the one deliberate per-object exception to
+  // the unified Export drawer (it exports this card, so it stays with the card).
+  // Both wear the drawer's own glyphs (download-into-tray / printer) and the
+  // ribbon's bare-button language, so they read as that room's siblings.
+  const SHEET_GLYPH_DOWNLOAD = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><polyline points="8 11 12 15 16 11"/><path d="M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>';
+  const SHEET_GLYPH_PRINT = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+  const pdfBtn = el('button', { class: 'lw-sheet-act lw-sheet-pdf', type: 'button', title: 'Download this song as a PDF' });
+  const pdfLbl = el('span', { text: 'PDF' });
+  pdfBtn.innerHTML = SHEET_GLYPH_DOWNLOAD;
+  pdfBtn.appendChild(pdfLbl);
+  pdfBtn.addEventListener('click', async () => {
+    pdfBtn.disabled = true; pdfLbl.textContent = 'Building…';
+    try { await exportSheetPDF(c); }
+    catch (e) { alert('PDF failed: ' + ((e && e.message) || e)); }
+    finally { pdfBtn.disabled = false; pdfLbl.textContent = 'PDF'; }
+  });
+  bar.appendChild(pdfBtn);
+  const printBtn = el('button', { class: 'lw-sheet-act lw-sheet-print', type: 'button', title: 'Print this song' });
+  printBtn.innerHTML = SHEET_GLYPH_PRINT;
+  printBtn.appendChild(el('span', { text: 'Print' }));
   printBtn.addEventListener('click', () => printSheetCard(c));
   bar.appendChild(printBtn);
 
@@ -7884,7 +7996,7 @@ function buildSheetPane(c) {
 function buildLyricWindow(c) {
   const win = el('div', { class: 'lyricwin' });
   const summary = el('span', { class: 'lwsummary' });
-  const closeBtn = el('button', { class: 'dclose', text: '✕', title: 'Close (Esc)' });
+  const closeBtn = el('button', { class: 'dclose xclose', text: '✕', title: 'Close (Esc)' });
   closeBtn.addEventListener('click', closeLyricWindow);
 
   // Push into Manuscript: the travel gesture that unifies the two rooms — finish

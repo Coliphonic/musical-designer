@@ -110,6 +110,50 @@ drawer merged into a single **Export** drawer (`openExportDrawer(ctx)`):
 - Synthesized small caps copy/paste as ALL-CAPS (one glyph serves both real-cap and small-cap, so per-GID ToUnicode can't distinguish). Visual rendering is correct.
 - Dev-only tools used for font conversion + verification (fontTools, brotli, PyMuPDF) are pip `--user` installs; the app itself stays dependency-free.
 
+## Sheet PDF (2026-07-20, cache v205)
+
+The Song Sheet (lyric window Sheet mode) gained a one-tap **PDF** button beside
+Print — the per-object counterpart of the Export drawer's Manuscript PDF, via
+the same engine:
+
+- `exportSheetPDF(c)` — builds the identical paginated ms-sheets `printSheetCard`
+  does, offscreen-visible, and transcribes them with `createPdf` +
+  `pdfTranscribeSheet`. Metadata: Title = song title, Subject = "Song sheet —
+  <show>", readable filename. Respects the Chords / Section tags toggles.
+- **Chord materialization** (`pdfMaterializeChords`) — chord labels are `::after`
+  pseudo-elements, invisible to the text-node walker. The exporter swaps each
+  into a real absolutely-positioned span (same computed metrics, sage pinned
+  dark for white paper) before transcribing; `.pdf-chords-real` suppresses the
+  pseudo so nothing doubles. Zero reflow — lyric geometry untouched.
+- **text-transform fix in `pdfTranscribeSheet`** — `node.nodeValue` is the
+  untransformed source, but the sheet displays CSS-uppercased lyric lines; the
+  transcriber now applies the computed transform to what it draws (Courier is
+  monospace, so geometry is identical). This also corrects the Manuscript PDF,
+  which had been exporting lyric lines in source case — regression-checked
+  (46-page Circuits & Sycamores: outline, metadata, uppercase all correct).
+- Verified via PyMuPDF page renders: chord lane grid, sage labels over exact
+  syllables, cue/(CONT'D)/section tokens all faithful to the on-screen Sheet.
+- **Button styling (cache v206)** — PDF + Print restyled from mismatched chips
+  (Print wore a legacy solid-energy fill; PDF a plain grey pbtn) into the
+  ribbon's bare icon+label language (`.lw-sheet-act`), wearing the Export
+  drawer's own glyphs (download-into-tray / printer). The energy fill stays
+  reserved for active toggles, per the app's color grammar.
+- **Section-tag restyle (cache v208)** — the sage rounded pill read as UI
+  chrome pasted onto the page, so section headers now use the manuscript's own
+  typewriter face: bracketed sage caps (`[VERSE 1]`), the ChordPro / typed-
+  lyric-sheet convention, at 0.8em with no fill. The brackets are **real text**
+  in the read-only sheet render (`buildSheetTokens` render at app.js:3510 wraps
+  `tok.text` in `[ ]`) so the word-walker captures them into the PDF with no
+  materializer; the editable Rich view adds them via `::before`/`::after` so the
+  stored source stays clean `Verse 1` (re-bracketed on serialize). Verified: PDF
+  text layer carries `[CHORUS]`/`[BRIDGE]` intact and `[VERSE 1]` as adjacent
+  positioned runs, all sage `#5f7d57` Courier 9.6pt; dark-mode edit view reads
+  the bright sage. Sheet-toolbar "Section tags" toggle still hides them.
+
+Still absent (pre-existing): chords in the whole-show Manuscript PDF (its
+render path never calls the materializer) — deliberate until the Manuscript
+chord-clearance question is settled.
+
 ## What shipped in Phase 3 (2026-07-20)
 
 The navigation + metadata layer that makes the PDFs feel like real published files. All in the same dependency-free engine (`createPdf` gained `addOutline`/`addLink`; pages carry an `index`).

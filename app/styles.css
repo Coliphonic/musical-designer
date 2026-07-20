@@ -92,8 +92,14 @@ body.dark .seg button.active { background: #4a453e; color: #f3eee3; box-shadow: 
 .pbtn { font-family: inherit; font-size: 12.5px; padding: 7px 11px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; cursor: pointer; }
 .pbtn:hover { background: var(--hover); }
 .pbtn:disabled { opacity: 0.4; cursor: default; }
+.pbtn-ico { display: inline-flex; align-items: center; gap: 6px; }
+.pbtn-ico svg { display: block; flex-shrink: 0; }
 .pbtn.danger { color: #a32d2d; }
 .pbtn.danger:hover:not(:disabled) { background: #fbeaea; }
+
+/* One close glyph everywhere: ✕, muted, tinted on hover. */
+.xclose { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 6px; border-radius: 6px; }
+.xclose:hover { background: var(--hover); color: var(--ink); }
 
 .stats { display: flex; gap: 8px; margin-left: auto; }
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; min-width: 58px; }
@@ -258,8 +264,6 @@ body.dark .pill[data-fam="gray"]   { background: #1e1c18; border: 1px solid #706
 .hint b { color: var(--ink); font-weight: 600; }
 
 /* detail drawer */
-.lyricwin .dclose { border: 0; background: transparent; font-size: 20px; line-height: 1; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
-.lyricwin .dclose:hover { background: var(--hover); color: var(--ink); }
 .lwpush { border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; font-weight: 500; font-family: inherit; padding: 6px 12px; border-radius: 7px; cursor: pointer; }
 .lwpush:hover { background: var(--hover); color: var(--ink); border-color: var(--ink); }
 /* Dark mode: lift the editor windows off the near-identical board behind them. */
@@ -334,16 +338,20 @@ body.dark .sing.empty { background: var(--panel); border-color: #8b82e8; }
 /* Blank line = exactly one line height so rhythm stays consistent */
 .lw-blank { height: 1.25em; }
 .lw-section-row { margin: 0.2em 0; }
+/* Section header set in the manuscript's own typewriter face — bracketed caps,
+   the ChordPro / typed-lyric-sheet convention. The brackets mark it as an
+   annotation, not a sung line; no pill/fill (that read as UI chrome on the page).
+   Brackets here are real text so the PDF word-walker captures them; the editable
+   Rich view adds them via ::before/::after instead so the source text stays clean. */
 .lw-section-tag {
-  display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
-  color: var(--sage); background: var(--sage-bg); padding: 2px 14px; border-radius: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  display: inline-block; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--sage); font-family: inherit;
 }
-/* Section tags live on the always-white print sheets, so keep the sage pill light
-   even in dark mode (the dark sage-bg is unreadable on a white sheet). */
+/* Section tags live on the always-white print sheets, so keep the darker sage
+   (the bright dark-mode sage is unreadable on a white sheet). */
 .ms-viewport .lw-section-tag,
 #pdf-print-root .lw-section-tag,
-.lw-sheet-pane .lw-section-tag { background: #eef3e7; color: #5f7d57; }
+.lw-sheet-pane .lw-section-tag { color: #5f7d57; }
 /* Prose Plot's scene break — a centered ⁂ divider, not a text line. */
 .lw-scenebreak { text-align: center; color: var(--muted); letter-spacing: 0.3em; margin: 0.6em 0; }
 
@@ -382,9 +390,6 @@ body.dark .ms-body { background: var(--bg); }
 /* Sticky title so it stays put while the options scroll */
 .ms-hd-titlebar { position: sticky; top: 0; z-index: 2; background: var(--panel); display: flex; align-items: center; justify-content: space-between; padding: 14px 0 10px; border-bottom: 1px solid var(--line); }
 .ms-hd-title { font-size: 13px; font-weight: 600; color: var(--ink); }
-.ms-hd-close { border: 0; background: transparent; font-size: 15px; color: var(--muted); cursor: pointer; padding: 2px 6px; border-radius: 5px; line-height: 1; }
-.ms-hd-close:hover { background: var(--hover); color: var(--ink); }
-
 .ms-hd-section-head { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; margin-top: 4px; }
 .ms-hd-divider { border: none; border-top: 1px solid var(--line); margin: 2px 0; }
 
@@ -496,20 +501,24 @@ body.dark .lyricwin .ms-sheet { box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
    (mark { -webkit-text-fill-color: var(--hl-ink) }) is inherited by the
    chord's ::after and paints OVER `color`, which is how the label stayed
    pale no matter what color was set. */
-.lw-sheet-pane mark.chord-tag::after { color: #5f7d57; -webkit-text-fill-color: #5f7d57; font-weight: 700; font-size: 1em; letter-spacing: 0.02em; }
-/* The chord name floats one line-height up (bottom: 100%), but the static
-   sheet is single-spaced (line-height 1), so with no clearance it lands on
-   the lyric line above and blends in. Give any chord-bearing lyric line room
-   above so the label sits in a clean gap over its own line — the classic
-   chord-chart look. Scoped to the Sheet pane; Manuscript Print View is left
-   byte-identical. */
-.lw-sheet-pane .ms-sheet-content .lw-sung:has(mark.chord-tag) { padding-top: 1.5em; }
+/* No font-size here: the label inherits the base 0.72em (mark.chord-tag::after
+   below), so the on-screen Sheet matches the printed one and the chord reads
+   as annotation over the lyric, not another text line. */
+.lw-sheet-pane mark.chord-tag::after { color: #5f7d57; -webkit-text-fill-color: #5f7d57; font-weight: 700; letter-spacing: 0.02em; }
+/* Stanza-level chord lane: buildSheetTokens flags every sung line of a
+   chorded stanza (tok.lane → .lw-chord-lane), so the whole stanza sits on
+   one even grid instead of alternating double/single spacing per line — the
+   classic chord-chart look. The flag rides the tokens, so pagination
+   measures it and printSheetCard's pages get the same lane (the print root
+   sits outside .lw-sheet-pane, so pane-scoped clearance never reached it and
+   printed chords used to overlap the line above). */
+.lw-chord-lane { padding-top: 1.15em; }
 /* Chords checkbox (Sheet mode only, independent of Manuscript's own Chords
    toggle) — same hide pattern as body.ms-hide-chords, scoped to the sheet's
-   own content host instead of the whole document. Collapse the reserved
-   clearance too, or hidden chords still leave the line double-spaced. */
+   own content host instead of the whole document. Collapse the lane too, or
+   hidden chords still leave chorded stanzas double-spaced. */
 .ms-sheet-content.lw-sheet-hide-chords mark.chord-tag { display: none; }
-.lw-sheet-pane .ms-sheet-content.lw-sheet-hide-chords .lw-sung:has(mark.chord-tag) { padding-top: 0; }
+.ms-sheet-content.lw-sheet-hide-chords .lw-chord-lane { padding-top: 0; }
 .ms-edit-doc .ms-sheet-content { color: var(--ink); }
 .ms-edit-doc .ms-sheet-content .lw-paren { color: var(--muted); }
 /* Prose Plot's Edit-mode writing font (--edit-font, set from state.msOptions.editFont via
@@ -572,12 +581,11 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .ms-rev-name { font-weight: 600; }
 .ms-rev-none { font-size: 12px; color: var(--muted); line-height: 1.4; }
 .ms-rev-btn {
-  align-self: flex-start; font-size: 12px; font-weight: 600; padding: 5px 11px;
-  border: 1px solid var(--energy); border-radius: 6px; background: var(--energy); color: #fff;
+  align-self: flex-start; font-size: 12px; font-weight: 500; padding: 5px 11px;
+  border: 1px solid var(--line); border-radius: 6px; background: transparent; color: var(--ink);
   cursor: pointer; font-family: inherit;
 }
-.ms-rev-btn:hover { filter: brightness(1.08); }
-.ms-rev-lockbtn { background: transparent; color: var(--energy); }
+.ms-rev-btn:hover { background: var(--hover); }
 .ms-rev-locknote { font-size: 12px; color: var(--muted); line-height: 1.4; }
 .ms-rev-list { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
 .ms-rev-item { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
@@ -1042,8 +1050,17 @@ textarea.lweditor::placeholder { color: #c5beb0; }
 .lw-sheet-bar { display: flex; align-items: center; gap: 18px; padding: 10px 18px; border-bottom: 1px solid var(--line); flex-shrink: 0; background: var(--panel); }
 .lw-sheet-opt { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
 .lw-sheet-opt input { margin: 0; accent-color: var(--energy); cursor: pointer; }
-.lw-sheet-print { font-size: 12px; font-weight: 600; padding: 6px 14px; border: 1px solid var(--energy); border-radius: 6px; background: var(--energy); color: #fff; cursor: pointer; font-family: inherit; }
-.lw-sheet-print:hover { filter: brightness(1.08); }
+/* PDF + Print share the ribbon's bare-button language (see .ms-print-btn):
+   icon + label, no fill — the energy fill is reserved for active toggles. */
+.lw-sheet-act {
+  display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+  height: 28px; padding: 0 10px; border-radius: 7px; border: 1px solid transparent;
+  background: transparent; color: var(--muted); font-size: 12px; font-weight: 500;
+  font-family: inherit; cursor: pointer; transition: background 0.12s, color 0.12s;
+}
+.lw-sheet-act svg { display: block; flex-shrink: 0; }
+.lw-sheet-act:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
+.lw-sheet-act:disabled { opacity: 0.5; cursor: default; }
 /* align-items: flex-start — without it, flex's default stretch forces the
    paper to the scroll container's viewport height instead of its own content
    height, so a song longer than one screen overflows past the paper onto the
@@ -1138,12 +1155,6 @@ body.dark.app-prose .ch-kind-btn.active { background: var(--energy); }
 /* Snapshots drawer — reassurance banner */
 body.app-prose .snap-reassure { background: #fdece7; color: #9a4a34; }
 body.dark.app-prose .snap-reassure { background: #2a1f1c; color: #edc2ae; }
-
-/* Primary buttons (New novel, Create novel, Add character, Sync, etc.) */
-body.app-prose .pbtn.primary { background: #cb5237; border-color: #cb5237; color: #fdf1ec; }
-body.app-prose .pbtn.primary:hover { background: #b8482f; border-color: #b8482f; }
-body.dark.app-prose .pbtn.primary { background: #b04a34; border-color: #b04a34; color: #fce8df; }
-body.dark.app-prose .pbtn.primary:hover { background: #c85a40; border-color: #c85a40; }
 
 /* Toolbar / ribbon backgrounds (Board ribbon, Manuscript toolbar, Characters bar) */
 body.app-prose .ribbon, body.app-prose .ms-toolbar { background: #fbeee9; }
@@ -1340,10 +1351,7 @@ body.dark .ref-teach-text { color: #c2bcee; }
 @keyframes snapIn { from { transform: translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
 .snap-head { display: flex; align-items: center; gap: 8px; padding: 14px 14px 12px; border-bottom: 1px solid var(--line); }
 .snap-title { font-size: 15px; font-weight: 500; color: var(--ink); flex: 1; }
-.snap-save-btn { font-family: inherit; font-size: 12.5px; font-weight: 500; padding: 6px 11px; border: none; border-radius: 8px; background: var(--energy); color: #fff; cursor: pointer; white-space: nowrap; }
-.snap-save-btn:hover { filter: brightness(1.06); }
-.snap-close { border: none; background: transparent; color: var(--muted); font-size: 14px; cursor: pointer; padding: 4px 6px; border-radius: 6px; }
-.snap-close:hover { background: var(--hover); color: var(--ink); }
+.snap-save-btn { white-space: nowrap; }
 .snap-reassure { margin: 12px 12px 4px; padding: 9px 11px; border-radius: 8px; background: #eeedfe; color: #3c3489; font-size: 12px; line-height: 1.4; }
 body.dark .snap-reassure { background: #211d33; color: #b8aef0; }
 .snap-list { flex: 1; overflow-y: auto; padding: 8px 12px 16px; display: flex; flex-direction: column; gap: 8px; }
@@ -1468,10 +1476,8 @@ body.dark .snap-reassure { background: #211d33; color: #b8aef0; }
 .modal-box .seg button { flex: 1; text-align: center; }
 .modal-title { font-size: 17px; font-weight: 600; margin: 0; color: var(--ink); }
 .modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
-.pbtn.primary { background: #7b74c8; color: #f5f3fd; border-color: #7b74c8; }
-.pbtn.primary:hover { background: #6e67ba; border-color: #6e67ba; }
-body.dark .pbtn.primary { background: #4a3f9e; color: #e6e2fb; border-color: #4a3f9e; }
-body.dark .pbtn.primary:hover { background: #564ab0; }
+.pbtn.primary { background: var(--energy); color: #fff; border-color: var(--energy); }
+.pbtn.primary:hover:not(:disabled) { filter: brightness(1.08); }
 
 .find-opts { display: flex; gap: 16px; font-size: 12.5px; color: var(--muted); }
 .find-opts label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
@@ -1863,6 +1869,10 @@ mark.chord-tag {
   background: transparent; padding: 0; border-radius: 0; vertical-align: baseline;
   overflow: visible; cursor: default;
 }
+/* PDF transcription: pdfMaterializeChords swaps each label into a real span
+   (the text walker can't see ::after) — suppress the pseudo so the label
+   isn't drawn twice if the same root ever hits the print dialog. */
+.pdf-chords-real mark.chord-tag::after { content: none; }
 mark.chord-tag::after {
   content: attr(data-chord);
   position: absolute; left: 1px; bottom: 100%;
@@ -1901,8 +1911,7 @@ mark.chord-tag::after {
 .note-popup-ro { padding: 12px; border-color: var(--sage-line); }
 .note-popup-text { font-size: 13px; color: var(--ink); white-space: pre-wrap; word-break: break-word; max-width: 216px; }
 .note-popup-close {
-  position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border: none; background: transparent;
-  color: var(--muted); font-size: 15px; line-height: 1; cursor: pointer; border-radius: 5px;
+  position: absolute; top: 6px; right: 6px; width: 20px; height: 20px;
 }
 .note-popup-close:hover { background: var(--sage-bg); color: var(--sage); }
 
@@ -1961,10 +1970,13 @@ body.dark .ms-style-hint { color: #8b83a8; }
 .ms-el.lw-paren::before { content: '('; }
 .ms-el.lw-paren::after  { content: ')'; }
 .ms-el.lw-section-row {
-  display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: 0.14em;
-  color: var(--sage); background: var(--sage-bg); padding: 2px 14px; border-radius: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 6px 0;
+  display: inline-block; font-size: 0.8em; text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--sage); font-family: inherit; margin: 6px 0;
 }
+/* Bracket glyphs are decoration only, so the editable text stays "Verse 1" (the
+   [ ] are re-added on serialize) — mirrors the real-text brackets on read-only sheets. */
+.ms-el.lw-section-row::before { content: '['; }
+.ms-el.lw-section-row::after  { content: ']'; }
 
 /* Board header as slim toolbar */
 /* .board-header composes with .ribbon for the shared bar look. */
