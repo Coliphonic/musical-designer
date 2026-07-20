@@ -18,7 +18,7 @@ print-ready PDF"); this document is the how.
 | 2b | Theme presets + chapter-opener styles | ✅ |
 | 2c | Scene-break ornaments + drop caps | ✅ (one deferral — see note) |
 | 3a | Trim sizes + book margins | ✅ |
-| 3b | Recto/verso, running heads, book page numbering | ⬜ |
+| 3b | Recto/verso, running heads, book page numbering | ✅ |
 | 4a | EPUB — ZIP writer + chapter XHTML | ⬜ |
 | 4b | EPUB — metadata, cover, nav/TOC, download | ⬜ |
 | 5 | Custom themes (Atticus-style theme editor) | ⬜ |
@@ -535,6 +535,54 @@ average), and the four per-margin controls are not user-editable yet (defaults o
 **Acceptance:** print a test book PDF: front matter numbered i/ii/iii, chapter 1 starts on
 arabic 1 on a recto, running heads alternate author/title and vanish on openers, mirrored
 gutters visibly alternate, chapterStartRecto inserts blanks correctly.
+
+**What shipped (2026-07-20):** `buildBookSheets()` was refactored from a flat sheet-emitter
+into a three-pass **page-descriptor** model (still returns `.book-sheet` DOM nodes, so
+`rebuildBook` and `exportBookPDF` are untouched). Pass 1 builds descriptors for front
+matter → paginated body pages → back matter (each tagged `zone` = `front`/`body`/`back`,
+plus `isChapterOpener`/`chapterKey` for body pages, `frontIndex` for front). Pass 2 inserts
+`chapterStartRecto` blanks: before any body chapter-opener that would land on a verso, push
+a blank leaf — the blank before the **first** chapter is a *front* leaf (roman) so arabic
+starts clean at chapter one; later inter-chapter blanks are *body* leaves (they consume an
+arabic page). Pass 3 assigns, over the final sequence: `side` (odd index → recto, even →
+verso), `folioNum` (two counters — roman for `zone==='front'`, arabic for everything else,
+so the count restarts at the first body page), `folioText` (front folios print **only from
+the TOC page onward** via `tocFrontIndex`; arabic folios print except on chapter openers;
+blanks never print), and `headText` (body non-opener pages only — **author on verso, title
+on recto**; matter/openers/blanks stay head-free). The TOC is built with deferred rows and
+filled *after* assignment so it shows each chapter's real **arabic book folio**
+(`chapterFolio` map) rather than the old body-flow ordinal.
+- **Mirrored margins:** `bookTrimDims()` now returns `innerIn`/`outerIn` (gutter vs
+  fore-edge; collapse to their average when `trim.mirrored === false`) alongside the legacy
+  `sideIn`. `applyBookDims` stamps `--book-pad-inner`/`--book-pad-outer`; `.book-sheet-content`
+  uses inner-left/outer-right, and `.book-sheet.verso .book-sheet-content` flips them.
+  inner+outer is constant, so content width — and thus the pagination probe's line-wrapping,
+  which renders on an un-classed `.book-sheet` using the same vars — is side-independent.
+- **Running head + folio DOM:** `.book-sheet` is now `position: relative`; the head is an
+  absolutely-positioned element centred in the top margin, the folio sits in the bottom
+  margin's **outside** corner (recto → right, verso → left, both flipping with the mirrored
+  pad vars). Both are `position: absolute`, so they add nothing to flow height — the WebKit
+  double-break shave in the print CSS stays valid (comment updated).
+- **New knob:** `trim.chapterStartRecto` (default `true`), threaded via `bookDefaults`
+  (migrate backfills through the existing `Object.assign(base.trim, d.trim)`), with a single
+  "Start each chapter on a right-hand page" toggle in the Book drawer's **Page** section.
+- **PDF:** unchanged mechanism — the injected `@page{size:WxH}` + literal sheet box already
+  carry recto/verso classes and head/folio nodes through to `#pdf-print-root`, so mirrored
+  gutters, heads, folios, and blanks all export in strict page sequence for duplex.
+- Verified live (Carol reference, injected original prose, `state.loading`/`readonly` guards,
+  nothing saved): front matter numbered (title/copyright suppressed, TOC = roman `iii`); a
+  blank verso inserts so Chapter 1 opens recto on **arabic 1**; a 5-page Chapter 1 shows the
+  **title** running head on its recto body pages and **author** on versos, folios continuous;
+  a second blank correctly inserts mid-book before Chapter 2; toggling `chapterStartRecto`
+  off drops all blanks and lets chapters fall naturally; `mirrored:false` collapses margins to
+  the 0.625″ average; computed content padding confirmed mirrored (verso 48/72, recto 72/48);
+  TOC shows real arabic folios (1, 3, 5, 7, 9); Manuscript view re-checked — still Courier,
+  zero `.book-*` classes. sw bumped v194→**v195**.
+
+**Deferred (unchanged from 3a):** the four per-margin values (gutter/outside/top/bottom) are
+still defaults-only, not user-editable knobs — kept out of the drawer to avoid clutter; add
+if the user asks. Mirrored-vs-uniform is driven by `trim.mirrored` (default on) with no UI
+toggle yet for the same reason.
 
 ---
 

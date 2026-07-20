@@ -3761,30 +3761,42 @@ const BOOK_TRIM_SIZES = {
   '5.5x8.5': { w: 5.5, h: 8.5, label: '5.5 × 8.5″' },
   '6x9': { w: 6, h: 9, label: '6 × 9″' },
 };
-// Resolve the active trim to page dimensions + margins (all inches). Left/right
-// are a single uniform value for now — the inside≈outside average; true mirrored
-// gutters (recto/verso) arrive in Phase 3b.
+// Resolve the active trim to page dimensions + margins (all inches). When
+// `mirrored`, the inner (gutter/spine) and outer (fore-edge) margins differ and
+// flip per page side (recto/verso — Phase 3b); otherwise both collapse to their
+// average, matching the pre-3b uniform look. `sideIn` stays as that average for
+// any sheet rendered without a recto/verso class (e.g. the pagination probe).
 function bookTrimDims() {
   const t = (state.book && state.book.trim) || {};
   const size = BOOK_TRIM_SIZES[t.size] || BOOK_TRIM_SIZES['6x9'];
   const gutter = t.gutterIn != null ? t.gutterIn : 0.75;
   const outside = t.outsideIn != null ? t.outsideIn : 0.5;
+  const avg = (gutter + outside) / 2;
+  const mirrored = t.mirrored !== false;
   return {
     wIn: size.w,
     hIn: size.h,
-    sideIn: (gutter + outside) / 2,
+    innerIn: mirrored ? gutter : avg,
+    outerIn: mirrored ? outside : avg,
+    sideIn: avg,
     topIn: t.topIn != null ? t.topIn : 0.75,
     bottomIn: t.bottomIn != null ? t.bottomIn : 0.75,
+    mirrored,
+    chapterStartRecto: t.chapterStartRecto !== false,
   };
 }
 // Stamp the page/margin CSS variables the .book-sheet + .book-sheet-content
 // rules read. Applied to every sheet AND the pagination probe so measurement
-// wraps text at the exact same content width the render does.
+// wraps text at the exact same content width the render does. inner/outer are
+// mirrored per side by the .recto/.verso CSS; their sum is constant, so the
+// content width (and thus line-wrapping) is identical on either side.
 function applyBookDims(node, dims) {
   node.style.setProperty('--book-page-w', (dims.wIn * BOOK_DPI) + 'px');
   node.style.setProperty('--book-page-h', (dims.hIn * BOOK_DPI) + 'px');
   node.style.setProperty('--book-pad-top', (dims.topIn * BOOK_DPI) + 'px');
   node.style.setProperty('--book-pad-bottom', (dims.bottomIn * BOOK_DPI) + 'px');
+  node.style.setProperty('--book-pad-inner', (dims.innerIn * BOOK_DPI) + 'px');
+  node.style.setProperty('--book-pad-outer', (dims.outerIn * BOOK_DPI) + 'px');
   node.style.setProperty('--book-pad-side', (dims.sideIn * BOOK_DPI) + 'px');
 }
 
@@ -3816,72 +3828,63 @@ function applyEditFont() {
 // Build the full Book-view sheet list: front matter → chapters → back matter.
 // Shared by the on-screen Book mode (rebuildBook, inside buildManuscriptPage)
 // and exportBookPDF (top-level) so the two can never drift apart.
+//
+// Phase 3b: the flat sheet list first becomes an ordered list of page
+// descriptors; a second pass then assigns page *sides* (recto/verso), folios
+// (roman for front matter, arabic restarting at chapter one), running heads,
+// and any chapterStartRecto blanks — the trade-layout logic every real book
+// obeys. Descriptors → DOM last, so consumers still receive .book-sheet nodes.
 function buildBookSheets() {
   const book = state.book;
   const bookTitle = state.title || 'Untitled';
+  const author = book.meta.authorName || '';
   const bookFont = bookFontFamily(book.theme.font);
   const dims = bookTrimDims();
   const chapters = bookChapters();
   const bodyPages = paginateBookBlocks(buildBookBlocks(chapters), bookFont, dims);
-  // First body-page (1-based) each chapter starts on — for the TOC. Real book
-  // page numbering (including front matter) is Phase 3b; this is a stable
-  // reference into the chapters flow only.
-  const chapterPageNum = {};
-  bodyPages.forEach((pageToks, pi) => {
-    pageToks.forEach((t) => { if (t.type === 'book-chapter-title' && chapterPageNum[t.key] === undefined) chapterPageNum[t.key] = pi + 1; });
-  });
 
-  const sheets = [];
-  const addSheet = (contentEl) => {
-    const sheet = el('div', { class: 'book-sheet' });
-    sheet.style.setProperty('--book-font', bookFont);
-    applyBookDims(sheet, dims);
-    sheet.appendChild(el('div', { class: 'book-sheet-content' }, [contentEl]));
-    sheets.push(sheet);
-  };
+  const mkContent = (inner) => el('div', { class: 'book-sheet-content' }, [inner]);
 
-  book.matter.front.forEach((b) => {
+  // ── Pass 1: build page descriptors in reading order ───────────────
+  const pages = [];
+  const tocFrontIndex = book.matter.front.findIndex((b) => b.include && b.kind === 'toc');
+
+  book.matter.front.forEach((b, fi) => {
     if (!b.include) return;
     if (b.kind === 'halftitle') {
-      addSheet(el('div', { class: 'book-halftitle' }, [el('div', { class: 'book-halftitle-text', text: bookTitle })]));
+      pages.push({ zone: 'front', frontIndex: fi, contentEl: mkContent(el('div', { class: 'book-halftitle' }, [el('div', { class: 'book-halftitle-text', text: bookTitle })])) });
     } else if (b.kind === 'titlepage') {
       const kids = [el('div', { class: 'book-titlepage-title', text: bookTitle })];
-      if (book.meta.authorName) kids.push(el('div', { class: 'book-titlepage-author', text: book.meta.authorName }));
-      addSheet(el('div', { class: 'book-titlepage' }, kids));
+      if (author) kids.push(el('div', { class: 'book-titlepage-author', text: author }));
+      pages.push({ zone: 'front', frontIndex: fi, contentEl: mkContent(el('div', { class: 'book-titlepage' }, kids)) });
     } else if (b.kind === 'copyright') {
       const wrap = el('div', { class: 'book-copyright' });
       const year = b.copyrightYear || String(new Date().getFullYear());
-      const holder = b.copyrightHolder || book.meta.authorName || '';
+      const holder = b.copyrightHolder || author;
       wrap.appendChild(el('p', { class: 'book-copyright-line', text: `Copyright © ${year}${holder ? ' ' + holder : ''}` }));
       if (b.edition) wrap.appendChild(el('p', { class: 'book-copyright-line', text: b.edition }));
       wrap.appendChild(el('p', { class: 'book-copyright-line', text: 'All rights reserved.' }));
       if (b.rightsText && b.rightsText.trim()) renderMatterBody(wrap, b.rightsText);
-      addSheet(wrap);
+      pages.push({ zone: 'front', frontIndex: fi, contentEl: mkContent(wrap) });
     } else if (b.kind === 'toc') {
+      // Rows are filled after side/folio assignment so the TOC can show each
+      // chapter's real book folio (arabic), not a body-flow ordinal.
       const wrap = el('div', { class: 'book-toc' }, [el('div', { class: 'book-toc-heading', text: 'Contents' })]);
-      chapters.forEach((ch) => {
-        wrap.appendChild(el('div', { class: 'book-toc-row' }, [
-          el('span', { class: 'book-toc-title', text: ch.title }),
-          el('span', { class: 'book-toc-num', text: String(chapterPageNum[ch.key] || '') }),
-        ]));
-      });
-      addSheet(wrap);
+      pages.push({ zone: 'front', frontIndex: fi, kind: 'toc', tocWrap: wrap, contentEl: mkContent(wrap) });
     } else {
       const wrap = el('div', { class: 'book-matter-freetext' });
       if (!NO_HEADING_MATTER_KINDS.has(b.kind)) wrap.appendChild(el('div', { class: 'book-chapter-title', text: b.title || matterKindLabel(b.kind) }));
       renderMatterBody(wrap, b.text);
-      addSheet(wrap);
+      pages.push({ zone: 'front', frontIndex: fi, contentEl: mkContent(wrap) });
     }
   });
 
   bodyPages.forEach((pageToks) => {
     const content = el('div', { class: 'book-sheet-content' });
     pageToks.forEach((tok) => renderBookToken(tok, content));
-    const sheet = el('div', { class: 'book-sheet' });
-    sheet.style.setProperty('--book-font', bookFont);
-    applyBookDims(sheet, dims);
-    sheet.appendChild(content);
-    sheets.push(sheet);
+    const first = pageToks[0];
+    const isOpener = !!(first && first.type === 'book-chapter-title');
+    pages.push({ zone: 'body', contentEl: content, isChapterOpener: isOpener, chapterKey: isOpener ? first.key : null });
   });
 
   book.matter.back.forEach((b) => {
@@ -3889,10 +3892,73 @@ function buildBookSheets() {
     const wrap = el('div', { class: 'book-matter-freetext' });
     wrap.appendChild(el('div', { class: 'book-chapter-title', text: b.title || matterKindLabel(b.kind) }));
     renderMatterBody(wrap, b.text);
-    addSheet(wrap);
+    pages.push({ zone: 'back', contentEl: mkContent(wrap) });
   });
 
-  return sheets;
+  // ── Pass 2: insert chapterStartRecto blanks ───────────────────────
+  // A chapter should open on a recto (right-hand, odd page). If it would fall
+  // on a verso, pad with a blank leaf. The blank before the FIRST chapter is a
+  // front-matter leaf (roman) so arabic numbering starts clean at chapter one;
+  // blanks between later chapters are body leaves (they consume an arabic page).
+  const seq = [];
+  let bodyStarted = false;
+  pages.forEach((p) => {
+    if (p.zone === 'body' && p.isChapterOpener && dims.chapterStartRecto) {
+      if ((seq.length + 1) % 2 === 0) seq.push({ blank: true, zone: bodyStarted ? 'body' : 'front' });
+    }
+    if (p.zone === 'body') bodyStarted = true;
+    seq.push(p);
+  });
+
+  // ── Pass 3: assign sides, folios, running heads ───────────────────
+  let roman = 0, arabic = 0;
+  seq.forEach((p, i) => {
+    p.side = (i + 1) % 2 === 1 ? 'recto' : 'verso';
+    const arabicZone = p.zone !== 'front';
+    if (arabicZone) p.folioNum = ++arabic; else p.folioNum = ++roman;
+    if (p.blank) { p.folioText = ''; p.headText = ''; return; }
+    if (arabicZone) {
+      p.folioText = p.isChapterOpener ? '' : String(p.folioNum);
+    } else {
+      // Front matter carries roman folios, printed only from the TOC onward
+      // (half-title/title/copyright/dedication are conventionally unnumbered).
+      const show = tocFrontIndex >= 0 && p.frontIndex >= tocFrontIndex;
+      p.folioText = show ? romanNumeral(p.folioNum).toLowerCase() : '';
+    }
+    // Running heads live on body text pages only: author verso, title recto.
+    // Chapter openers, front/back matter, and blanks stay head-free.
+    p.headText = (p.zone === 'body' && !p.isChapterOpener)
+      ? (p.side === 'verso' ? author : bookTitle)
+      : '';
+  });
+
+  // ── Fill TOC rows with real chapter folios ────────────────────────
+  const chapterFolio = {};
+  seq.forEach((p) => {
+    if (p.zone === 'body' && p.isChapterOpener && p.chapterKey && chapterFolio[p.chapterKey] === undefined) chapterFolio[p.chapterKey] = p.folioNum;
+  });
+  pages.forEach((p) => {
+    if (p.kind !== 'toc') return;
+    chapters.forEach((ch) => {
+      p.tocWrap.appendChild(el('div', { class: 'book-toc-row' }, [
+        el('span', { class: 'book-toc-title', text: ch.title }),
+        el('span', { class: 'book-toc-num', text: String(chapterFolio[ch.key] || '') }),
+      ]));
+    });
+  });
+
+  // ── Pass 4: descriptors → .book-sheet DOM ─────────────────────────
+  return seq.map((p) => {
+    let cls = 'book-sheet ' + (p.side || 'recto');
+    if (p.blank) cls += ' book-blank';
+    const sheet = el('div', { class: cls });
+    sheet.style.setProperty('--book-font', bookFont);
+    applyBookDims(sheet, dims);
+    if (p.headText) sheet.appendChild(el('div', { class: 'book-head', text: p.headText }));
+    sheet.appendChild(p.contentEl || el('div', { class: 'book-sheet-content' }));
+    if (p.folioText) sheet.appendChild(el('div', { class: 'book-folio', text: p.folioText }));
+    return sheet;
+  });
 }
 
 function exportBookPDF() {
@@ -4419,7 +4485,7 @@ function bookDefaults() {
   return {
     meta: { authorName: '', isbn: '', publisher: '', description: '', coverImage: null },
     theme: { id: 'classic', font: 'ebgaramond', chapterLabel: 'word', chapterLabelCustom: '', showChapterTitle: true, opener: 'plain', sceneBreak: 'asterisks' },
-    trim: { size: '6x9', mirrored: true, gutterIn: 0.75, outsideIn: 0.5, topIn: 0.75, bottomIn: 0.75 },
+    trim: { size: '6x9', mirrored: true, gutterIn: 0.75, outsideIn: 0.5, topIn: 0.75, bottomIn: 0.75, chapterStartRecto: true },
     matter: { front: defaultMatterBlocks('front'), back: defaultMatterBlocks('back') },
   };
 }
@@ -6083,6 +6149,18 @@ function buildManuscriptPage(sceneId) {
     trimSel.addEventListener('change', () => { state.book.trim.size = trimSel.value; scheduleSave(); if (msMode === 'book') rebuildBook(); });
     trimField.appendChild(trimSel);
     pageHost.appendChild(trimField);
+
+    // Recto-start toggle (Phase 3b): pad with a blank so each chapter opens on
+    // a right-hand page — the standard trade-book layout. Mirrored gutters,
+    // running heads, and folios are always on; this is the one page-flow choice.
+    const rectoTgl = el('label', { class: 'bk-toggle' });
+    const rectoCb = el('input', { type: 'checkbox' });
+    rectoCb.checked = state.book.trim.chapterStartRecto !== false;
+    rectoCb.addEventListener('change', () => { state.book.trim.chapterStartRecto = rectoCb.checked; scheduleSave(); if (msMode === 'book') rebuildBook(); });
+    rectoTgl.appendChild(rectoCb);
+    rectoTgl.appendChild(el('span', { text: 'Start each chapter on a right-hand page' }));
+    pageHost.appendChild(rectoTgl);
+
     bkInner.appendChild(pageHost);
 
     bookDrawer.appendChild(bkInner);

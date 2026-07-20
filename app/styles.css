@@ -649,10 +649,13 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
     /* Deliberately less than the full 11in page — same WebKit double-break
        fix as .ms-sheet above (a box exactly filling the page plus a forced
        break-after makes Safari fire both the natural and forced breaks,
-       producing a blank page after every sheet). Safe here too: .book-sheet
-       contains only a single flex:1 .book-sheet-content with 96px (1in) top/
-       bottom padding and no bottom-anchored folio/footer element, so ink
-       never extends below ~10in. Do not "fix" this back to 11in. */
+       producing a blank page after every sheet). Safe here too: the running
+       head and folio (Phase 3b) are position:absolute, so they add nothing to
+       the flow height — the flex:1 .book-sheet-content with its top/bottom
+       padding still keeps ink well clear of the shaved region. The literal
+       trim height (hIn − 0.4in) is re-asserted by the one-off style
+       exportBookPDF injects; this Letter fallback covers un-stamped sheets.
+       Do not "fix" this back to 11in. */
     height: 10.4in;
     min-height: 0;
     box-shadow: none !important;
@@ -681,17 +684,58 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
+  position: relative; /* anchors the running head + folio in the margins */
 }
 .book-sheet-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: var(--book-pad-top, 96px) var(--book-pad-side, 108px) var(--book-pad-bottom, 96px);
+  /* Inner (spine) margin sits on the left of a recto, right of a verso — the
+     .verso rule below flips them. inner+outer is constant, so text width (and
+     line-wrapping, which the pagination probe must match) is side-independent.
+     --book-pad-side is the pre-3b uniform fallback for un-stamped/probe sheets. */
+  padding: var(--book-pad-top, 96px) var(--book-pad-outer, var(--book-pad-side, 108px)) var(--book-pad-bottom, 96px) var(--book-pad-inner, var(--book-pad-side, 108px));
   font-family: var(--book-font, Georgia, 'Times New Roman', serif);
   font-size: 16px;
   line-height: 1.5;
   color: #111;
 }
+.book-sheet.verso .book-sheet-content {
+  padding-left: var(--book-pad-outer, var(--book-pad-side, 108px));
+  padding-right: var(--book-pad-inner, var(--book-pad-side, 108px));
+}
+/* Running head — centred in the top margin. Author on verso, title on recto
+   (set in buildBookSheets); absent on chapter openers, matter pages, blanks. */
+.book-head {
+  position: absolute;
+  top: calc(var(--book-pad-top, 96px) / 2);
+  left: var(--book-pad-inner, var(--book-pad-side, 108px));
+  right: var(--book-pad-outer, var(--book-pad-side, 108px));
+  transform: translateY(-50%);
+  text-align: center;
+  font-family: var(--book-font, Georgia, 'Times New Roman', serif);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #6a6a6a;
+}
+.book-sheet.verso .book-head {
+  left: var(--book-pad-outer, var(--book-pad-side, 108px));
+  right: var(--book-pad-inner, var(--book-pad-side, 108px));
+}
+/* Folio — bottom margin, outside corner (recto → right, verso → left). */
+.book-folio {
+  position: absolute;
+  bottom: calc(var(--book-pad-bottom, 96px) / 2);
+  transform: translateY(50%);
+  font-family: var(--book-font, Georgia, 'Times New Roman', serif);
+  font-size: 11px;
+  color: #555;
+}
+.book-sheet.recto .book-folio { right: var(--book-pad-outer, var(--book-pad-side, 108px)); }
+.book-sheet.verso .book-folio { left: var(--book-pad-outer, var(--book-pad-side, 108px)); }
+/* Inserted blank leaf (chapterStartRecto padding) — an empty page, no head/folio. */
+.book-blank .book-sheet-content { visibility: hidden; }
 .book-para {
   margin: 0;
   text-indent: 1.5em;
