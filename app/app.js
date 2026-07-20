@@ -6052,9 +6052,14 @@ function closeExportDrawer() {
   const d = document.getElementById('exp-drawer'); if (d) d.remove();
   const ov = document.getElementById('exp-overlay'); if (ov) ov.remove();
 }
-function openExportDrawer() {
+// One room, two doors: everything that leaves the app lives here. ctx names the
+// view the drawer was opened from ('book' | 'manuscript' | null) so the matching
+// document floats to the top, tinted and tagged — the tweak→export→look loop
+// stays a decision-free tap. The topnav opens it with no context (ctx null).
+function openExportDrawer(ctx) {
   closeShowPopover();
   if (document.getElementById('exp-drawer')) { closeExportDrawer(); return; }
+  ctx = (ctx === 'book' || ctx === 'manuscript') ? ctx : null;
 
   const overlay = el('div', { class: 'snap-overlay', id: 'exp-overlay' });
   overlay.addEventListener('click', closeExportDrawer);
@@ -6062,51 +6067,115 @@ function openExportDrawer() {
 
   const drawer = el('div', { class: 'snap-drawer', id: 'exp-drawer' });
   const head = el('div', { class: 'snap-head' });
-  head.appendChild(el('span', { class: 'snap-title', text: 'Export & backup' }));
+  head.appendChild(el('span', { class: 'snap-title', text: 'Export' }));
   const xBtn = el('button', { class: 'snap-close', text: '✕', title: 'Close' });
   xBtn.addEventListener('click', closeExportDrawer);
   head.appendChild(xBtn);
   drawer.appendChild(head);
 
   const body = el('div', { class: 'exp-drawer-body' });
+  const isProse = state.format === 'prose';
+  const title = state.title || 'show';
 
-  // Save backup
-  const s1 = el('div', { class: 'exp-section' });
-  s1.appendChild(el('h2', { class: 'exp-heading', text: 'Save backup' }));
-  s1.appendChild(el('p', { class: 'exp-desc', text: 'Download a .pshow file you can keep locally or move to another computer.' }));
-  const expBtn = el('button', { class: 'pbtn exp-btn', text: '↓  Download ' + (state.title || 'show') + '.pshow' });
-  expBtn.addEventListener('click', exportShow);
-  if (state.readonly && state.showKey) {
-    expBtn.disabled = true;
-    s1.appendChild(el('p', { class: 'exp-note', text: 'Switch to a project (not a reference show) to export.' }));
+  // ── Icon tiles (34px rounded) — reuse the exact SVGs the toolbar/print paths
+  //    already use, so the row and the button it replaced read as one thing.
+  const ICON_FILE_LINES = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>';
+  const ICON_FILE = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>';
+  const ICON_BOOK = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h11a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2z"/><path d="M17 20h3V7a1 1 0 0 0-1-1h-2"/><line x1="8" y1="8" x2="13" y2="8"/><line x1="8" y1="11" x2="13" y2="11"/></svg>';
+  const ICON_PRINT = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>';
+  const ICON_TRAY_DOWN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
+  const ICON_TRAY_UP = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>';
+  // Right-side action glyph: download-into-tray for files that land on disk;
+  // diagonal arrow for the two rows that open a dialog (Print, Open backup).
+  const GLYPH_DOWNLOAD = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><polyline points="8 11 12 15 16 11"/><path d="M4 17v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>';
+  const GLYPH_DIALOG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M8 7h9v9"/></svg>';
+
+  // Row factory. Every row is icon-tile + name(+chip) + sub + right glyph; only
+  // the handler and the busy behavior differ. Async rows (PDF/EPUB build
+  // offscreen) swap the sub to "Building…" and freeze the row until it settles.
+  const makeRow = (o) => {
+    const row = el('div', { class: 'exp-row' + (o.seeded ? ' seeded' : '') + (o.disabled ? ' disabled' : '') });
+    const icon = el('span', { class: 'exp-row-icon' + (o.iconText ? ' exp-row-icon-mono' : '') });
+    if (o.iconText) icon.textContent = o.iconText; else icon.innerHTML = o.icon;
+    row.appendChild(icon);
+    const txt = el('span', { class: 'exp-row-text' });
+    const name = el('span', { class: 'exp-row-name' });
+    name.appendChild(el('span', { text: o.name }));
+    if (o.chip) name.appendChild(el('span', { class: 'exp-chip', text: o.chip }));
+    txt.appendChild(name);
+    const sub = el('span', { class: 'exp-row-sub', text: o.sub });
+    txt.appendChild(sub);
+    row.appendChild(txt);
+    row.appendChild(el('span', { class: 'exp-row-act', html: o.glyph }));
+    if (o.disabled) return row; // reference-show gating: no handler, styled inert
+    row.addEventListener('click', async () => {
+      if (row.classList.contains('exp-busy')) return;
+      if (!o.async) { o.run(); return; }
+      const prev = sub.textContent;
+      row.classList.add('exp-busy'); sub.textContent = 'Building…';
+      try { await o.run(); }
+      catch (e) { alert('Export failed: ' + (e && e.message ? e.message : e)); }
+      finally { row.classList.remove('exp-busy'); sub.textContent = prev; }
+    });
+    return row;
+  };
+
+  // ── Documents ─────────────────────────────────────────────────────
+  // Trim size, if the book theme carries one, sharpens the Book (PDF) sub.
+  let trimSuffix = '';
+  const bt = state.book && state.book.trim;
+  const bsz = bt && BOOK_TRIM_SIZES[bt.size];
+  if (bsz && bsz.label) trimSuffix = ' · ' + bsz.label + ' trim';
+
+  const docDefs = {
+    manuscript: { icon: ICON_FILE_LINES, name: 'Manuscript (PDF)',
+      sub: isProse ? 'Standard submission manuscript, Courier' : 'Standard libretto manuscript',
+      glyph: GLYPH_DOWNLOAD, async: true, run: () => exportManuscriptPDF(true, false) },
+    print: { icon: ICON_PRINT, name: 'Print…', sub: 'Paper, via the system print dialog',
+      glyph: GLYPH_DIALOG, async: false,
+      // Book view prints its trim-sized layout; every other view prints the manuscript.
+      run: () => { closeExportDrawer(); if (ctx === 'book') exportBookPDF(); else exportPDF(true); } },
+  };
+  if (isProse) {
+    docDefs.book = { icon: ICON_FILE, name: 'Book (PDF)', sub: 'Typeset book, fonts embedded' + trimSuffix,
+      glyph: GLYPH_DOWNLOAD, async: true, run: () => exportBookPDFEngine() };
+    docDefs.epub = { icon: ICON_BOOK, name: 'EPUB', sub: 'Ebook for Kindle, Books & e-readers',
+      glyph: GLYPH_DOWNLOAD, async: true, run: () => downloadEpub() };
   }
-  s1.appendChild(expBtn);
-  body.appendChild(s1);
 
-  body.appendChild(el('div', { class: 'exp-divider' }));
+  // The seeded row floats to the top; the rest follow a fixed per-context order.
+  // Song Plot has no Book/EPUB, so its list is naturally just manuscript + print.
+  let order;
+  if (ctx === 'book' && isProse) order = ['book', 'epub', 'manuscript', 'print'];
+  else if (ctx === 'manuscript') order = isProse ? ['manuscript', 'print', 'book', 'epub'] : ['manuscript', 'print'];
+  else order = isProse ? ['manuscript', 'book', 'epub', 'print'] : ['manuscript', 'print'];
 
-  // Fountain export
-  const s2 = el('div', { class: 'exp-section' });
-  s2.appendChild(el('h2', { class: 'exp-heading', text: 'Export as Fountain' }));
-  s2.appendChild(el('p', { class: 'exp-desc', text: 'Download a .fountain file — plain-text screenplay format compatible with Final Draft, Highland, and Fade In. Lyrics use standard Fountain character/dialogue blocks.' }));
-  const ftnBtn = el('button', { class: 'pbtn exp-btn', text: '↓  Download ' + (state.title || 'show') + '.fountain' });
-  ftnBtn.addEventListener('click', exportFountain);
-  if (state.readonly) ftnBtn.disabled = true;
-  s2.appendChild(ftnBtn);
-  body.appendChild(s2);
+  body.appendChild(el('div', { class: 'exp-group-label', text: 'Documents' }));
+  order.forEach((k) => {
+    const d = docDefs[k];
+    body.appendChild(makeRow(Object.assign({}, d, { seeded: k === ctx, chip: k === ctx ? 'this view' : null })));
+  });
 
-  body.appendChild(el('div', { class: 'exp-divider' }));
+  // ── Interchange ───────────────────────────────────────────────────
+  body.appendChild(el('div', { class: 'exp-group-div' }));
+  body.appendChild(el('div', { class: 'exp-group-label', text: 'Interchange' }));
+  body.appendChild(makeRow({ iconText: 'F', name: 'Fountain', sub: 'Plain-text screenplay · Final Draft, Highland',
+    glyph: GLYPH_DOWNLOAD, async: false, run: exportFountain, disabled: state.readonly }));
 
-  // Import
-  const s3 = el('div', { class: 'exp-section' });
-  s3.appendChild(el('h2', { class: 'exp-heading', text: 'Open backup' }));
-  s3.appendChild(el('p', { class: 'exp-desc', text: 'Load a .pshow file. It will be added as a new project and you can rename it.' }));
+  // ── Backup ────────────────────────────────────────────────────────
+  body.appendChild(el('div', { class: 'exp-group-div' }));
+  body.appendChild(el('div', { class: 'exp-group-label', text: 'Backup' }));
+  body.appendChild(makeRow({ icon: ICON_TRAY_DOWN, name: 'Save backup', sub: title + '.pshow — complete show data',
+    glyph: GLYPH_DOWNLOAD, async: false, run: exportShow, disabled: state.readonly && state.showKey }));
+  // Open backup keeps the hidden file-input mechanism (importShow adds a new project).
   const fileInput = el('input', { type: 'file', accept: '.pshow,.songplot,.json', class: 'exp-file-input', id: 'exp-file-input' });
-  const impLabel = el('label', { class: 'pbtn exp-btn', for: 'exp-file-input', text: '↑  Choose .pshow file…' });
   fileInput.addEventListener('change', (e) => { if (e.target.files[0]) { closeExportDrawer(); importShow(e.target.files[0]); } });
-  s3.appendChild(impLabel);
-  s3.appendChild(fileInput);
-  body.appendChild(s3);
+  body.appendChild(makeRow({ icon: ICON_TRAY_UP, name: 'Open backup…', sub: 'Restore a .pshow as a new project',
+    glyph: GLYPH_DIALOG, async: false, run: () => fileInput.click() }));
+  body.appendChild(fileInput);
+  // Document exports stay live for reference shows (they mutate nothing); only
+  // Save backup and Fountain go inert, so the explanation lives with Backup.
+  if (state.readonly) body.appendChild(el('p', { class: 'exp-note', text: 'Switch to a project (not a reference show) to export.' }));
 
   drawer.appendChild(body);
   document.body.appendChild(drawer);
@@ -6440,35 +6509,13 @@ function buildManuscriptPage(sceneId) {
   // from the Page-setup drawer, and while it's open the Edit/Print switcher
   // swaps for a single Done button that returns to wherever you were.
   const titleDoneBtn = el('button', { class: 'ms-title-done', text: '✓ Done with title pages' });
-  const printBtn = el('button', { class: 'ms-print-btn', title: 'Print on paper (opens the system print dialog)' });
-  printBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span>Print</span>';
-  printBtn.addEventListener('click', () => { if (msMode === 'book') exportBookPDF(); else exportPDF(true); });
-  // One-tap PDF download (manuscript modes) — renders a real, selectable-text
-  // PDF via the transcription engine, distinct from Print's system dialog. Book
-  // view keeps its own path (window.print) until Phase 2 wires it to the engine.
-  const pdfBtn = el('button', { class: 'ms-print-btn ms-pdf-btn', title: 'Download a PDF of this manuscript' });
-  pdfBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="12" y1="12" x2="12" y2="18"/><polyline points="9 15 12 18 15 15"/></svg><span>PDF</span>';
-  pdfBtn.addEventListener('click', async () => {
-    if (pdfBtn.disabled) return;
-    const span = pdfBtn.querySelector('span'); const prev = span.textContent;
-    pdfBtn.disabled = true; span.textContent = 'Building…';
-    try { await (msMode === 'book' ? exportBookPDFEngine() : exportManuscriptPDF(true, false)); }
-    catch (e) { alert('PDF export failed: ' + (e && e.message ? e.message : e)); }
-    finally { pdfBtn.disabled = false; span.textContent = prev; }
-  });
-  // Download EPUB (Prose Plot, Book view only) — shares the Print button's slot styling.
-  const epubBtn = (state.format === 'prose') ? el('button', { class: 'ms-print-btn ms-epub-btn', title: 'Download EPUB ebook' }) : null;
-  if (epubBtn) {
-    epubBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h11a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2z"/><path d="M17 20h3V7a1 1 0 0 0-1-1h-2"/><line x1="8" y1="8" x2="13" y2="8"/><line x1="8" y1="11" x2="13" y2="11"/></svg><span>EPUB</span>';
-    epubBtn.addEventListener('click', async () => {
-      if (epubBtn.disabled) return;
-      const span = epubBtn.querySelector('span'); const prev = span.textContent;
-      epubBtn.disabled = true; span.textContent = 'Building…';
-      try { await downloadEpub(); }
-      catch (e) { alert('EPUB export failed: ' + (e && e.message ? e.message : e)); }
-      finally { epubBtn.disabled = false; span.textContent = prev; }
-    });
-  }
+  // Every "leaves the app" action now lives in the Export drawer; the toolbar
+  // keeps one door to it, wearing the topnav's tray icon so both read as the
+  // same room. It seeds the drawer with whichever document this view is —
+  // Book view → Book (PDF), any other manuscript view → Manuscript (PDF).
+  const exportBtn = el('button', { class: 'ms-print-btn', title: 'Export this manuscript (PDF, EPUB, print, backup…)' });
+  exportBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 14v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/></svg><span>Export</span>';
+  exportBtn.addEventListener('click', () => openExportDrawer(msMode === 'book' ? 'book' : 'manuscript'));
   const settingsBtn = el('button', { class: 'ms-settings-btn', title: 'Page settings' });
   settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
   const navBtn = el('button', { class: 'ms-nav-btn', title: 'Show/hide the outline navigation' });
@@ -6499,13 +6546,11 @@ function buildManuscriptPage(sceneId) {
   const tbRight = el('div', { class: 'ms-tb-right' });
   tbRight.appendChild(modeSeg);
   tbRight.appendChild(titleDoneBtn); // occupies the switcher's slot while title pages are open
-  // Focus (Edit-only) and Print (Print View/Book-only) share one slot and one
+  // Focus (Edit-only) and Export (Print View/Book-only) share one slot and one
   // fixed width: exactly one shows per mode, so the row's width stays constant
   // and the Edit | Print View toggle never shifts when you tab between views.
   tbRight.appendChild(focusBtn);
-  if (epubBtn) tbRight.appendChild(epubBtn);
-  tbRight.appendChild(printBtn);
-  tbRight.appendChild(pdfBtn);
+  tbRight.appendChild(exportBtn);
   tbRight.appendChild(el('span', { class: 'ms-tb-divider' }));
   tbRight.appendChild(settingsBtn); // settings last — it opens the right-edge drawer
   toolbar.appendChild(tbRight);
@@ -7011,15 +7056,11 @@ function buildManuscriptPage(sceneId) {
     // Persist only real document modes — a reload should never land on title pages/book matter.
     try { localStorage.setItem('md-ms-mode', lastDocMode); } catch (_) {}
     if (msMode !== 'edit' && focusMode) exitFocus(); // Focus is an Edit-only concept
-    // Print swaps into the Focus slot: it's meaningful only where there are
-    // pages to print (Print View, Book), and its fixed width matches Focus so
-    // the toggle beside it never shifts. Hidden on Edit (Focus shows there) and
-    // on the side modes (title/book-matter have their own Done control).
-    printBtn.style.display = (msMode === 'layout' || msMode === 'book') ? '' : 'none';
-    // One-tap PDF: manuscript views (Song Print View / Prose Manuscript) draw a
-    // Courier PDF; Book view draws an embedded-serif, trim-sized book PDF.
-    pdfBtn.style.display = (msMode === 'layout' || msMode === 'book') ? '' : 'none';
-    if (epubBtn) epubBtn.style.display = (msMode === 'book') ? '' : 'none'; // EPUB is a Book-view export
+    // Export swaps into the Focus slot: it's meaningful only where there's a
+    // finished document to hand off (Print View, Book), and its fixed width
+    // matches Focus so the toggle beside it never shifts. Hidden on Edit (Focus
+    // shows there) and on the side modes (title/book-matter have their own Done).
+    exportBtn.style.display = (msMode === 'layout' || msMode === 'book') ? '' : 'none';
     applyNav(); // outline panel + Navigation button reflect Edit/Print state
     applyFocus();
     // Title/book-matter modes have their own inline controls, so the settings
@@ -8235,7 +8276,7 @@ function initControls() {
   document.getElementById('tn-waffle-btn').addEventListener('click', (e) => { e.stopPropagation(); toggleWaffleMenu(); });
   document.getElementById('sb-snapshots').addEventListener('click', (e) => { e.stopPropagation(); openSnapshotsDrawer(); });
   const exBtn = document.getElementById('sb-export');
-  if (exBtn) exBtn.addEventListener('click', (e) => { e.stopPropagation(); openExportDrawer(); });
+  if (exBtn) exBtn.addEventListener('click', (e) => { e.stopPropagation(); openExportDrawer(null); }); // topnav = no view context, nothing seeded
 
   // Find & Replace modal
   document.getElementById('sb-find').addEventListener('click', (e) => { e.stopPropagation(); openFindModal(); });

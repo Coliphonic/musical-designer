@@ -84,6 +84,27 @@ Book PDF for Prose Plot, drawn with the real serif fonts embedded:
 - Verified by rendering pages with PyMuPDF: title page, drop-cap opener, small-caps opener, a continuation page (running head + folio), and the ornament fallback — all faithful to the on-screen Book. Text extracts cleanly; fonts report embedded; metadata + filename correct. Manuscript PDF (base-14 path) regression-checked after the `createPdf` upgrade.
 - UI: the **PDF** button now also shows in Book view (was manuscript-only), routing to `exportBookPDFEngine()`; Print + EPUB unchanged.
 
+## UI consolidation — "one room, two doors" (2026-07-20, cache v203)
+
+The per-view EPUB/Print/PDF toolbar buttons and the topnav "Export & backup"
+drawer merged into a single **Export** drawer (`openExportDrawer(ctx)`):
+
+- One grouped row list — **Documents** (Manuscript PDF, Book PDF, EPUB, Print…),
+  **Interchange** (Fountain), **Backup** (.pshow save / open). Fountain moved in
+  with the documents where it belongs.
+- **Two doors, one room**: the topnav tray icon opens it unseeded; a single
+  toolbar **Export** button (same tray icon, layout/book modes only) opens it
+  *context-seeded* — the current view's format sorts to the top, tinted, tagged
+  "this view". Print… routes by context (book → `exportBookPDF`, else
+  `exportPDF`).
+- The rule: autosave/Snapshots stay with the show; anything that **leaves the
+  app** lives in Export; Share (people/access) stays in the Library. The Song
+  sheet-mode Print button is the deliberate exception — it exports one song
+  object, so it stays with the object.
+- Readonly references keep document exports enabled (they mutate nothing);
+  backup/Fountain stay gated as before. Async rows show "Building…" while the
+  engine runs.
+
 ### Known limitations (polish)
 - Fleuron ❦ / asterism ⁂ scene breaks render as "* * *" in the PDF (glyph absent from the serif fonts). Dot ·, asterisks, thin rule, and blank-space breaks are exact.
 - Synthesized small caps copy/paste as ALL-CAPS (one glyph serves both real-cap and small-cap, so per-GID ToUnicode can't distinguish). Visual rendering is correct.
