@@ -827,9 +827,37 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .book-raisedcap { font-size: 2em; line-height: 0.8; }
 .book-smallcaps { font-variant: small-caps; letter-spacing: 0.04em; }
 
+/* Scene-break ornaments (Phase 5). Fleuron/asterism share the asterism sizing;
+   the dot is bumped a touch; the rule draws a short centred hairline, no glyph. */
+.bk-break-ornament, .bk-break-fleuron { font-size: 1.35em; letter-spacing: 0; }
+.bk-break-dot { font-size: 1.7em; letter-spacing: 0; line-height: 0.5; }
+.bk-break-rule { height: 1px; }
+.bk-break-rule::after {
+  content: ''; display: block; width: 60px; height: 1px;
+  background: currentColor; opacity: 0.4; margin: 0 auto;
+}
+
+/* Paragraph style (Phase 5) — Block drops the indent and separates with a gap.
+   These + the leading/opener classes ride on the .book-sheet, so the pagination
+   probe (which mirrors bookThemeClasses) breaks pages at matching metrics. */
+.bk-para-block .book-para { text-indent: 0; margin-bottom: 0.8em; }
+.bk-para-block .book-para:last-child { margin-bottom: 0; }
+
+/* Line spacing (Phase 5) — bk-lead-normal matches the base 1.5. */
+.bk-lead-tight .book-sheet-content { line-height: 1.35; }
+.bk-lead-normal .book-sheet-content { line-height: 1.5; }
+.bk-lead-relaxed .book-sheet-content { line-height: 1.72; }
+
+/* Opener size (Phase 5) — Medium is the base size; small/large scale the flourish. */
+.bk-opener-sm .book-dropcap { font-size: 2.6em; }
+.bk-opener-lg .book-dropcap { font-size: 3.9em; }
+.bk-opener-sm .book-raisedcap { font-size: 1.7em; }
+.bk-opener-lg .book-raisedcap { font-size: 2.4em; }
+.bk-opener-lg .book-smallcaps { font-size: 1.06em; }
+
 /* Book theme picker — Book-setup drawer (app chrome, theme-aware) */
 .bk-theme-host { padding: 6px 2px 2px; }
-.bk-theme-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.bk-theme-strip { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; margin-bottom: 14px; }
 .bk-theme-card {
   display: flex; flex-direction: column; align-items: center; gap: 6px;
   padding: 11px 6px; border: 1px solid var(--line); border-radius: 9px;
@@ -839,18 +867,42 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .bk-theme-card.sel { border-color: var(--energy); box-shadow: inset 0 0 0 1px var(--energy); }
 .bk-theme-name { font-size: 12px; font-weight: 600; }
 .bk-theme-swatch { font-size: 23px; line-height: 1; color: var(--muted); }
-.bk-knobs { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 10px; }
-.bk-knob { display: flex; flex-direction: column; gap: 4px; }
+/* minmax(0,1fr) — not 1fr — so a select's long option text ("Block (space
+   between)") can't blow the column past the drawer edge; the controls stay
+   clamped and every row ends at the same right margin. */
+.bk-knobs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 9px 10px; }
+.bk-knob { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .bk-knob-wide { grid-column: 1 / -1; margin-top: 9px; }
 .bk-knob-label { font-size: 11px; color: var(--muted); }
 .bk-knob select, .bk-knob input {
   font-family: inherit; font-size: 12px; padding: 5px 7px;
   border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink);
+  width: 100%; min-width: 0; box-sizing: border-box;
 }
 .bk-toggle {
   display: flex; align-items: center; gap: 8px; margin-top: 13px;
   font-size: 12px; color: var(--muted); cursor: pointer;
 }
+
+/* Live theme preview (Phase 5) — a real book sheet rendered small inside the
+   drawer. The .book-sheet page dimensions/shadow are overridden to a flat, snug
+   card; the theme classes + relative type still show every knob faithfully. */
+.bk-preview-head { margin-top: 18px; }
+.bk-preview {
+  margin-top: 8px; border: 1px solid var(--line); border-radius: 8px;
+  overflow: hidden; background: #fbfaf7;
+}
+.bk-preview .book-sheet {
+  width: auto; min-height: 0; background: #fbfaf7; color: #2a2622;
+  box-shadow: none; display: block;
+}
+.bk-preview .book-sheet-content {
+  padding: 20px 22px; font-size: 13px; color: #2a2622;
+}
+/* Compress the sample's chapter opener — the full 30% top margin is page-scaled. */
+.bk-preview .book-chapter-title { margin: 4px 0 1.1em; font-size: 15px; }
+.bk-preview .bk-label-bare .book-ch-label { font-size: 34px; }
+.bk-preview .bk-label-roman .book-ch-label { font-size: 22px; }
 
 /* Title pages */
 .tp-title-page { display: flex; flex-direction: column; min-height: 912px; /* 1056 - 144px header/padding */ }

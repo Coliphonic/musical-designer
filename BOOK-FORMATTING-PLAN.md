@@ -21,7 +21,7 @@ print-ready PDF"); this document is the how.
 | 3b | Recto/verso, running heads, book page numbering | ✅ |
 | 4a | EPUB — ZIP writer + chapter XHTML | ✅ |
 | 4b | EPUB — metadata, cover, nav/TOC, download | ✅ (epubcheck run deferred — no local JRE) |
-| 5 | Custom themes (Atticus-style theme editor) | ⬜ |
+| 5 | Custom themes (Atticus-style theme editor) | ✅ (light scope — knobs + live preview; saved named themes not built) |
 
 ---
 
@@ -742,6 +742,32 @@ lightly — do not start without explicit user go-ahead on scope.
   across the user's shows (needs a small server-side or localStorage store —
   decide with user; per-account server storage fits the shared-backend model better).
 - Possible later: theme import/export as JSON, per-matter-block style overrides.
+
+**What shipped (2026-07-20) — light scope, agreed with user:**
+- Four new theme knobs on the Book-setup drawer, gated on `state.format === 'prose'`:
+  - **Opener size** (`theme.openerSize`: small/medium/large) — scales the drop/raised
+    cap + small-caps opening line. Medium = the pre-5 base size.
+  - **Scene break** knob expanded into the single ornament chooser: asterisks, fleuron ❦,
+    asterism ⁂ (old `ornament` value, kept for saved shows), dot ·, thin rule, blank space.
+    Deliberately did NOT add a redundant second "Ornament" knob — one control owns the axis.
+  - **Paragraphs** (`theme.paraStyle`: indent/block) — block drops the first-line indent
+    and separates paragraphs with a gap.
+  - **Line spacing** (`theme.lineSpacing`: tight/normal/relaxed) — normal = base 1.5.
+- **Live preview pane** in the drawer: a real chapter opener + scene break rendered through
+  the actual book path (`renderBookToken`) into a compact `.bk-preview` sheet, rebuilt on
+  every knob change. Faithful because it reuses the render, not a mock.
+- Engine: `bookThemeClasses(theme)` returns `bk-para-* bk-lead-* bk-opener-*`, applied to
+  both each rendered `.book-sheet` AND the pagination probe (`paginateBookBlocks`), so page
+  breaks fall at the same leading/paragraph metrics the render uses. New CSS enum lives in
+  styles.css (`.bk-lead-*`, `.bk-para-block`, `.bk-opener-*`, `.bk-break-fleuron/-dot/-rule`).
+- EPUB parity: `epubBookCss` now computes body `line-height`, block-vs-indent `p`, opener-size
+  drop/raise scale, and a `.scene-break-rule` hairline from the theme; `epubChapterXhtml`
+  emits the rule/space/glyph per `sceneBreak`. Verified: relaxed→1.72, large drop cap→4.01em,
+  block-para CSS, fleuron in chapter XHTML, ZIP structure intact.
+- Model: new fields added to `bookDefaults().theme`; `migrateBook`'s per-subobject
+  `Object.assign` backfills them onto every saved show automatically.
+- **Not built (deferred, needs user go-ahead):** saved named themes reusable across shows,
+  theme import/export JSON, per-matter-block overrides, running-head styling knob. Deploy: v198.
 
 ---
 

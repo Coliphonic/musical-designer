@@ -3578,7 +3578,7 @@ function buildBookBlocks(chapters) {
 }
 
 function paginateBookBlocks(blocks, bookFont, dims) {
-  const rig = el('div', { class: 'book-sheet' });
+  const rig = el('div', { class: 'book-sheet ' + bookThemeClasses(state.book.theme) });
   rig.style.cssText = 'position:absolute; left:-99999px; top:0; visibility:hidden; min-height:0;';
   if (dims) applyBookDims(rig, dims);
   // A fixed measurement height (page height), not min-height, so clientHeight is
@@ -3644,12 +3644,28 @@ function renderBookToken(tok, container) {
     if (a && !node.dataset.anchor) node.dataset.anchor = a;
   }
 }
-// Scene-break glyph per theme. 'space' returns '' (the gap is a CSS height on
-// .bk-break-space); 'ornament' is a single asterism; 'asterisks' the classic trio.
+// Scene-break glyph per theme. 'space'/'rule' return '' (the gap / the thin rule
+// are drawn by CSS on .bk-break-space / .bk-break-rule); the rest are glyphs.
+// 'ornament' (asterism) predates Phase 5 and is kept for saved shows.
 function sceneBreakGlyph(style) {
-  if (style === 'space') return '';
-  if (style === 'ornament') return '⁂';
-  return '* * *';
+  switch (style) {
+    case 'space': return '';
+    case 'rule': return '';
+    case 'ornament': return '⁂';
+    case 'fleuron': return '❦';
+    case 'dot': return '·';
+    case 'asterisks': default: return '* * *';
+  }
+}
+
+// Phase 5 theme classes that ride on the .book-sheet (and the pagination probe,
+// so page breaks fall at the same leading/paragraph metrics the render uses).
+// Paragraph style (indent vs block), line spacing, and opener size are all
+// carried here rather than as inline vars so the CSS enum stays in one place.
+function bookThemeClasses(theme) {
+  return 'bk-para-' + (theme.paraStyle === 'block' ? 'block' : 'indent')
+    + ' bk-lead-' + (theme.lineSpacing || 'normal')
+    + ' bk-opener-' + (theme.openerSize || 'medium');
 }
 
 // Chapter heading text for the label style. 'word'/'numeral' keep the "Chapter"
@@ -3949,7 +3965,7 @@ function buildBookSheets() {
 
   // ── Pass 4: descriptors → .book-sheet DOM ─────────────────────────
   return seq.map((p) => {
-    let cls = 'book-sheet ' + (p.side || 'recto');
+    let cls = 'book-sheet ' + (p.side || 'recto') + ' ' + bookThemeClasses(state.book.theme);
     if (p.blank) cls += ' book-blank';
     const sheet = el('div', { class: cls });
     sheet.style.setProperty('--book-font', bookFont);
@@ -4204,8 +4220,10 @@ function epubChapterXhtml(chapter, num) {
   chapter.tokens.forEach((t) => {
     if (t.type === 'blank') return;
     if (t.type === 'scenebreak') {
-      const g = sceneBreakGlyph(theme.sceneBreak);
-      body.push(g ? '<p class="scene-break">' + escHtml(g) + '</p>' : '<p class="scene-break scene-break-space"></p>');
+      const sb = theme.sceneBreak;
+      if (sb === 'space') body.push('<p class="scene-break scene-break-space"></p>');
+      else if (sb === 'rule') body.push('<p class="scene-break scene-break-rule"></p>');
+      else body.push('<p class="scene-break">' + escHtml(sceneBreakGlyph(sb)) + '</p>');
       return;
     }
     if (t.type !== 'action') return; // prose chapters carry only action/scenebreak
@@ -4222,6 +4240,15 @@ function epubChapterXhtml(chapter, num) {
 // indented body, chapter-title layout, scene-break + opener flourishes.
 function epubBookCss(fontMeta, haveFonts) {
   const fam = fontMeta ? fontMeta.family : 'Georgia';
+  // Phase 5 knobs — mirror the on-screen book so the EPUB matches what the drawer
+  // preview showed. Reflow-safe: leading/indent are relative, caps use ::first-*.
+  const theme = state.book.theme;
+  const lh = theme.lineSpacing === 'tight' ? 1.35 : theme.lineSpacing === 'relaxed' ? 1.72 : 1.5;
+  const blockPara = theme.paraStyle === 'block';
+  const openerScale = theme.openerSize === 'small' ? 0.82 : theme.openerSize === 'large' ? 1.18 : 1;
+  const dropSize = (3.4 * openerScale).toFixed(2);
+  const raiseSize = (2.2 * openerScale).toFixed(2);
+  const scFontSize = theme.openerSize === 'large' ? 'font-size:1.06em;' : '';
   let css = '';
   if (fontMeta && haveFonts) {
     const f = fontMeta.files, F = fontMeta.family;
@@ -4232,17 +4259,21 @@ function epubBookCss(fontMeta, haveFonts) {
       "@font-face{font-family:'" + F + "';font-weight:bold;font-style:italic;src:url(fonts/" + f.bolditalic + ") format('woff2');}\n";
   }
   css +=
-    "body{font-family:'" + fam + "',Georgia,'Times New Roman',serif;line-height:1.5;margin:0;padding:0 1em;}\n" +
-    "p{margin:0;text-indent:1.5em;text-align:justify;-webkit-hyphens:auto;hyphens:auto;}\n" +
+    "body{font-family:'" + fam + "',Georgia,'Times New Roman',serif;line-height:" + lh + ";margin:0;padding:0 1em;}\n" +
+    (blockPara
+      ? "p{margin:0 0 0.8em;text-indent:0;text-align:justify;-webkit-hyphens:auto;hyphens:auto;}\n"
+      : "p{margin:0;text-indent:1.5em;text-align:justify;-webkit-hyphens:auto;hyphens:auto;}\n") +
     "h1.chapter-title{text-align:center;margin:2.5em 0 2em;font-weight:normal;}\n" +
     ".ch-label{display:block;font-size:1.5em;letter-spacing:0.12em;text-transform:uppercase;}\n" +
     ".ch-name{display:block;margin-top:0.5em;font-size:1.05em;font-style:italic;}\n" +
     ".first-para{text-indent:0;}\n" +
     ".scene-break{text-align:center;text-indent:0;margin:1.5em 0;letter-spacing:0.3em;}\n" +
     ".scene-break-space{margin:2.2em 0;}\n" +
-    ".opener-dropcap .first-para::first-letter{float:left;font-size:3.4em;line-height:0.82;padding:0.02em 0.08em 0 0;font-weight:bold;}\n" +
-    ".opener-raisedcap .first-para::first-letter{font-size:2.2em;line-height:1;font-weight:bold;}\n" +
-    ".opener-smallcaps .first-para::first-line{font-variant:small-caps;letter-spacing:0.03em;}\n" +
+    ".scene-break-rule{margin:1.8em 0;}\n" +
+    ".scene-break-rule::after{content:'';display:block;width:2.5em;height:1px;background:currentColor;opacity:0.4;margin:0 auto;}\n" +
+    ".opener-dropcap .first-para::first-letter{float:left;font-size:" + dropSize + "em;line-height:0.82;padding:0.02em 0.08em 0 0;font-weight:bold;}\n" +
+    ".opener-raisedcap .first-para::first-letter{font-size:" + raiseSize + "em;line-height:1;font-weight:bold;}\n" +
+    ".opener-smallcaps .first-para::first-line{font-variant:small-caps;letter-spacing:0.03em;" + scFontSize + "}\n" +
     // Front/back matter + cover.
     ".mt-center{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;}\n" +
     ".book-title{font-size:2em;letter-spacing:0.04em;text-transform:uppercase;margin:0;text-indent:0;text-align:center;}\n" +
@@ -4887,7 +4918,7 @@ function defaultMatterBlocks(section) {
 function bookDefaults() {
   return {
     meta: { authorName: '', isbn: '', publisher: '', description: '', coverImage: null },
-    theme: { id: 'classic', font: 'ebgaramond', chapterLabel: 'word', chapterLabelCustom: '', showChapterTitle: true, opener: 'plain', sceneBreak: 'asterisks' },
+    theme: { id: 'classic', font: 'ebgaramond', chapterLabel: 'word', chapterLabelCustom: '', showChapterTitle: true, opener: 'plain', openerSize: 'medium', sceneBreak: 'asterisks', paraStyle: 'indent', lineSpacing: 'normal' },
     trim: { size: '6x9', mirrored: true, gutterIn: 0.75, outsideIn: 0.5, topIn: 0.75, bottomIn: 0.75, chapterStartRecto: true },
     matter: { front: defaultMatterBlocks('front'), back: defaultMatterBlocks('back') },
   };
@@ -6563,7 +6594,13 @@ function buildManuscriptPage(sceneId) {
       knobs.appendChild(mkSelect('Font', [['ebgaramond', 'EB Garamond'], ['literata', 'Literata'], ['crimsonpro', 'Crimson Pro']], theme.font, (v) => { theme.font = v; theme.id = 'custom'; afterThemeChange(); }));
       knobs.appendChild(mkSelect('Chapter label', [['word', 'Chapter One'], ['numeral', 'Chapter 1'], ['roman', 'I  (roman)'], ['bare', '1  (number)'], ['custom', 'Custom…']], theme.chapterLabel, (v) => { theme.chapterLabel = v; theme.id = 'custom'; afterThemeChange(); }));
       knobs.appendChild(mkSelect('Chapter opener', [['plain', 'Plain'], ['dropcap', 'Drop cap'], ['raisedcap', 'Raised cap'], ['smallcaps', 'Small caps opening']], theme.opener, (v) => { theme.opener = v; theme.id = 'custom'; afterThemeChange(); }));
-      knobs.appendChild(mkSelect('Scene break', [['asterisks', 'Asterisks   * * *'], ['ornament', 'Ornament   ⁂'], ['space', 'Blank space']], theme.sceneBreak, (v) => { theme.sceneBreak = v; theme.id = 'custom'; afterThemeChange(); }));
+      // Opener size only bites when there's an opener flourish to scale.
+      knobs.appendChild(mkSelect('Opener size', [['small', 'Small'], ['medium', 'Medium'], ['large', 'Large']], theme.openerSize || 'medium', (v) => { theme.openerSize = v; theme.id = 'custom'; afterThemeChange(); }));
+      // The scene-break knob is the ornament chooser — one control, all the glyphs
+      // plus the two "no glyph" options (blank space / thin rule).
+      knobs.appendChild(mkSelect('Scene break', [['asterisks', 'Asterisks   * * *'], ['fleuron', 'Fleuron   ❦'], ['ornament', 'Asterism   ⁂'], ['dot', 'Dot   ·'], ['rule', 'Thin rule'], ['space', 'Blank space']], theme.sceneBreak, (v) => { theme.sceneBreak = v; theme.id = 'custom'; afterThemeChange(); }));
+      knobs.appendChild(mkSelect('Paragraphs', [['indent', 'Indented first line'], ['block', 'Block  (space between)']], theme.paraStyle || 'indent', (v) => { theme.paraStyle = v; theme.id = 'custom'; afterThemeChange(); }));
+      knobs.appendChild(mkSelect('Line spacing', [['tight', 'Tight'], ['normal', 'Normal'], ['relaxed', 'Relaxed']], theme.lineSpacing || 'normal', (v) => { theme.lineSpacing = v; theme.id = 'custom'; afterThemeChange(); }));
       themeHost.appendChild(knobs);
 
       if (theme.chapterLabel === 'custom') {
@@ -6582,6 +6619,27 @@ function buildManuscriptPage(sceneId) {
       tgl.appendChild(cb);
       tgl.appendChild(el('span', { text: 'Show chapter titles beneath the label' }));
       themeHost.appendChild(tgl);
+
+      // ── Live preview ── a real chapter opener + scene break rendered through the
+      // book path (renderBookToken), so every knob's effect shows without leaving
+      // the drawer. Compact type + padding via .bk-preview; the theme classes ride
+      // the sheet exactly as they do in the full Book render.
+      themeHost.appendChild(el('div', { class: 'ms-hd-section-head bk-preview-head', text: 'Live preview' }));
+      const pv = el('div', { class: 'bk-preview' });
+      const pvSheet = el('div', { class: 'book-sheet ' + bookThemeClasses(theme) });
+      pvSheet.style.setProperty('--book-font', bookFontFamily(theme.font));
+      const pvContent = el('div', { class: 'book-sheet-content' });
+      pvSheet.appendChild(pvContent);
+      pv.appendChild(pvSheet);
+      themeHost.appendChild(pv);
+      const sample = [
+        { type: 'book-chapter-title', text: 'The Harbor', num: 1 },
+        { type: 'action', text: 'The morning fog had not yet lifted from the harbor when she first understood what the letter meant, and what it would cost her to answer it.', firstPara: true },
+        { type: 'action', text: 'He had written only three lines, but she read them a dozen times before the kettle began to sing.' },
+        { type: 'scenebreak' },
+        { type: 'action', text: 'By noon the decision was made, though she would not admit it aloud for another week.' },
+      ];
+      sample.forEach((t) => renderBookToken(t, pvContent));
     }
     renderThemePicker();
 
