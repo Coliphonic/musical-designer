@@ -20,7 +20,7 @@ print-ready PDF"); this document is the how.
 | 3a | Trim sizes + book margins | ✅ |
 | 3b | Recto/verso, running heads, book page numbering | ✅ |
 | 4a | EPUB — ZIP writer + chapter XHTML | ✅ |
-| 4b | EPUB — metadata, cover, nav/TOC, download | ⬜ |
+| 4b | EPUB — metadata, cover, nav/TOC, download | ✅ (epubcheck run deferred — no local JRE) |
 | 5 | Custom themes (Atticus-style theme editor) | ⬜ |
 
 ---
@@ -684,6 +684,48 @@ entry order + CRC correctness.)
 **Acceptance:** epubcheck passes with zero errors; the book opens with cover, TOC
 navigation, themed chapters in Apple Books; sideloads to Kindle via Send-to-Kindle
 without rejection.
+
+**What shipped (2026-07-20):** `buildEpub()` expanded from chapters-only to a complete
+EPUB 3, all still dependency-free:
+- **Reading order** cover → front matter → chapters → back matter. A page-descriptor list
+  (`docs`) is assembled in that order and drives the manifest, spine, and nav together, so
+  they cannot drift. `epubXhtmlDoc(title, bodyClass, inner)` is the shared XHTML5 shell
+  (chapter + matter + cover all use it); `epubMatterDoc(b, ctx)` renders each front/back
+  block to `{docTitle, bodyClass, inner, nav}` — mirroring buildBookSheets' generated
+  (halftitle/titlepage/copyright/toc) and freetext logic, but as XHTML strings. `nav` is the
+  TOC label or null (headless dedication/epigraph and the generated title/copyright/toc
+  pages stay out of the reading-order nav). The visual Contents page links chapters (no
+  folios — meaningless in reflow); the machine `nav.xhtml` is separate.
+- **Metadata**: identifier is `urn:isbn:<digits>` when an ISBN is set, else `urn:uuid:`;
+  `dc:publisher` and `dc:description` emit when present; `dcterms:modified` always. Front/back
+  matter XHTML reuses `emphToXhtml` (same markup-stripping as 4a).
+- **Cover**: `book.meta.coverImage` (a downscaled JPEG data URL) → `cover.jpg` entry +
+  `properties="cover-image"` manifest item + legacy `<meta name="cover">` (Kindle/EPUB2) + a
+  `cover.xhtml` first in the spine. `dataUrlToBytes()` decodes the data URL;
+  `downscaleImageToJpeg(file, 1600, 0.82)` (canvas) normalizes any upload to a compact,
+  metadata-free JPEG at import time.
+- **UI (Prose Plot only)**: a **cover-image control** in the Book-matter editor's Book
+  details (thumbnail + Choose/Remove, stores into `book.meta.coverImage`), and a **Download
+  EPUB** button in the Manuscript toolbar that shows only in Book view (shares the Print
+  button's slot styling; disables + shows "Building…" while `downloadEpub()` runs). ISBN,
+  publisher, description already had editors from Phase 1a — the OPF just reads them.
+- Verified live (Carol reference, injected original prose + cover canvas + a dedication/
+  foreword/acknowledgments toggled on, nothing saved): built the EPUB and parsed the bytes —
+  spine cover → fm(title/copyright/dedication/toc/foreword) → 5 chapters → acknowledgments;
+  every XHTML/OPF/nav doc **well-formed XML**; OPF carries the ISBN identifier + publisher +
+  description + cover-image item + cover meta; **manifest↔zip integrity clean** (no dangling
+  hrefs, every spine idref in the manifest, no undeclared OEBPS files, all required EPUB 3
+  metadata present, exactly one `epub:type="toc"`, valid JPEG SOI/EOI, mimetype
+  first/stored/no-extra/exact); nav lists Foreword + 5 chapters + Acknowledgments (dedication
+  correctly omitted); dedication centered/headless, foreword headed w/ 2 paras, TOC = 5
+  chapter links, copyright "Copyright © 2026 E. M. Hollis". UI: EPUB button visible in Book
+  view + hidden in Manuscript/Edit, cover thumbnail renders in the matter editor, Manuscript
+  view still Courier with zero `.book-*` classes. sw bumped v196→**v197**.
+- **Deferred (one acceptance item):** a formal `epubcheck` pass could not run — this machine
+  has no working JRE and installing a JDK unprompted was out of scope. The structural
+  cross-check above covers the substance of what epubcheck enforces; run `epubcheck` on a
+  real export (and an Apple Books / Send-to-Kindle sideload) when a JRE is available, and note
+  any findings here.
 
 ---
 

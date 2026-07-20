@@ -4089,6 +4089,101 @@ const EPUB_FONT_FILES = {
   crimsonpro: { family: 'Crimson Pro', files: { regular: 'CrimsonPro-Regular.woff2', italic: 'CrimsonPro-Italic.woff2', bold: 'CrimsonPro-Bold.woff2', bolditalic: 'CrimsonPro-BoldItalic.woff2' } },
 };
 
+// Wrap inner markup in an XHTML5 document shell (charset, title, book.css link).
+function epubXhtmlDoc(titleText, bodyClass, innerHtml) {
+  return '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n' +
+    '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">\n' +
+    '<head>\n<meta charset="utf-8"/>\n<title>' + escHtml(titleText || '') + '</title>\n' +
+    '<link rel="stylesheet" type="text/css" href="book.css"/>\n</head>\n' +
+    '<body' + (bodyClass ? ' class="' + bodyClass + '"' : '') + '>\n' + innerHtml + '\n</body>\n</html>\n';
+}
+// A matter block's free text → paragraph markup (double-newline splits, book
+// emphasis only). Shared by copyright rights text and every freetext block.
+function epubMatterParas(text) {
+  return (text || '').split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)
+    .map((p) => '<p>' + emphToXhtml(p) + '</p>').join('\n');
+}
+// Decode a data: URL to { bytes, mime }. Covers are re-encoded to JPEG on upload,
+// but this stays general (base64 or percent-encoded, any image mime).
+function dataUrlToBytes(dataUrl) {
+  const comma = dataUrl.indexOf(',');
+  const meta = dataUrl.slice(5, comma); // after "data:"
+  const mime = meta.split(';')[0] || 'application/octet-stream';
+  const data = dataUrl.slice(comma + 1);
+  if (/;base64/i.test(meta)) {
+    const bin = atob(data);
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return { bytes: u8, mime };
+  }
+  return { bytes: new TextEncoder().encode(decodeURIComponent(data)), mime };
+}
+// Read an image File, downscale so its longest side ≤ maxDim, and re-encode as a
+// JPEG data URL. Normalizes any upload (huge PNG, HEIC-via-browser, etc.) to a
+// compact, metadata-free cover the EPUB can embed. Runs on a canvas — no deps.
+function downscaleImageToJpeg(file, maxDim, quality) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Could not read the image file.'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Could not decode the image.'));
+      img.onload = () => {
+        let w = img.naturalWidth, h = img.naturalHeight;
+        const scale = Math.min(1, maxDim / Math.max(w, h));
+        w = Math.max(1, Math.round(w * scale)); h = Math.max(1, Math.round(h * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+// One matter block → { docTitle, bodyClass, inner, nav }. `nav` is the TOC label
+// (or null to keep it out of the reading-order nav). Mirrors buildBookSheets'
+// front/back rendering, but as XHTML strings for the ebook.
+function epubMatterDoc(b, ctx) {
+  const kind = b.kind;
+  if (kind === 'halftitle') {
+    return { docTitle: ctx.title, bodyClass: 'matter halftitle', nav: null,
+      inner: '<div class="mt-center"><p class="book-title">' + escHtml(ctx.title) + '</p></div>' };
+  }
+  if (kind === 'titlepage') {
+    let inner = '<div class="mt-center"><p class="book-title">' + escHtml(ctx.title) + '</p>';
+    if (ctx.author) inner += '<p class="book-author">' + escHtml(ctx.author) + '</p>';
+    inner += '</div>';
+    return { docTitle: 'Title Page', bodyClass: 'matter titlepage', inner, nav: null };
+  }
+  if (kind === 'copyright') {
+    const year = b.copyrightYear || String(new Date().getFullYear());
+    const holder = b.copyrightHolder || ctx.author || '';
+    let inner = '<div class="copyright"><p>Copyright © ' + escHtml(year + (holder ? ' ' + holder : '')) + '</p>';
+    if (b.edition) inner += '<p>' + escHtml(b.edition) + '</p>';
+    inner += '<p>All rights reserved.</p>';
+    if (b.rightsText && b.rightsText.trim()) inner += epubMatterParas(b.rightsText);
+    inner += '</div>';
+    return { docTitle: 'Copyright', bodyClass: 'matter copyright-page', inner, nav: null };
+  }
+  if (kind === 'toc') {
+    // Visual contents page — chapter links only (folios are meaningless in a
+    // reflowable ebook). The machine-readable nav.xhtml is separate.
+    let inner = '<h1 class="matter-title">Contents</h1>\n<ol class="book-contents">';
+    ctx.chapterDocs.forEach((cd) => { inner += '\n<li><a href="' + cd.href + '">' + escHtml(cd.navTitle) + '</a></li>'; });
+    inner += '\n</ol>';
+    return { docTitle: 'Contents', bodyClass: 'matter contents', inner, nav: null };
+  }
+  // Freetext (dedication/epigraph centered & headless by convention; the rest headed).
+  const label = matterKindLabel(kind);
+  const noHeading = NO_HEADING_MATTER_KINDS.has(kind);
+  const heading = noHeading ? '' : '<h1 class="matter-title">' + escHtml(b.title || label) + '</h1>\n';
+  const inner = '<div class="matter-body' + (noHeading ? ' matter-centered' : '') + '">\n' + heading + epubMatterParas(b.text) + '\n</div>';
+  return { docTitle: b.title || label, bodyClass: 'matter', inner, nav: noHeading ? null : (b.title || label) };
+}
+
 // One chapter card → an XHTML5 document. Chapter opener (label + optional title)
 // and paragraphs come from the same theme + cardBodyTokens() the print book uses,
 // so the ebook matches the PDF. Openers/scene-breaks are driven by body classes +
@@ -4119,13 +4214,8 @@ function epubChapterXhtml(chapter, num) {
     body.push('<p' + cls + '>' + emphToXhtml(t.text) + '</p>');
   });
 
-  const title = escHtml((label ? chapterLabelText(theme, num) : cardTitle) || cardTitle || 'Chapter');
-  return '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    '<!DOCTYPE html>\n' +
-    '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">\n' +
-    '<head>\n<meta charset="utf-8"/>\n<title>' + title + '</title>\n' +
-    '<link rel="stylesheet" type="text/css" href="book.css"/>\n</head>\n' +
-    '<body class="opener-' + theme.opener + '">\n' + head + '\n' + body.join('\n') + '\n</body>\n</html>\n';
+  const docTitle = (label ? chapterLabelText(theme, num) : cardTitle) || cardTitle || 'Chapter';
+  return epubXhtmlDoc(docTitle, 'opener-' + theme.opener, head + '\n' + body.join('\n'));
 }
 
 // The in-book stylesheet: the theme's serif face (embedded when fetched), justified
@@ -4152,14 +4242,29 @@ function epubBookCss(fontMeta, haveFonts) {
     ".scene-break-space{margin:2.2em 0;}\n" +
     ".opener-dropcap .first-para::first-letter{float:left;font-size:3.4em;line-height:0.82;padding:0.02em 0.08em 0 0;font-weight:bold;}\n" +
     ".opener-raisedcap .first-para::first-letter{font-size:2.2em;line-height:1;font-weight:bold;}\n" +
-    ".opener-smallcaps .first-para::first-line{font-variant:small-caps;letter-spacing:0.03em;}\n";
+    ".opener-smallcaps .first-para::first-line{font-variant:small-caps;letter-spacing:0.03em;}\n" +
+    // Front/back matter + cover.
+    ".mt-center{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;}\n" +
+    ".book-title{font-size:2em;letter-spacing:0.04em;text-transform:uppercase;margin:0;text-indent:0;text-align:center;}\n" +
+    ".book-author{margin-top:1.5em;font-size:1.1em;text-indent:0;text-align:center;}\n" +
+    ".copyright{margin-top:40vh;font-size:0.85em;line-height:1.7;text-align:center;}\n" +
+    ".copyright p{text-indent:0;text-align:center;}\n" +
+    ".matter-title{text-align:center;font-size:1.4em;font-weight:normal;letter-spacing:0.08em;text-transform:uppercase;margin:2.5em 0 1.5em;}\n" +
+    ".matter-centered{margin-top:20vh;font-style:italic;}\n" +
+    ".matter-centered p{text-indent:0;text-align:center;}\n" +
+    ".book-contents{list-style:none;padding:0;margin:0;}\n" +
+    ".book-contents li{margin:0.4em 0;text-indent:0;}\n" +
+    ".book-contents a{text-decoration:none;color:inherit;}\n" +
+    "body.cover{margin:0;padding:0;}\n" +
+    ".cover-wrap{text-align:center;margin:0;padding:0;}\n" +
+    ".cover-wrap img{max-width:100%;height:auto;}\n";
   return css;
 }
 
-// Build a complete (Phase-4a-scope) EPUB as a Blob. Async: it fetches the theme
-// font's woff2 files to embed them (degrades to a system-serif fallback if any
-// fetch fails — e.g. offline). Chapters only for now; front/back matter + cover
-// are Phase 4b.
+// Build a complete EPUB 3 as a Blob. Async: it fetches the theme font's woff2
+// files to embed them (degrades to a system-serif fallback if any fetch fails —
+// e.g. offline). Reading order: cover → front matter → chapters → back matter,
+// mirroring the print book's front/back matter and cover.
 async function buildEpub() {
   const enc = new TextEncoder();
   const T = (s) => enc.encode(s);
@@ -4184,34 +4289,69 @@ async function buildEpub() {
 
   const uuid = (self.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => { const r = (self.crypto ? crypto.getRandomValues(new Uint8Array(1))[0] : 0) % 16; const v = ch === 'x' ? r : (r & 0x3 | 0x8); return v.toString(16); }));
   const modified = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+  const isbn = (book.meta.isbn || '').replace(/[^0-9Xx]/g, '');
+  const identifier = isbn ? ('urn:isbn:' + isbn) : ('urn:uuid:' + uuid);
 
-  const chapterFiles = chapters.map((ch, i) => ({ id: 'ch' + (i + 1), href: 'ch' + (i + 1) + '.xhtml', xhtml: epubChapterXhtml(ch, i + 1), title: ch.title || ('Chapter ' + (i + 1)) }));
+  // ── Documents, in spine order ─────────────────────────────────────
+  const docs = [];          // { id, href, xhtml, nav }
+  const imageEntries = [];   // cover image bytes
+  let coverManifest = '', coverMeta = '';
 
-  // OPF package: metadata, manifest (css + fonts + nav + chapters), spine.
-  const manifestItems = [];
-  manifestItems.push('<item id="css" href="book.css" media-type="text/css"/>');
-  manifestItems.push('<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>');
+  // Cover first (when set) — image page + cover-image manifest property + the
+  // legacy <meta name="cover"> that Kindle/EPUB2 readers still look for.
+  const coverData = (book.meta.coverImage || '').trim();
+  if (/^data:image\//i.test(coverData)) {
+    const { bytes, mime } = dataUrlToBytes(coverData);
+    const ext = mime === 'image/png' ? 'png' : 'jpg';
+    imageEntries.push({ name: 'OEBPS/cover.' + ext, bytes });
+    coverManifest = '<item id="cover-image" href="cover.' + ext + '" media-type="' + mime + '" properties="cover-image"/>';
+    coverMeta = '<meta name="cover" content="cover-image"/>\n    ';
+    docs.push({ id: 'cover', href: 'cover.xhtml', nav: null,
+      xhtml: epubXhtmlDoc(title, 'cover', '<div class="cover-wrap"><img src="cover.' + ext + '" alt="' + escHtml(title) + '"/></div>') });
+  }
+
+  // Chapters (built first so the visual TOC page can link them).
+  const chapterDocs = chapters.map((ch, i) => ({ id: 'ch' + (i + 1), href: 'ch' + (i + 1) + '.xhtml', xhtml: epubChapterXhtml(ch, i + 1), navTitle: ch.title || ('Chapter ' + (i + 1)) }));
+  const ctx = { title, author, chapterDocs };
+
+  book.matter.front.forEach((b, i) => {
+    if (!b.include) return;
+    const m = epubMatterDoc(b, ctx);
+    docs.push({ id: 'fm' + i, href: 'fm' + i + '.xhtml', nav: m.nav, xhtml: epubXhtmlDoc(m.docTitle, m.bodyClass, m.inner) });
+  });
+  chapterDocs.forEach((cd) => docs.push({ id: cd.id, href: cd.href, xhtml: cd.xhtml, nav: cd.navTitle }));
+  book.matter.back.forEach((b, i) => {
+    if (!b.include) return;
+    const m = epubMatterDoc(b, ctx);
+    docs.push({ id: 'bm' + i, href: 'bm' + i + '.xhtml', nav: m.nav, xhtml: epubXhtmlDoc(m.docTitle, m.bodyClass, m.inner) });
+  });
+
+  // OPF: metadata, manifest (css + nav + cover + fonts + all docs), spine.
+  const manifestItems = ['<item id="css" href="book.css" media-type="text/css"/>',
+    '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>'];
+  if (coverManifest) manifestItems.push(coverManifest);
   if (haveFonts) Object.values(fontMeta.files).forEach((n, i) => manifestItems.push('<item id="font' + i + '" href="fonts/' + n + '" media-type="font/woff2"/>'));
-  chapterFiles.forEach((c) => manifestItems.push('<item id="' + c.id + '" href="' + c.href + '" media-type="application/xhtml+xml"/>'));
-  const spineItems = chapterFiles.map((c) => '<itemref idref="' + c.id + '"/>').join('\n    ');
+  docs.forEach((d) => manifestItems.push('<item id="' + d.id + '" href="' + d.href + '" media-type="application/xhtml+xml"/>'));
+  const spineItems = docs.map((d) => '<itemref idref="' + d.id + '"/>').join('\n    ');
+
+  let metadata = '<dc:identifier id="bookid">' + identifier + '</dc:identifier>\n    ' +
+    '<dc:title>' + escHtml(title) + '</dc:title>\n    ' +
+    '<dc:creator>' + escHtml(author) + '</dc:creator>\n    ' +
+    '<dc:language>en</dc:language>\n    ';
+  if (book.meta.publisher && book.meta.publisher.trim()) metadata += '<dc:publisher>' + escHtml(book.meta.publisher.trim()) + '</dc:publisher>\n    ';
+  if (book.meta.description && book.meta.description.trim()) metadata += '<dc:description>' + escHtml(book.meta.description.trim()) + '</dc:description>\n    ';
+  metadata += coverMeta + '<meta property="dcterms:modified">' + modified + '</meta>';
 
   const opf = '<?xml version="1.0" encoding="UTF-8"?>\n' +
     '<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bookid" xml:lang="en">\n' +
-    '  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n' +
-    '    <dc:identifier id="bookid">urn:uuid:' + uuid + '</dc:identifier>\n' +
-    '    <dc:title>' + escHtml(title) + '</dc:title>\n' +
-    '    <dc:creator>' + escHtml(author) + '</dc:creator>\n' +
-    '    <dc:language>en</dc:language>\n' +
-    '    <meta property="dcterms:modified">' + modified + '</meta>\n' +
-    '  </metadata>\n' +
+    '  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n    ' + metadata + '\n  </metadata>\n' +
     '  <manifest>\n    ' + manifestItems.join('\n    ') + '\n  </manifest>\n' +
     '  <spine>\n    ' + spineItems + '\n  </spine>\n' +
     '</package>\n';
 
-  // EPUB 3 nav document (toc). Front/back-matter entries are Phase 4b.
-  const navList = chapterFiles.map((c) => '      <li><a href="' + c.href + '">' + escHtml(c.title) + '</a></li>').join('\n');
-  const nav = '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    '<!DOCTYPE html>\n' +
+  // EPUB 3 nav (toc): substantive front/back sections + all chapters.
+  const navList = docs.filter((d) => d.nav).map((d) => '      <li><a href="' + d.href + '">' + escHtml(d.nav) + '</a></li>').join('\n');
+  const nav = '<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE html>\n' +
     '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="en" lang="en">\n' +
     '<head><meta charset="utf-8"/><title>' + escHtml(title) + '</title></head>\n' +
     '<body>\n  <nav epub:type="toc" id="toc">\n    <h1>Contents</h1>\n    <ol>\n' + navList + '\n    </ol>\n  </nav>\n</body>\n</html>\n';
@@ -4228,10 +4368,11 @@ async function buildEpub() {
     { name: 'OEBPS/nav.xhtml', bytes: T(nav) },
     { name: 'OEBPS/book.css', bytes: T(epubBookCss(fontMeta, haveFonts)) },
   ];
-  chapterFiles.forEach((c) => entries.push({ name: 'OEBPS/' + c.href, bytes: T(c.xhtml) }));
+  docs.forEach((d) => entries.push({ name: 'OEBPS/' + d.href, bytes: T(d.xhtml) }));
+  imageEntries.forEach((e) => entries.push(e));
   fontEntries.forEach((e) => entries.push(e));
 
-  return { blob: zipStore(entries), entries: entries.map((e) => e.name), haveFonts, chapters: chapterFiles.length };
+  return { blob: zipStore(entries), entries: entries.map((e) => e.name), haveFonts, chapters: chapterDocs.length, docs: docs.length };
 }
 
 // Dev-only trigger (Phase 4a has no UI button — that's 4b). Call from the console:
@@ -5606,6 +5747,19 @@ function buildManuscriptPage(sceneId) {
   const printBtn = el('button', { class: 'ms-print-btn', title: 'Print / Save as PDF' });
   printBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span>Print</span>';
   printBtn.addEventListener('click', () => { if (msMode === 'book') exportBookPDF(); else exportPDF(true); });
+  // Download EPUB (Prose Plot, Book view only) — shares the Print button's slot styling.
+  const epubBtn = (state.format === 'prose') ? el('button', { class: 'ms-print-btn ms-epub-btn', title: 'Download EPUB ebook' }) : null;
+  if (epubBtn) {
+    epubBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h11a2 2 0 0 1 2 2v14H6a2 2 0 0 1-2-2z"/><path d="M17 20h3V7a1 1 0 0 0-1-1h-2"/><line x1="8" y1="8" x2="13" y2="8"/><line x1="8" y1="11" x2="13" y2="11"/></svg><span>EPUB</span>';
+    epubBtn.addEventListener('click', async () => {
+      if (epubBtn.disabled) return;
+      const span = epubBtn.querySelector('span'); const prev = span.textContent;
+      epubBtn.disabled = true; span.textContent = 'Building…';
+      try { await downloadEpub(); }
+      catch (e) { alert('EPUB export failed: ' + (e && e.message ? e.message : e)); }
+      finally { epubBtn.disabled = false; span.textContent = prev; }
+    });
+  }
   const settingsBtn = el('button', { class: 'ms-settings-btn', title: 'Page settings' });
   settingsBtn.innerHTML = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>';
   const navBtn = el('button', { class: 'ms-nav-btn', title: 'Show/hide the outline navigation' });
@@ -5640,6 +5794,7 @@ function buildManuscriptPage(sceneId) {
   // fixed width: exactly one shows per mode, so the row's width stays constant
   // and the Edit | Print View toggle never shifts when you tab between views.
   tbRight.appendChild(focusBtn);
+  if (epubBtn) tbRight.appendChild(epubBtn);
   tbRight.appendChild(printBtn);
   tbRight.appendChild(el('span', { class: 'ms-tb-divider' }));
   tbRight.appendChild(settingsBtn); // settings last — it opens the right-edge drawer
@@ -5776,6 +5931,39 @@ function buildManuscriptPage(sceneId) {
     else descArea.addEventListener('input', () => { book.meta.description = descArea.value; scheduleSave(); });
     descRow.appendChild(descArea);
     metaSec.appendChild(descRow);
+
+    // Cover image — stored as a downscaled JPEG data URL in book.meta.coverImage,
+    // embedded into the EPUB at export (Phase 4b).
+    const coverRow = el('div', { class: 'bm-field' });
+    coverRow.appendChild(el('label', { class: 'bm-field-label', text: 'Cover image' }));
+    const coverBox = el('div', { class: 'bm-cover-box' });
+    const renderCover = () => {
+      coverBox.innerHTML = '';
+      if (book.meta.coverImage) {
+        coverBox.appendChild(el('img', { class: 'bm-cover-thumb', src: book.meta.coverImage, alt: 'Cover' }));
+        if (!state.readonly) {
+          const rm = el('button', { type: 'button', class: 'bm-cover-rm', text: 'Remove cover' });
+          rm.addEventListener('click', () => { book.meta.coverImage = null; scheduleSave(); renderCover(); });
+          coverBox.appendChild(rm);
+        }
+      } else {
+        const fileIn = el('input', { type: 'file', accept: 'image/*', class: 'bm-cover-input', id: 'bm-cover-input' });
+        const lbl = el('label', { class: 'pbtn bm-cover-btn', for: 'bm-cover-input', text: '＋ Choose cover image…' });
+        if (state.readonly) fileIn.disabled = true;
+        fileIn.addEventListener('change', () => {
+          const f = fileIn.files && fileIn.files[0];
+          if (!f) return;
+          downscaleImageToJpeg(f, 1600, 0.82)
+            .then((dataUrl) => { book.meta.coverImage = dataUrl; scheduleSave(); renderCover(); })
+            .catch((e) => alert(e.message || 'Could not read that image.'));
+        });
+        coverBox.appendChild(fileIn);
+        coverBox.appendChild(lbl);
+      }
+    };
+    renderCover();
+    coverRow.appendChild(coverBox);
+    metaSec.appendChild(coverRow);
 
     const buildCol = (section, sectionLabel) => {
       const col = el('div', { class: 'bm-col' });
@@ -6118,6 +6306,7 @@ function buildManuscriptPage(sceneId) {
     // the toggle beside it never shifts. Hidden on Edit (Focus shows there) and
     // on the side modes (title/book-matter have their own Done control).
     printBtn.style.display = (msMode === 'layout' || msMode === 'book') ? '' : 'none';
+    if (epubBtn) epubBtn.style.display = (msMode === 'book') ? '' : 'none'; // EPUB is a Book-view export
     applyNav(); // outline panel + Navigation button reflect Edit/Print state
     applyFocus();
     // Title/book-matter modes have their own inline controls, so the settings
