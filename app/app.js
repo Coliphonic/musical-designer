@@ -3872,7 +3872,7 @@ function buildBookSheets() {
     } else if (b.kind === 'titlepage') {
       const kids = [el('div', { class: 'book-titlepage-title', text: bookTitle })];
       if (author) kids.push(el('div', { class: 'book-titlepage-author', text: author }));
-      pages.push({ zone: 'front', frontIndex: fi, contentEl: mkContent(el('div', { class: 'book-titlepage' }, kids)) });
+      pages.push({ zone: 'front', frontIndex: fi, outlineTitle: 'Title Page', contentEl: mkContent(el('div', { class: 'book-titlepage' }, kids)) });
     } else if (b.kind === 'copyright') {
       const wrap = el('div', { class: 'book-copyright' });
       const year = b.copyrightYear || String(new Date().getFullYear());
@@ -3881,17 +3881,17 @@ function buildBookSheets() {
       if (b.edition) wrap.appendChild(el('p', { class: 'book-copyright-line', text: b.edition }));
       wrap.appendChild(el('p', { class: 'book-copyright-line', text: 'All rights reserved.' }));
       if (b.rightsText && b.rightsText.trim()) renderMatterBody(wrap, b.rightsText);
-      pages.push({ zone: 'front', frontIndex: fi, contentEl: mkContent(wrap) });
+      pages.push({ zone: 'front', frontIndex: fi, outlineTitle: 'Copyright', contentEl: mkContent(wrap) });
     } else if (b.kind === 'toc') {
       // Rows are filled after side/folio assignment so the TOC can show each
       // chapter's real book folio (arabic), not a body-flow ordinal.
       const wrap = el('div', { class: 'book-toc' }, [el('div', { class: 'book-toc-heading', text: 'Contents' })]);
-      pages.push({ zone: 'front', frontIndex: fi, kind: 'toc', tocWrap: wrap, contentEl: mkContent(wrap) });
+      pages.push({ zone: 'front', frontIndex: fi, kind: 'toc', outlineTitle: 'Contents', tocWrap: wrap, contentEl: mkContent(wrap) });
     } else {
       const wrap = el('div', { class: 'book-matter-freetext' });
       if (!NO_HEADING_MATTER_KINDS.has(b.kind)) wrap.appendChild(el('div', { class: 'book-chapter-title', text: b.title || matterKindLabel(b.kind) }));
       renderMatterBody(wrap, b.text);
-      pages.push({ zone: 'front', frontIndex: fi, contentEl: mkContent(wrap) });
+      pages.push({ zone: 'front', frontIndex: fi, outlineTitle: b.title || matterKindLabel(b.kind), contentEl: mkContent(wrap) });
     }
   });
 
@@ -3900,7 +3900,7 @@ function buildBookSheets() {
     pageToks.forEach((tok) => renderBookToken(tok, content));
     const first = pageToks[0];
     const isOpener = !!(first && first.type === 'book-chapter-title');
-    pages.push({ zone: 'body', contentEl: content, isChapterOpener: isOpener, chapterKey: isOpener ? first.key : null });
+    pages.push({ zone: 'body', contentEl: content, isChapterOpener: isOpener, chapterKey: isOpener ? first.key : null, outlineTitle: isOpener ? first.text : null });
   });
 
   book.matter.back.forEach((b) => {
@@ -3908,7 +3908,7 @@ function buildBookSheets() {
     const wrap = el('div', { class: 'book-matter-freetext' });
     wrap.appendChild(el('div', { class: 'book-chapter-title', text: b.title || matterKindLabel(b.kind) }));
     renderMatterBody(wrap, b.text);
-    pages.push({ zone: 'back', contentEl: mkContent(wrap) });
+    pages.push({ zone: 'back', outlineTitle: b.title || matterKindLabel(b.kind), contentEl: mkContent(wrap) });
   });
 
   // ── Pass 2: insert chapterStartRecto blanks ───────────────────────
@@ -3956,10 +3956,12 @@ function buildBookSheets() {
   pages.forEach((p) => {
     if (p.kind !== 'toc') return;
     chapters.forEach((ch) => {
-      p.tocWrap.appendChild(el('div', { class: 'book-toc-row' }, [
+      const row = el('div', { class: 'book-toc-row' }, [
         el('span', { class: 'book-toc-title', text: ch.title }),
         el('span', { class: 'book-toc-num', text: String(chapterFolio[ch.key] || '') }),
-      ]));
+      ]);
+      row.dataset.pdfChapterKey = ch.key;   // PDF export turns each row into a clickable link
+      p.tocWrap.appendChild(row);
     });
   });
 
@@ -3970,6 +3972,9 @@ function buildBookSheets() {
     const sheet = el('div', { class: cls });
     sheet.style.setProperty('--book-font', bookFont);
     applyBookDims(sheet, dims);
+    // PDF export reads these to build bookmarks + resolve TOC links (harmless elsewhere).
+    if (!p.blank && p.outlineTitle) sheet.dataset.pdfOutline = p.outlineTitle;
+    if (p.chapterKey) sheet.dataset.pdfChapterKey = p.chapterKey;
     if (p.headText) sheet.appendChild(el('div', { class: 'book-head', text: p.headText }));
     sheet.appendChild(p.contentEl || el('div', { class: 'book-sheet-content' }));
     if (p.folioText) sheet.appendChild(el('div', { class: 'book-folio', text: p.folioText }));
@@ -5340,6 +5345,666 @@ function pageIsRevised(pageToks, rev) {
   return pageToks.some(hit);
 }
 
+// ============================================================================
+// PDF export engine (dependency-free). Both manuscript and (later) book PDFs are
+// produced by *transcribing* already-rendered DOM sheets: the browser lays the
+// page out, we read back per-word client rects + computed styles and emit them
+// as positioned PDF text runs. No second layout engine, so page breaks/wrapping
+// can never drift from the on-screen view. Manuscript is monospace Courier — one
+// of the 14 standard PDF base fonts — so no font embedding is needed here.
+// ----------------------------------------------------------------------------
+
+// Unicode -> WinAnsi (CP1252) byte for the punctuation the app actually emits.
+// Base Latin-1 (0x20..0xFF) maps 1:1; these are the CP1252 exceptions 0x80..0x9F.
+const PDF_WINANSI = {
+  0x20ac: 0x80, 0x201a: 0x82, 0x0192: 0x83, 0x201e: 0x84, 0x2026: 0x85,
+  0x2020: 0x86, 0x2021: 0x87, 0x02c6: 0x88, 0x2030: 0x89, 0x0160: 0x8a,
+  0x2039: 0x8b, 0x0152: 0x8c, 0x017d: 0x8e, 0x2018: 0x91, 0x2019: 0x92,
+  0x201c: 0x93, 0x201d: 0x94, 0x2022: 0x95, 0x2013: 0x96, 0x2014: 0x97,
+  0x02dc: 0x98, 0x2122: 0x99, 0x0161: 0x9a, 0x203a: 0x9b, 0x0153: 0x9c,
+  0x017e: 0x9e, 0x0178: 0x9f,
+};
+
+// Encode a JS string to a PDF literal-string body in WinAnsi, escaping ( ) \ and
+// octal-escaping high bytes. Unmapped chars degrade to '?'.
+function pdfWinAnsiLiteral(str) {
+  let out = '';
+  for (const ch of str) {
+    const cp = ch.codePointAt(0);
+    let b;
+    if (cp === 0x2011) b = 0x2d;                    // non-breaking hyphen -> '-'
+    else if (cp === 0x00a0) b = 0x20;               // nbsp -> space
+    else if (cp <= 0xff) b = cp;
+    else if (PDF_WINANSI[cp] != null) b = PDF_WINANSI[cp];
+    else b = 0x3f;                                  // '?'
+    if (b === 0x28 || b === 0x29 || b === 0x5c) out += '\\' + String.fromCharCode(b);
+    else if (b < 0x20 || b > 0x7e) out += '\\' + b.toString(8).padStart(3, '0');
+    else out += String.fromCharCode(b);
+  }
+  return out;
+}
+
+// A PDF document text string (Info values, outline titles). ASCII stays a literal
+// (...) string; anything else is emitted as UTF-16BE with a BOM, which every
+// reader decodes unambiguously. (Literal high bytes are read as PDFDocEncoding,
+// not WinAnsi, so an em-dash would otherwise mojibake — hence the UTF-16 path.)
+function pdfTextString(str) {
+  str = str == null ? '' : String(str);
+  if (/^[\x20-\x7e]*$/.test(str)) return '(' + str.replace(/[\\()]/g, '\\$&') + ')';
+  let hex = 'FEFF';
+  for (const ch of str) {
+    const cp = ch.codePointAt(0);
+    if (cp > 0xffff) { const c = cp - 0x10000; hex += (0xd800 + (c >> 10)).toString(16).padStart(4, '0') + (0xdc00 + (c & 0x3ff)).toString(16).padStart(4, '0'); }
+    else hex += cp.toString(16).padStart(4, '0');
+  }
+  return '<' + hex.toUpperCase() + '>';
+}
+
+// zlib(deflate) a Uint8Array via the platform CompressionStream -> FlateDecode.
+async function pdfDeflate(bytes) {
+  const cs = new CompressionStream('deflate');
+  const writer = cs.writable.getWriter();
+  writer.write(bytes); writer.close();
+  const buf = await new Response(cs.readable).arrayBuffer();
+  return new Uint8Array(buf);
+}
+
+// The base-14 font a (family, bold, italic) run maps to.
+function pdfBase14(family, bold, italic) {
+  const f = (family || '').toLowerCase();
+  const fam = /times|serif|garamond|literata|crimson|georgia/.test(f) ? 'Times'
+    : /courier|mono/.test(f) ? 'Courier'
+    : 'Helvetica';
+  if (fam === 'Times') {
+    if (bold && italic) return 'Times-BoldItalic';
+    if (bold) return 'Times-Bold';
+    if (italic) return 'Times-Italic';
+    return 'Times-Roman';
+  }
+  return fam + (bold && italic ? '-BoldOblique' : bold ? '-Bold' : italic ? '-Oblique' : '');
+}
+
+// ---- TrueType parser (Book PDF) --------------------------------------------
+// Just enough to embed a font as a CIDFontType2: unitsPerEm, glyph count,
+// per-glyph advances (hmtx), a Unicode->GID cmap (format 4/12), and descriptor
+// metrics (bbox, ascent, capHeight, italic). Verified against fontTools.
+function pdfParseTTF(bytes) {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const u16 = (o) => dv.getUint16(o), i16 = (o) => dv.getInt16(o), u32 = (o) => dv.getUint32(o), i32 = (o) => dv.getInt32(o);
+  const numTables = u16(4);
+  const tbl = {};
+  for (let i = 0; i < numTables; i++) {
+    const r = 12 + i * 16;
+    tbl[String.fromCharCode(bytes[r], bytes[r + 1], bytes[r + 2], bytes[r + 3])] = { offset: u32(r + 8), length: u32(r + 12) };
+  }
+  const head = tbl.head.offset;
+  const unitsPerEm = u16(head + 18);
+  const bbox = [i16(head + 36), i16(head + 38), i16(head + 40), i16(head + 42)];
+  const hhea = tbl.hhea.offset;
+  const ascent = i16(hhea + 4), descent = i16(hhea + 6), numHM = u16(hhea + 34);
+  const numGlyphs = u16(tbl.maxp.offset + 4);
+  const hm = tbl.hmtx.offset;
+  const advance = (gid) => u16(hm + (gid < numHM ? gid : numHM - 1) * 4);
+  let capHeight = 0, italicAngle = 0, weight = 400;
+  if (tbl['OS/2']) { const o = tbl['OS/2'].offset, ver = u16(o); weight = u16(o + 4); if (ver >= 2 && tbl['OS/2'].length >= 90) capHeight = i16(o + 88); }
+  if (tbl.post) italicAngle = i32(tbl.post.offset + 4) / 65536;
+  if (!capHeight) capHeight = Math.round(ascent * 0.7);
+  const cmap = pdfParseCmap(dv, tbl.cmap.offset, u16, i16, u32);
+  return { unitsPerEm, bbox, ascent, descent, numGlyphs, capHeight, italicAngle, weight, advance, cmap, raw: bytes };
+}
+function pdfParseCmap(dv, base, u16, i16, u32) {
+  const n = u16(base + 2);
+  let best = -1, bestScore = -1;
+  for (let i = 0; i < n; i++) {
+    const r = base + 4 + i * 8, plat = u16(r), enc = u16(r + 2), off = u32(r + 4);
+    let score = (plat === 3 && enc === 10) ? 5 : (plat === 0 && enc >= 4) ? 5 : (plat === 3 && enc === 1) ? 4 : (plat === 0) ? 3 : 0;
+    if (score > bestScore) { bestScore = score; best = base + off; }
+  }
+  const map = {};
+  if (best < 0) return map;
+  const fmt = u16(best);
+  if (fmt === 4) {
+    const segX2 = u16(best + 6), segCount = segX2 / 2;
+    const endO = best + 14, startO = endO + segX2 + 2, deltaO = startO + segX2, rangeO = deltaO + segX2;
+    for (let s = 0; s < segCount; s++) {
+      const end = u16(endO + s * 2), start = u16(startO + s * 2), delta = i16(deltaO + s * 2), rangeOff = u16(rangeO + s * 2);
+      if (start === 0xffff) continue;
+      for (let c = start; c <= end; c++) {
+        let g;
+        if (rangeOff === 0) g = (c + delta) & 0xffff;
+        else { g = u16(rangeO + s * 2 + rangeOff + (c - start) * 2); if (g !== 0) g = (g + delta) & 0xffff; }
+        if (g !== 0) map[c] = g;
+      }
+    }
+  } else if (fmt === 12) {
+    const nGroups = u32(best + 12);
+    for (let gI = 0; gI < nGroups; gI++) {
+      const r = best + 16 + gI * 12, startC = u32(r), endC = u32(r + 4), startG = u32(r + 8);
+      for (let c = startC; c <= endC; c++) map[c] = startG + (c - startC);
+    }
+  }
+  return map;
+}
+
+// Minimal PDF 1.7 document builder. addPage returns a per-page drawing API:
+// text() draws a base-14 run (manuscript, WinAnsi), textEmbed() draws an
+// embedded-TrueType run as a hex string of 2-byte glyph IDs (book). toBlob
+// (async, for the deflate) serializes catalog/pages/fonts/xref/trailer.
+function createPdf(meta) {
+  const pages = [];
+  const fontReg = {};   // key -> { token, kind:'b14'|'embed', ... }
+  const outline = [];   // flat, reading order: { title, pageIndex, level } (level 0/1)
+  const annots = [];    // link annotations: { pageIndex, rect:[x0,y0,x1,y1]pt, dest:pageIndex }
+  let fontSeq = 0;
+  function b14Token(name) { const k = 'b14:' + name; if (!fontReg[k]) { fontSeq += 1; fontReg[k] = { token: 'F' + fontSeq, kind: 'b14', name }; } return fontReg[k].token; }
+  function embedEntry(key, ttf, psname) { const k = 'em:' + key; if (!fontReg[k]) { fontSeq += 1; fontReg[k] = { token: 'F' + fontSeq, kind: 'embed', ttf, psname: (psname || ('Font' + fontSeq)).replace(/[^\w-]/g, ''), key, usedGids: new Set([0]), gidToUni: new Map() }; } return fontReg[k]; }
+  function tokenEntry(tok) { for (const k in fontReg) if (fontReg[k].token === tok) return fontReg[k]; return null; }
+  function fmt(n) { return (Math.round(n * 1000) / 1000).toString(); }
+
+  function addPage(wPt, hPt) {
+    const page = { w: wPt, h: hPt, ops: [], tokens: new Set() };
+    const pageIndex = pages.length;
+    const api = {
+      index: pageIndex,
+      text(x, y, str, opt) {
+        opt = opt || {};
+        if (!str) return;
+        const tok = b14Token(pdfBase14(opt.family, opt.bold, opt.italic)); page.tokens.add(tok);
+        const c = opt.color || [0, 0, 0];
+        page.ops.push('q ' + fmt(c[0]) + ' ' + fmt(c[1]) + ' ' + fmt(c[2]) + ' rg BT /' + tok +
+          ' ' + fmt(opt.size || 12) + ' Tf 1 0 0 1 ' + fmt(x) + ' ' + fmt(y) + ' Tm (' +
+          pdfWinAnsiLiteral(str) + ') Tj ET Q');
+      },
+      textEmbed(x, y, str, opt) {
+        opt = opt || {};
+        if (!str) return;
+        const e = embedEntry(opt.fontKey, opt.ttf, opt.psname); page.tokens.add(e.token);
+        const c = opt.color || [0, 0, 0];
+        let hex = '';
+        for (const ch of str) { const cp = ch.codePointAt(0); const gid = e.ttf.cmap[cp] || 0; e.usedGids.add(gid); if (gid && !e.gidToUni.has(gid)) e.gidToUni.set(gid, cp); hex += gid.toString(16).padStart(4, '0'); }
+        page.ops.push('q ' + fmt(c[0]) + ' ' + fmt(c[1]) + ' ' + fmt(c[2]) + ' rg BT /' + e.token +
+          ' ' + fmt(opt.size || 12) + ' Tf 1 0 0 1 ' + fmt(x) + ' ' + fmt(y) + ' Tm <' + hex + '> Tj ET Q');
+      },
+      rect(x, y, w, h, color) {
+        const c = color || [0, 0, 0];
+        page.ops.push('q ' + fmt(c[0]) + ' ' + fmt(c[1]) + ' ' + fmt(c[2]) + ' rg ' +
+          fmt(x) + ' ' + fmt(y) + ' ' + fmt(w) + ' ' + fmt(h) + ' re f Q');
+      },
+    };
+    pages.push(page);
+    return api;
+  }
+
+  async function toBlob() {
+    const enc = new TextEncoder();
+    const chunks = [];
+    let offset = 0;
+    const xref = [];
+    const put = (b) => { chunks.push(b); offset += b.length; };
+    const putStr = (s) => put(enc.encode(s));
+    const obj = (id, body) => { xref[id] = offset; putStr(id + ' 0 obj\n' + body + '\nendobj\n'); };
+
+    putStr('%PDF-1.7\n%\xe2\xe3\xcf\xd3\n');
+
+    const nPages = pages.length;
+    const pageIds = [], contentIds = [];
+    let next = 3;
+    for (let i = 0; i < nPages; i++) { pageIds.push(next++); contentIds.push(next++); }
+    const entries = Object.values(fontReg);
+    for (const e of entries) { if (e.kind === 'b14') e.oid = next++; else { e.type0 = next++; e.cid = next++; e.fd = next++; e.ff = next++; e.tu = next++; } }
+    const infoId = next++;
+    const pageAnnots = annots.map((a) => ({ ...a, id: next++ }));
+    let outlineRootId = 0;
+    if (outline.length) { outlineRootId = next++; for (const o of outline) o.id = next++; }
+
+    obj(1, '<< /Type /Catalog /Pages 2 0 R' +
+      (outline.length ? ' /Outlines ' + outlineRootId + ' 0 R /PageMode /UseOutlines' : '') + ' >>');
+    obj(2, '<< /Type /Pages /Kids [' + pageIds.map((id) => id + ' 0 R').join(' ') + '] /Count ' + nPages + ' >>');
+
+    for (let i = 0; i < nPages; i++) {
+      const p = pages[i];
+      const fontRes = [...p.tokens].map((tok) => { const e = tokenEntry(tok); return '/' + tok + ' ' + (e.kind === 'b14' ? e.oid : e.type0) + ' 0 R'; }).join(' ');
+      const myAnnots = pageAnnots.filter((a) => a.pageIndex === i);
+      const annotStr = myAnnots.length ? ' /Annots [' + myAnnots.map((a) => a.id + ' 0 R').join(' ') + ']' : '';
+      obj(pageIds[i], '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + fmt(p.w) + ' ' + fmt(p.h) +
+        '] /Resources << /Font << ' + fontRes + ' >> >> /Contents ' + contentIds[i] + ' 0 R' + annotStr + ' >>');
+      const comp = await pdfDeflate(enc.encode(p.ops.join('\n')));
+      xref[contentIds[i]] = offset;
+      putStr(contentIds[i] + ' 0 obj\n<< /Length ' + comp.length + ' /Filter /FlateDecode >>\nstream\n');
+      put(comp);
+      putStr('\nendstream\nendobj\n');
+    }
+
+    for (const e of entries) {
+      if (e.kind === 'b14') { obj(e.oid, '<< /Type /Font /Subtype /Type1 /BaseFont /' + e.name + ' /Encoding /WinAnsiEncoding >>'); continue; }
+      const ttf = e.ttf, scale = 1000 / ttf.unitsPerEm, sc = (v) => Math.round(v * scale);
+      let widths = ''; for (let g = 0; g < ttf.numGlyphs; g++) widths += (g ? ' ' : '') + sc(ttf.advance(g));
+      const bbox = ttf.bbox.map(sc);
+      const flags = 32 | 2 | (ttf.italicAngle ? 64 : 0); // nonsymbolic serif (+italic)
+      const stemV = ttf.weight >= 600 ? 120 : 80;
+      let bf = '', cnt = 0;
+      for (const [gid, cp] of e.gidToUni.entries()) {
+        let u;
+        if (cp > 0xffff) { const c = cp - 0x10000; u = (0xd800 + (c >> 10)).toString(16).padStart(4, '0') + (0xdc00 + (c & 0x3ff)).toString(16).padStart(4, '0'); }
+        else u = cp.toString(16).padStart(4, '0');
+        bf += '<' + gid.toString(16).padStart(4, '0') + '> <' + u + '>\n'; cnt++;
+      }
+      const cmapStr = '/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n' + cnt + ' beginbfchar\n' + bf + 'endbfchar\nendcmap\nCMapName currentdict /CMap defineresource pop\nend\nend';
+      const tuComp = await pdfDeflate(enc.encode(cmapStr));
+      const ffComp = await pdfDeflate(ttf.raw);
+      obj(e.type0, '<< /Type /Font /Subtype /Type0 /BaseFont /' + e.psname + ' /Encoding /Identity-H /DescendantFonts [' + e.cid + ' 0 R] /ToUnicode ' + e.tu + ' 0 R >>');
+      obj(e.cid, '<< /Type /Font /Subtype /CIDFontType2 /BaseFont /' + e.psname + ' /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor ' + e.fd + ' 0 R /CIDToGIDMap /Identity /DW 1000 /W [0 [' + widths + ']] >>');
+      obj(e.fd, '<< /Type /FontDescriptor /FontName /' + e.psname + ' /Flags ' + flags + ' /FontBBox [' + bbox.join(' ') + '] /ItalicAngle ' + Math.round(ttf.italicAngle) + ' /Ascent ' + sc(ttf.ascent) + ' /Descent ' + sc(ttf.descent) + ' /CapHeight ' + sc(ttf.capHeight) + ' /StemV ' + stemV + ' /FontFile2 ' + e.ff + ' 0 R >>');
+      xref[e.ff] = offset; putStr(e.ff + ' 0 obj\n<< /Length ' + ffComp.length + ' /Length1 ' + ttf.raw.length + ' /Filter /FlateDecode >>\nstream\n'); put(ffComp); putStr('\nendstream\nendobj\n');
+      xref[e.tu] = offset; putStr(e.tu + ' 0 obj\n<< /Length ' + tuComp.length + ' /Filter /FlateDecode >>\nstream\n'); put(tuComp); putStr('\nendstream\nendobj\n');
+    }
+
+    // Internal link annotations — each jumps to a whole destination page (/Fit).
+    for (const a of pageAnnots) {
+      obj(a.id, '<< /Type /Annot /Subtype /Link /Rect [' + a.rect.map(fmt).join(' ') +
+        '] /Border [0 0 0] /Dest [' + pageIds[a.dest] + ' 0 R /Fit] >>');
+    }
+
+    // Outline (bookmarks). Flat list with levels 0/1 → a two-level tree: each
+    // level-1 item nests under the most recent level-0 item.
+    if (outline.length) {
+      const roots = [];
+      let lastTop = null; // most recent level-0 item; only level-0 items can parent
+      for (const n of outline) {
+        n.children = []; n.parent = null;
+        if (n.level > 0 && lastTop) { n.parent = lastTop; lastTop.children.push(n); }
+        else { roots.push(n); lastTop = n.level === 0 ? n : lastTop; }
+      }
+      const linkSibs = (list) => list.forEach((n, k) => { n.prev = k > 0 ? list[k - 1] : null; n.next = k < list.length - 1 ? list[k + 1] : null; });
+      linkSibs(roots); outline.forEach((n) => { if (n.children.length) linkSibs(n.children); });
+      obj(outlineRootId, '<< /Type /Outlines /First ' + roots[0].id + ' 0 R /Last ' +
+        roots[roots.length - 1].id + ' 0 R /Count ' + outline.length + ' >>');
+      for (const n of outline) {
+        let s = '<< /Title ' + pdfTextString(n.title) + ' /Parent ' + (n.parent ? n.parent.id : outlineRootId) + ' 0 R';
+        if (n.prev) s += ' /Prev ' + n.prev.id + ' 0 R';
+        if (n.next) s += ' /Next ' + n.next.id + ' 0 R';
+        if (n.children.length) s += ' /First ' + n.children[0].id + ' 0 R /Last ' + n.children[n.children.length - 1].id + ' 0 R /Count ' + n.children.length;
+        s += ' /Dest [' + pageIds[n.pageIndex] + ' 0 R /Fit] >>';
+        obj(n.id, s);
+      }
+    }
+
+    const m = meta || {};
+    const info = [];
+    if (m.title) info.push('/Title ' + pdfTextString(m.title));
+    if (m.author) info.push('/Author ' + pdfTextString(m.author));
+    if (m.subject) info.push('/Subject ' + pdfTextString(m.subject));
+    if (m.keywords) info.push('/Keywords ' + pdfTextString(m.keywords));
+    info.push('/Creator ' + pdfTextString(m.creator || 'Plot Suite'));
+    info.push('/Producer ' + pdfTextString(m.producer || 'Plot Suite'));
+    if (m.date) { info.push('/CreationDate (' + m.date + ')'); info.push('/ModDate (' + m.date + ')'); }
+    obj(infoId, '<< ' + info.join(' ') + ' >>');
+
+    const xrefStart = offset;
+    const count = next;
+    let xr = 'xref\n0 ' + count + '\n0000000000 65535 f \n';
+    for (let id = 1; id < count; id++) xr += String(xref[id] || 0).padStart(10, '0') + ' 00000 n \n';
+    putStr(xr);
+    putStr('trailer\n<< /Size ' + count + ' /Root 1 0 R /Info ' + infoId + ' 0 R >>\nstartxref\n' + xrefStart + '\n%%EOF');
+
+    return new Blob(chunks, { type: 'application/pdf' });
+  }
+
+  // Navigation: register a bookmark (outline item, level 0/1) or an internal link
+  // annotation. Both jump to a whole page (/Fit), so no coordinate math is needed.
+  function addOutline(title, pageIndex, level) { if (title && pageIndex != null) outline.push({ title: String(title), pageIndex, level: level || 0 }); }
+  function addLink(pageIndex, rect, destPageIndex) { if (destPageIndex != null) annots.push({ pageIndex, rect, dest: destPageIndex }); }
+
+  return { addPage, toBlob, addOutline, addLink };
+}
+
+// ---- DOM -> PDF transcriber -------------------------------------------------
+const PDF_PX_TO_PT = 72 / 96; // CSS px (96/in) -> PDF pt (72/in)
+
+let _pdfMeasureCtx = null;
+// fontBoundingBoxAscent matches the Range-rect top reference (verified: a 16px
+// Courier line's baseline sits exactly this far below its client-rect top).
+function pdfAscent(fontStr) {
+  if (!_pdfMeasureCtx) _pdfMeasureCtx = document.createElement('canvas').getContext('2d');
+  _pdfMeasureCtx.font = fontStr;
+  return _pdfMeasureCtx.measureText('Hg').fontBoundingBoxAscent;
+}
+function pdfFontString(cs) { return cs.fontStyle + ' ' + cs.fontWeight + ' ' + cs.fontSize + ' ' + cs.fontFamily; }
+function pdfParseColor(str) {
+  const m = /rgba?\(([^)]+)\)/.exec(str || '');
+  if (!m) return [0, 0, 0];
+  const p = m[1].split(',').map((s) => parseFloat(s));
+  return [p[0] / 255, p[1] / 255, p[2] / 255];
+}
+function pdfWordRuns(text) {
+  const runs = [];
+  const re = /\S+/g; let m;
+  while ((m = re.exec(text))) runs.push({ start: m.index, end: m.index + m[0].length, text: m[0] });
+  return runs;
+}
+
+// Transcribe one rendered sheet element onto a new PDF page (sized to the sheet).
+function pdfTranscribeSheet(pdf, sheet) {
+  const sr = sheet.getBoundingClientRect();
+  const pageHpx = sr.height;
+  const page = pdf.addPage(sr.width * PDF_PX_TO_PT, pageHpx * PDF_PX_TO_PT);
+  const xPt = (cssLeft) => (cssLeft - sr.left) * PDF_PX_TO_PT;
+  const yPt = (topFromSheet) => (pageHpx - topFromSheet) * PDF_PX_TO_PT;
+
+  const walker = document.createTreeWalker(sheet, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      if (!n.nodeValue || !/\S/.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
+      const cs = getComputedStyle(n.parentElement);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  let node;
+  while ((node = walker.nextNode())) {
+    const cs = getComputedStyle(node.parentElement);
+    const ascent = pdfAscent(pdfFontString(cs));
+    const sizePt = parseFloat(cs.fontSize) * PDF_PX_TO_PT;
+    const bold = parseInt(cs.fontWeight, 10) >= 600;
+    const italic = /italic|oblique/.test(cs.fontStyle);
+    const color = pdfParseColor(cs.color);
+    const family = cs.fontFamily;
+    const deco = cs.textDecorationLine || cs.textDecoration || '';
+    const underline = /underline/.test(deco), strike = /line-through/.test(deco);
+
+    for (const run of pdfWordRuns(node.nodeValue)) {
+      const range = document.createRange();
+      range.setStart(node, run.start); range.setEnd(node, run.end);
+      const rects = range.getClientRects();
+      if (rects.length) {
+        const rect = rects[0];
+        page.text(xPt(rect.left), yPt((rect.top - sr.top) + ascent), run.text, { family, size: sizePt, bold, italic, color });
+      }
+    }
+
+    if (underline || strike) {
+      const nr = document.createRange(); nr.selectNodeContents(node);
+      const thick = Math.max(0.5, sizePt * 0.055);
+      for (const rect of nr.getClientRects()) {
+        const base = (rect.top - sr.top) + ascent;
+        if (underline) page.rect(xPt(rect.left), yPt(base + Math.max(1.5, sizePt * 0.12)), rect.width * PDF_PX_TO_PT, thick, color);
+        if (strike) page.rect(xPt(rect.left), yPt(base - ascent * 0.32), rect.width * PDF_PX_TO_PT, thick, color);
+      }
+    }
+  }
+  return page;
+}
+
+// PDF date string: D:YYYYMMDDHHmmSS±HH'mm' (Info CreationDate/ModDate).
+function pdfDateString(d) {
+  const p = (n, w) => String(Math.abs(n)).padStart(w || 2, '0');
+  const off = -d.getTimezoneOffset(); // minutes east of UTC
+  const sign = off >= 0 ? '+' : '-';
+  const tz = off === 0 ? 'Z' : sign + p(Math.trunc(off / 60)) + "'" + p(off % 60) + "'";
+  return 'D:' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) +
+    p(d.getHours()) + p(d.getMinutes()) + p(d.getSeconds()) + tz;
+}
+
+// A readable, filesystem-safe download name from the show title.
+function pdfFilename(title, ext) {
+  const base = (title || 'Untitled').replace(/[\/\\:*?"<>|]+/g, '').replace(/\s+/g, ' ').trim() || 'Untitled';
+  return base + '.' + ext;
+}
+
+// Manuscript PDF for Song Plot and Prose Plot (same ms-sheet render path). Builds
+// the sheets offscreen inside #pdf-print-root (so paper colors apply), transcribes
+// each to a PDF page, and downloads a titled file with real metadata.
+async function exportManuscriptPDF(includeTitlePages, revisedOnly) {
+  const old = document.getElementById('pdf-print-root'); if (old) old.remove();
+  const root = el('div', { id: 'pdf-print-root' });
+  // #pdf-print-root is display:none on screen (shown only under @media print);
+  // force it visible off-viewport so the sheets get real layout to transcribe.
+  // The id still applies the paper-color rules (e.g. #pdf-print-root .lw-note-ms).
+  // Ligatures OFF: the screen webfont (Courier Prime) ligates "fi"/"fl", laying a
+  // word out ~1 char narrower than the base-14 Courier we draw with — which would
+  // collapse the following space. Disabling them makes layout true-monospace, the
+  // canonical manuscript look and an exact width match for PDF Courier.
+  root.style.cssText = 'display:block; position:absolute; left:-99999px; top:0; width:816px;'
+    + ' font-variant-ligatures:none; font-feature-settings:"liga" 0, "clig" 0, "dlig" 0, "hlig" 0;';
+
+  if (includeTitlePages) {
+    const tp = buildTitlePages();
+    tp.querySelectorAll('[contenteditable]').forEach((e) => e.removeAttribute('contenteditable'));
+    Array.from(tp.children).forEach((sheet) => root.appendChild(sheet));
+  }
+
+  const toks = buildContentTokens(null);
+  let pages = paginateTokens(toks);
+  const total = pages.length;
+  if (revisedOnly && state.currentRev) pages = pages.filter((p) => pageIsRevised(p, state.currentRev));
+  if (!pages.length) { alert('No revised pages — nothing has changed under the current revision yet.'); return; }
+  pages.forEach((pageToks, pi) => {
+    const sheet = el('div', { class: 'ms-sheet' });
+    const isFirst = !revisedOnly && pi === 0;
+    sheet.appendChild(renderSheetHeader(pageToks.label || (pi + 1), total, isFirst));
+    const content = el('div', { class: 'ms-sheet-content' });
+    pageToks.forEach((tok) => renderPageToken(tok, content));
+    sheet.appendChild(content);
+    root.appendChild(sheet);
+  });
+
+  document.body.appendChild(root);
+  if (document.fonts && document.fonts.ready) { try { await document.fonts.ready; } catch (e) { /* fonts already loaded */ } }
+
+  const isProse = state.format === 'prose';
+  const meta = {
+    title: state.title || 'Untitled', author: (state.titlePage && state.titlePage.authors) || '',
+    subject: isProse ? 'Manuscript' : 'Libretto manuscript',
+    creator: isProse ? 'Prose Plot' : 'Song Plot', producer: isProse ? 'Prose Plot' : 'Song Plot',
+    date: pdfDateString(new Date()),
+  };
+  const pdf = createPdf(meta);
+
+  // Transcribe each sheet, and build bookmarks from the heading tokens it carries:
+  // act headers are top-level, scene/song headers nest one level under (or sit at
+  // top level when the manuscript has no acts). Points at the page the heading opens.
+  const sheets = [...root.querySelectorAll('.ms-sheet')];
+  const anyActs = !!root.querySelector('.lw-act-header');
+  sheets.forEach((sheet, i) => {
+    pdfTranscribeSheet(pdf, sheet);
+    sheet.querySelectorAll('.lw-act-header, .lw-scene-header, .lw-song-header').forEach((h) => {
+      const isAct = h.classList.contains('lw-act-header');
+      const title = (h.textContent || '').trim();
+      if (title) pdf.addOutline(title, i, isAct ? 0 : (anyActs ? 1 : 0));
+    });
+  });
+
+  const blob = await pdf.toBlob();
+  root.remove();
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = pdfFilename(state.title, 'pdf');
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// ---- Book PDF (Prose Plot) — embedded serif fonts + justified transcription --
+// The book uses real proportional serif fonts (EB Garamond / Literata / Crimson),
+// so the PDF embeds them (see createPdf's textEmbed / TTF path). TrueType copies
+// live beside the woff2 the screen uses (same metrics), fetched only at export.
+const PDF_BOOK_FONT_FILES = {
+  ebgaramond: { regular: 'EBGaramond-Regular', bold: 'EBGaramond-Bold', italic: 'EBGaramond-Italic', bolditalic: 'EBGaramond-BoldItalic', family: 'EB Garamond' },
+  literata: { regular: 'Literata-Regular', bold: 'Literata-Bold', italic: 'Literata-Italic', bolditalic: 'Literata-BoldItalic', family: 'Literata' },
+  crimsonpro: { regular: 'CrimsonPro-Regular', bold: 'CrimsonPro-Bold', italic: 'CrimsonPro-Italic', bolditalic: 'CrimsonPro-BoldItalic', family: 'Crimson Pro' },
+};
+const _pdfBookFontCache = {};
+async function pdfLoadBookFonts(id) {
+  const files = PDF_BOOK_FONT_FILES[id] || PDF_BOOK_FONT_FILES.ebgaramond;
+  const out = {};
+  for (const style of ['regular', 'bold', 'italic', 'bolditalic']) {
+    const name = files[style];
+    if (!_pdfBookFontCache[name]) {
+      const res = await fetch('/fonts/' + name + '.ttf');
+      if (!res.ok) throw new Error('font ' + name + ' failed to load (' + res.status + ')');
+      const parsed = pdfParseTTF(new Uint8Array(await res.arrayBuffer()));
+      parsed.psname = name;
+      _pdfBookFontCache[name] = parsed;
+    }
+    out[style] = _pdfBookFontCache[name];
+  }
+  return out;
+}
+function pdfApplyTransform(text, t) {
+  if (t === 'uppercase') return text.toUpperCase();
+  if (t === 'lowercase') return text.toLowerCase();
+  if (t === 'capitalize') return text.replace(/(^|\s)(\S)/g, (m, a, b) => a + b.toUpperCase());
+  return text;
+}
+function pdfFontHasAll(ttf, str) { for (const ch of str) if (!ttf.cmap[ch.codePointAt(0)]) return false; return true; }
+function pdfCharRect(node, k) { const r = document.createRange(); r.setStart(node, k); r.setEnd(node, k + 1); const rects = r.getClientRects(); return rects.length ? rects[0] : null; }
+function pdfStrWidthPx(ttf, str, sizePx) { let w = 0; for (const ch of str) { const gid = ttf.cmap[ch.codePointAt(0)] || 0; w += ttf.advance(gid) * sizePx / ttf.unitsPerEm; } return w; }
+
+// Transcribe a book sheet with embedded fonts. Handles text-transform (running
+// heads/chapter labels), justified per-word placement, hyphenated words that
+// wrap across lines (split per line + trailing hyphen), synthesized small caps,
+// and scene-break ornaments the serif font lacks (fall back to centered "* * *").
+function pdfTranscribeBookSheet(pdf, sheet, fonts, fontId) {
+  const sr = sheet.getBoundingClientRect();
+  const pageHpx = sr.height;
+  const page = pdf.addPage(sr.width * PDF_PX_TO_PT, pageHpx * PDF_PX_TO_PT);
+  const xPt = (cssLeft) => (cssLeft - sr.left) * PDF_PX_TO_PT;
+  const yPt = (topFromSheet) => (pageHpx - topFromSheet) * PDF_PX_TO_PT;
+
+  const walker = document.createTreeWalker(sheet, NodeFilter.SHOW_TEXT, {
+    acceptNode(n) {
+      if (!n.nodeValue || !/\S/.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
+      const cs = getComputedStyle(n.parentElement);
+      if (cs.visibility === 'hidden' || cs.display === 'none' || +cs.opacity === 0) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+
+  let node;
+  while ((node = walker.nextNode())) {
+    const parent = node.parentElement;
+    const cs = getComputedStyle(parent);
+    const bold = parseInt(cs.fontWeight, 10) >= 600;
+    const italic = /italic|oblique/.test(cs.fontStyle);
+    const styleName = (bold && italic) ? 'bolditalic' : bold ? 'bold' : italic ? 'italic' : 'regular';
+    const ttf = fonts[styleName];
+    const fontKey = fontId + '-' + styleName;
+    const sizePx = parseFloat(cs.fontSize);
+    const sizePt = sizePx * PDF_PX_TO_PT;
+    const ascent = pdfAscent(pdfFontString(cs));
+    const color = pdfParseColor(cs.color);
+    const transform = cs.textTransform;
+    const smallcaps = /small-caps/.test((cs.fontVariantCaps || '') + ' ' + (cs.fontVariant || ''));
+    const emit = (cssLeft, topFromSheet, str, szPt) => page.textEmbed(xPt(cssLeft), yPt(topFromSheet + ascent), str, { ttf, fontKey, psname: ttf.psname, size: szPt, color });
+
+    // Scene-break ornament the serif font can't render (fleuron/asterism): draw a
+    // centered "* * *" in the same font instead of a .notdef box.
+    if (parent.classList && parent.classList.contains('book-scenebreak') && !pdfFontHasAll(ttf, node.nodeValue.trim())) {
+      const er = parent.getBoundingClientRect();
+      const fb = '* * *';
+      const cx = (er.left + er.right) / 2;
+      emit(cx - pdfStrWidthPx(ttf, fb, sizePx) / 2, (er.top - sr.top), fb, sizePt);
+      continue;
+    }
+
+    // Small caps: synthesize — every letter drawn as a capital, originally-lower
+    // letters at ~0.78x. Per character so each lands on its measured position.
+    if (smallcaps) {
+      const txt = node.nodeValue;
+      for (let k = 0; k < txt.length; k++) {
+        const ch = txt[k];
+        if (!/\S/.test(ch)) continue;
+        const r = pdfCharRect(node, k); if (!r) continue;
+        const isLower = ch.toLowerCase() === ch && ch.toUpperCase() !== ch;
+        emit(r.left, (r.top - sr.top), ch.toUpperCase(), isLower ? sizePt * 0.78 : sizePt);
+      }
+      continue;
+    }
+
+    // Normal text: place each word at its measured left. A word that hyphenates
+    // across a line break returns >1 client rect — split it per line and add the
+    // trailing hyphen the browser drew.
+    for (const run of pdfWordRuns(node.nodeValue)) {
+      const range = document.createRange();
+      range.setStart(node, run.start); range.setEnd(node, run.end);
+      const rects = range.getClientRects();
+      if (rects.length <= 1) {
+        if (rects.length) emit(rects[0].left, (rects[0].top - sr.top), pdfApplyTransform(run.text, transform), sizePt);
+      } else {
+        const groups = [];
+        for (let k = run.start; k < run.end; k++) {
+          const cr = pdfCharRect(node, k); if (!cr) continue;
+          let g = groups.find((G) => Math.abs(G.top - cr.top) < 2);
+          if (!g) { g = { top: cr.top, left: cr.left, chars: '' }; groups.push(g); }
+          g.chars += node.nodeValue[k];
+        }
+        groups.forEach((g, gi) => emit(g.left, (g.top - sr.top), pdfApplyTransform(g.chars, transform) + (gi < groups.length - 1 ? '-' : ''), sizePt));
+      }
+    }
+  }
+  return page;
+}
+
+// Book PDF via the engine (Prose Plot). Renders the same buildBookSheets() the
+// on-screen Book view uses, offscreen, then transcribes each to an embedded-font
+// PDF page at the book's real trim size.
+async function exportBookPDFEngine() {
+  const fontId = (state.book && state.book.theme && state.book.theme.font) || 'ebgaramond';
+  const fonts = await pdfLoadBookFonts(fontId);
+
+  const old = document.getElementById('pdf-print-root'); if (old) old.remove();
+  const root = el('div', { id: 'pdf-print-root' });
+  root.style.cssText = 'display:block; position:absolute; left:-99999px; top:0;';
+  buildBookSheets().forEach((s) => root.appendChild(s));
+  document.body.appendChild(root);
+
+  // Ensure the book webfont is laid out before measuring (else metrics differ).
+  if (document.fonts) {
+    const fam = (PDF_BOOK_FONT_FILES[fontId] || PDF_BOOK_FONT_FILES.ebgaramond).family;
+    try { await Promise.all(['', 'italic ', 'bold ', 'bold italic '].map((p) => document.fonts.load(p + '16px "' + fam + '"'))); } catch (e) { /* already loaded */ }
+    try { await document.fonts.ready; } catch (e) { /* ready */ }
+  }
+
+  const bookAuthor = (state.book && state.book.meta && state.book.meta.authorName) || (state.titlePage && state.titlePage.authors) || '';
+  const meta = {
+    title: state.title || 'Untitled', author: bookAuthor,
+    subject: 'A novel', creator: 'Prose Plot', producer: 'Prose Plot', date: pdfDateString(new Date()),
+  };
+  const pdf = createPdf(meta);
+
+  // Transcribe each sheet (page index = sheet order); collect bookmarks, the
+  // chapter→page map, and the TOC rows to turn into clickable links afterward.
+  const chapterPage = {};      // chapterKey -> page index
+  const tocLinks = [];         // { pageIndex, rect, chapterKey }
+  root.querySelectorAll('.book-sheet').forEach((sheet, i) => {
+    pdfTranscribeBookSheet(pdf, sheet, fonts, fontId);
+    if (sheet.dataset.pdfChapterKey) chapterPage[sheet.dataset.pdfChapterKey] = i;
+    if (sheet.dataset.pdfOutline) pdf.addOutline(sheet.dataset.pdfOutline, i, 0);
+    const rows = sheet.querySelectorAll('.book-toc-row[data-pdf-chapter-key]');
+    if (rows.length) {
+      const sr = sheet.getBoundingClientRect();
+      rows.forEach((row) => {
+        const rr = row.getBoundingClientRect();
+        tocLinks.push({
+          pageIndex: i, chapterKey: row.dataset.pdfChapterKey,
+          rect: [(rr.left - sr.left) * PDF_PX_TO_PT, (sr.height - (rr.bottom - sr.top)) * PDF_PX_TO_PT,
+            (rr.right - sr.left) * PDF_PX_TO_PT, (sr.height - (rr.top - sr.top)) * PDF_PX_TO_PT],
+        });
+      });
+    }
+  });
+  tocLinks.forEach((l) => { if (chapterPage[l.chapterKey] != null) pdf.addLink(l.pageIndex, l.rect, chapterPage[l.chapterKey]); });
+
+  const blob = await pdf.toBlob();
+  root.remove();
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = pdfFilename(state.title, 'pdf');
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 function exportPDF(includeTitlePages, revisedOnly) {
   // Print in-page (not a popup window) so the browser's own preview/print
   // pipeline handles it — popups freeze the macOS print preview. The print
@@ -5775,9 +6440,22 @@ function buildManuscriptPage(sceneId) {
   // from the Page-setup drawer, and while it's open the Edit/Print switcher
   // swaps for a single Done button that returns to wherever you were.
   const titleDoneBtn = el('button', { class: 'ms-title-done', text: '✓ Done with title pages' });
-  const printBtn = el('button', { class: 'ms-print-btn', title: 'Print / Save as PDF' });
+  const printBtn = el('button', { class: 'ms-print-btn', title: 'Print on paper (opens the system print dialog)' });
   printBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg><span>Print</span>';
   printBtn.addEventListener('click', () => { if (msMode === 'book') exportBookPDF(); else exportPDF(true); });
+  // One-tap PDF download (manuscript modes) — renders a real, selectable-text
+  // PDF via the transcription engine, distinct from Print's system dialog. Book
+  // view keeps its own path (window.print) until Phase 2 wires it to the engine.
+  const pdfBtn = el('button', { class: 'ms-print-btn ms-pdf-btn', title: 'Download a PDF of this manuscript' });
+  pdfBtn.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="12" y1="12" x2="12" y2="18"/><polyline points="9 15 12 18 15 15"/></svg><span>PDF</span>';
+  pdfBtn.addEventListener('click', async () => {
+    if (pdfBtn.disabled) return;
+    const span = pdfBtn.querySelector('span'); const prev = span.textContent;
+    pdfBtn.disabled = true; span.textContent = 'Building…';
+    try { await (msMode === 'book' ? exportBookPDFEngine() : exportManuscriptPDF(true, false)); }
+    catch (e) { alert('PDF export failed: ' + (e && e.message ? e.message : e)); }
+    finally { pdfBtn.disabled = false; span.textContent = prev; }
+  });
   // Download EPUB (Prose Plot, Book view only) — shares the Print button's slot styling.
   const epubBtn = (state.format === 'prose') ? el('button', { class: 'ms-print-btn ms-epub-btn', title: 'Download EPUB ebook' }) : null;
   if (epubBtn) {
@@ -5827,6 +6505,7 @@ function buildManuscriptPage(sceneId) {
   tbRight.appendChild(focusBtn);
   if (epubBtn) tbRight.appendChild(epubBtn);
   tbRight.appendChild(printBtn);
+  tbRight.appendChild(pdfBtn);
   tbRight.appendChild(el('span', { class: 'ms-tb-divider' }));
   tbRight.appendChild(settingsBtn); // settings last — it opens the right-edge drawer
   toolbar.appendChild(tbRight);
@@ -6337,6 +7016,9 @@ function buildManuscriptPage(sceneId) {
     // the toggle beside it never shifts. Hidden on Edit (Focus shows there) and
     // on the side modes (title/book-matter have their own Done control).
     printBtn.style.display = (msMode === 'layout' || msMode === 'book') ? '' : 'none';
+    // One-tap PDF: manuscript views (Song Print View / Prose Manuscript) draw a
+    // Courier PDF; Book view draws an embedded-serif, trim-sized book PDF.
+    pdfBtn.style.display = (msMode === 'layout' || msMode === 'book') ? '' : 'none';
     if (epubBtn) epubBtn.style.display = (msMode === 'book') ? '' : 'none'; // EPUB is a Book-view export
     applyNav(); // outline panel + Navigation button reflect Edit/Print state
     applyFocus();
