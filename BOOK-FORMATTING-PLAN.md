@@ -15,8 +15,8 @@ print-ready PDF"); this document is the how.
 | 1a | Front/back matter — data + editors | ✅ |
 | 1b | Front/back matter — rendered into Book view + PDF | ✅ |
 | 2a | Ship serif fonts (OFL, self-hosted) | ✅ |
-| 2b | Theme presets + chapter-opener styles | ⬜ |
-| 2c | Scene-break ornaments + drop caps | ⬜ |
+| 2b | Theme presets + chapter-opener styles | ✅ |
+| 2c | Scene-break ornaments + drop caps | ✅ (one deferral — see note) |
 | 3a | Trim sizes + book margins | ⬜ |
 | 3b | Recto/verso, running heads, book page numbering | ⬜ |
 | 4a | EPUB — ZIP writer + chapter XHTML | ⬜ |
@@ -398,6 +398,43 @@ active bars share an identical shape so the bar never shifts when a line is focu
 
 **Acceptance:** switching presets visibly restyles Book view chapter openers + font;
 values persist per-show; two shows can hold different themes; Manuscript unaffected.
+
+**What shipped (2026-07-20):** Built together with 2c in one pass — the approved
+mock spanned both phases and they share the exact render path (`renderBookToken`) and
+CSS, so splitting them would have meant touching the same functions twice.
+- `BOOK_THEME_PRESETS` (4 bundles: Classic/Modern/Elegant/Plain) + `applyThemePreset(id)`
+  (beside `bookFontFamily`), which **copies** preset values into `state.book.theme` — never a
+  live reference — so changing any single knob afterward diverges `theme.id` to `'custom'`.
+  No `bookDefaults()` change needed: the seven theme fields already existed (Phase 0) and
+  `migrateBook`'s shallow `Object.assign(base.theme, d.theme)` backfills for old saves.
+- Chapter-label rendering: new `chapterLabelText(theme, num)` + `numberToWords(n)` (0–99,
+  "Twenty-one" style, numeral fallback beyond) + `romanNumeral(n)` (none existed). `'word'`/
+  `'numeral'` keep the "Chapter" prefix; `'roman'`/`'bare'` are the numeral alone (minimal
+  opener); `'custom'` uses the author string with `#` as the number placeholder. The card's
+  own title renders beneath the label as `.book-ch-name` when `showChapterTitle` and it isn't
+  a restatement of the label.
+- `renderBookToken` now reads `state.book.theme` and emits `.book-chapter-title.bk-label-{style}`
+  (label + optional name), theme-classed scene breaks, and — on the chapter's first paragraph
+  only (stamped `firstPara` in `buildBookBlocks` on a **copied** token, never mutating the
+  shared `cardBodyTokens` output) — the opener flourish via `applyChapterOpener(p, opener)`.
+- Theme picker UI in the Book-setup drawer (replaced the "arrives in stages" placeholder):
+  a 2×2 preset strip (each card previews its face with "Aa") + Font / Chapter-label / Opener /
+  Scene-break selects + a custom-label text field (shown only for `'custom'`) + a "Show chapter
+  titles" toggle. All changes `scheduleSave()` and live-`rebuildBook()` when in Book mode.
+  `.bk-*` CSS uses app chrome vars (`--line`/`--panel`/`--ink`/`--hover`/`--energy`); the
+  on-sheet book styles stay ink-on-paper.
+- Verified live (Carol, injected original test prose, readonly guards, nothing saved): all four
+  presets render distinct font + label + opener + scene break (checked computed
+  `font-family`/`font-size`, the drop-cap/small-caps/raised-cap spans, and the roman `::after`
+  rule); `theme` round-trips through `serialize()`; Manuscript view stays Courier with zero
+  `.book-*` classes; picker shows the active preset highlighted. sw bumped v192→**v193**.
+
+**Deferred from 2c:** the "scene break falling at the top of a page renders as an asterisk
+fallback in `space` mode" edge rule is NOT implemented — current book pagination never splits a
+paragraph, so a break rarely lands exactly at a page top, and the fallback can be added when
+recto/verso pagination (3b) makes page position meaningful. Everything else in 2c (all three
+scene-break styles; drop / raised / small-caps openers, measured in the pagination probe exactly
+as rendered) shipped here.
 
 ---
 

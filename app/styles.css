@@ -751,6 +751,61 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .book-matter-freetext .book-chapter-title { margin-top: 20%; }
 .book-matter-freetext .book-para { text-indent: 0; text-align: left; }
 
+/* Book theme (Phase 2b) — chapter openers, label styles, scene breaks, caps.
+   These render on the white book sheet, so colours stay ink-on-paper (not the
+   app's theme vars); only the drawer picker below uses app chrome vars. */
+.book-ch-label { display: block; letter-spacing: 0.12em; }
+.book-ch-name {
+  display: block;
+  margin-top: 0.55em;
+  font-size: 15px;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+.bk-label-bare .book-ch-label { font-size: 52px; letter-spacing: 0; line-height: 1; }
+.bk-label-roman .book-ch-label { font-size: 30px; letter-spacing: 0.08em; }
+.bk-label-roman .book-ch-label::after {
+  content: ''; display: block; width: 42px; height: 1px;
+  background: currentColor; opacity: 0.5; margin: 0.4em auto 0;
+}
+.bk-label-bare .book-ch-name, .bk-label-roman .book-ch-name { margin-top: 0.35em; }
+.bk-break-ornament { font-size: 1.35em; letter-spacing: 0; }
+.bk-break-space { margin: 0; height: 2.2em; }
+.book-dropcap {
+  float: left;
+  font-size: 3.2em;
+  line-height: 0.72;
+  padding: 0.02em 0.09em 0 0;
+}
+.book-raisedcap { font-size: 2em; line-height: 0.8; }
+.book-smallcaps { font-variant: small-caps; letter-spacing: 0.04em; }
+
+/* Book theme picker — Book-setup drawer (app chrome, theme-aware) */
+.bk-theme-host { padding: 6px 2px 2px; }
+.bk-theme-strip { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.bk-theme-card {
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 11px 6px; border: 1px solid var(--line); border-radius: 9px;
+  background: transparent; color: var(--ink); font-family: inherit; cursor: pointer;
+}
+.bk-theme-card:hover { background: var(--hover); }
+.bk-theme-card.sel { border-color: var(--energy); box-shadow: inset 0 0 0 1px var(--energy); }
+.bk-theme-name { font-size: 12px; font-weight: 600; }
+.bk-theme-swatch { font-size: 23px; line-height: 1; color: var(--muted); }
+.bk-knobs { display: grid; grid-template-columns: 1fr 1fr; gap: 9px 10px; }
+.bk-knob { display: flex; flex-direction: column; gap: 4px; }
+.bk-knob-wide { grid-column: 1 / -1; margin-top: 9px; }
+.bk-knob-label { font-size: 11px; color: var(--muted); }
+.bk-knob select, .bk-knob input {
+  font-family: inherit; font-size: 12px; padding: 5px 7px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink);
+}
+.bk-toggle {
+  display: flex; align-items: center; gap: 8px; margin-top: 13px;
+  font-size: 12px; color: var(--muted); cursor: pointer;
+}
+
 /* Title pages */
 .tp-title-page { display: flex; flex-direction: column; min-height: 912px; /* 1056 - 144px header/padding */ }
 .tp-spacer-large { height: 144pt; }

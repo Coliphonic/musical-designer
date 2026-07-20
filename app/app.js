@@ -3563,10 +3563,15 @@ function bookChapters() {
 function buildBookBlocks(chapters) {
   const blocks = [];
   chapters.forEach((ch, ci) => {
-    blocks.push({ tokens: [{ type: 'book-chapter-title', text: ch.title, key: ch.key }], forceBreak: ci > 0 });
+    blocks.push({ tokens: [{ type: 'book-chapter-title', text: ch.title, key: ch.key, num: ci + 1 }], forceBreak: ci > 0 });
+    let firstDone = false;
     ch.tokens.forEach((t) => {
       if (t.type === 'blank') return; // book paragraph spacing is margin-based, not spacer tokens
-      blocks.push({ tokens: [t] });
+      // Mark the chapter's first body paragraph so the theme's opener flourish
+      // (drop cap / raised cap / small caps) lands there. Copy the token — never
+      // mutate cardBodyTokens' output, which the Edit/Print/Fountain renderers share.
+      if (!firstDone && t.type === 'action') { blocks.push({ tokens: [{ ...t, firstPara: true }] }); firstDone = true; }
+      else blocks.push({ tokens: [t] });
     });
   });
   return blocks;
@@ -3604,12 +3609,30 @@ function paginateBookBlocks(blocks, bookFont) {
 }
 
 function renderBookToken(tok, container) {
+  const theme = state.book.theme;
   if (tok.type === 'book-chapter-title') {
-    container.appendChild(el('div', { class: 'book-chapter-title', html: emphToHtml(tok.text) }));
+    // A chapter opener is the auto-generated label ("Chapter One" / "I" / "1")
+    // plus, optionally, the card's own title beneath it. The label style, the
+    // font, and the first-paragraph flourish all come from the active theme.
+    const wrap = el('div', { class: 'book-chapter-title bk-label-' + theme.chapterLabel });
+    const labelText = chapterLabelText(theme, tok.num || 1);
+    if (labelText) wrap.appendChild(el('div', { class: 'book-ch-label' }, [document.createTextNode(labelText)]));
+    const title = (tok.text || '').trim();
+    // Skip the card title when it's just a restatement of the auto label
+    // (e.g. a chapter literally named "Chapter 1") to avoid printing it twice.
+    if (theme.showChapterTitle && title && title.toLowerCase() !== labelText.trim().toLowerCase()) {
+      wrap.appendChild(el('div', { class: 'book-ch-name', html: emphToHtml(title) }));
+    }
+    container.appendChild(wrap);
   } else if (tok.type === 'action') {
-    container.appendChild(el('p', { class: 'book-para', html: emphToHtml(tok.text) }));
+    const p = el('p', { class: 'book-para', html: emphToHtml(tok.text) });
+    if (tok.firstPara && theme.opener && theme.opener !== 'plain') applyChapterOpener(p, theme.opener);
+    container.appendChild(p);
   } else if (tok.type === 'scenebreak') {
-    container.appendChild(el('div', { class: 'book-scenebreak', text: sceneBreakGlyph() }));
+    const div = el('div', { class: 'book-scenebreak bk-break-' + theme.sceneBreak });
+    const g = sceneBreakGlyph(theme.sceneBreak);
+    if (g) div.textContent = g;
+    container.appendChild(div);
   }
   const node = container.lastElementChild;
   if (node) {
@@ -3617,10 +3640,69 @@ function renderBookToken(tok, container) {
     if (a && !node.dataset.anchor) node.dataset.anchor = a;
   }
 }
-// Scene-break glyph per theme (only 'asterisks' exists pre-2b; kept as its own
-// function so 2b's additional styles have one place to plug in).
-function sceneBreakGlyph() {
-  return '***';
+// Scene-break glyph per theme. 'space' returns '' (the gap is a CSS height on
+// .bk-break-space); 'ornament' is a single asterism; 'asterisks' the classic trio.
+function sceneBreakGlyph(style) {
+  if (style === 'space') return '';
+  if (style === 'ornament') return '⁂';
+  return '* * *';
+}
+
+// Chapter heading text for the label style. 'word'/'numeral' keep the "Chapter"
+// prefix; 'roman'/'bare' are the numeral alone (a minimal opener); 'custom' uses
+// the author's string with '#' standing in for the chapter number.
+function chapterLabelText(theme, num) {
+  switch (theme.chapterLabel) {
+    case 'word': return 'Chapter ' + numberToWords(num);
+    case 'numeral': return 'Chapter ' + num;
+    case 'roman': return romanNumeral(num);
+    case 'bare': return String(num);
+    case 'custom': {
+      const t = (theme.chapterLabelCustom || '').trim();
+      return t ? t.replace(/#/g, num) : 'Chapter ' + num;
+    }
+    default: return 'Chapter ' + num;
+  }
+}
+const ONES_WORDS = ['Zero', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+const TENS_WORDS = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+function numberToWords(n) {
+  n = Math.floor(n);
+  if (n < 0) return String(n);
+  if (n < 20) return ONES_WORDS[n];
+  if (n < 100) { const t = Math.floor(n / 10), o = n % 10; return TENS_WORDS[t] + (o ? '-' + ONES_WORDS[o].toLowerCase() : ''); }
+  return String(n); // beyond ninety-nine, fall back to the numeral
+}
+function romanNumeral(n) {
+  n = Math.floor(n);
+  if (n <= 0 || n >= 4000) return String(n);
+  const map = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+  let r = '', x = n;
+  for (let i = 0; i < map.length; i++) { while (x >= map[i][0]) { r += map[i][1]; x -= map[i][0]; } }
+  return r;
+}
+// First-paragraph flourish (drop cap / raised cap / small-caps opening).
+// Operates on the rendered DOM's first visible text node so it composes with
+// emphasis markup, and runs in the pagination probe too — the measurement pass
+// sees the exact styles the render pass uses, so line-wrapping stays honest.
+function applyChapterOpener(p, opener) {
+  const tw = document.createTreeWalker(p, NodeFilter.SHOW_TEXT, null);
+  let node = null, n;
+  while ((n = tw.nextNode())) { if (n.nodeValue && n.nodeValue.trim()) { node = n; break; } }
+  if (!node) return;
+  const raw = node.nodeValue;
+  if (opener === 'smallcaps') {
+    const m = raw.match(/^(\s*)((?:\S+\s+){0,3}\S+)([\s\S]*)$/);
+    if (!m) return;
+    const span = el('span', { class: 'book-smallcaps' }, [document.createTextNode(m[2])]);
+    node.replaceWith(document.createTextNode(m[1]), span, document.createTextNode(m[3]));
+    return;
+  }
+  const m = raw.match(/^(\s*)(\S)([\s\S]*)$/);
+  if (!m) return;
+  const cls = opener === 'raisedcap' ? 'book-raisedcap' : 'book-dropcap';
+  const span = el('span', { class: cls }, [document.createTextNode(m[2])]);
+  node.replaceWith(document.createTextNode(m[1]), span, document.createTextNode(m[3]));
 }
 
 // Front/back-matter blocks with no printed heading in the finished book
@@ -3645,6 +3727,24 @@ const BOOK_FONT_FAMILIES = {
 };
 function bookFontFamily(id) {
   return BOOK_FONT_FAMILIES[id] || BOOK_FONT_FAMILIES.ebgaramond;
+}
+
+// Vellum-style "pick one bundle" themes. Choosing a preset copies its values
+// into state.book.theme (not a live reference), so editing any single knob
+// afterward diverges the theme to 'custom' — presets and manual knobs coexist.
+const BOOK_THEME_PRESETS = [
+  { id: 'classic', name: 'Classic', font: 'ebgaramond', chapterLabel: 'word', opener: 'plain', sceneBreak: 'asterisks' },
+  { id: 'modern', name: 'Modern', font: 'literata', chapterLabel: 'bare', opener: 'smallcaps', sceneBreak: 'space' },
+  { id: 'elegant', name: 'Elegant', font: 'crimsonpro', chapterLabel: 'roman', opener: 'dropcap', sceneBreak: 'ornament' },
+  { id: 'plain', name: 'Plain', font: 'literata', chapterLabel: 'numeral', opener: 'plain', sceneBreak: 'asterisks' },
+];
+function applyThemePreset(id) {
+  const p = BOOK_THEME_PRESETS.find((t) => t.id === id);
+  if (!p) return;
+  const t = state.book.theme;
+  t.id = p.id; t.font = p.font; t.chapterLabel = p.chapterLabel; t.opener = p.opener; t.sceneBreak = p.sceneBreak;
+  // showChapterTitle and chapterLabelCustom are the author's, not the preset's —
+  // leave them untouched across a preset switch.
 }
 
 // Prose Plot's Edit-mode writing font — a per-device comfort preference
@@ -5854,7 +5954,64 @@ function buildManuscriptPage(sceneId) {
       applyMode();
     }));
     bkInner.appendChild(el('div', { class: 'ms-hd-divider' }));
-    bkInner.appendChild(el('div', { class: 'ms-rev-none', text: 'More book formatting — themes, trim sizes, chapter styles — arrives here in stages.' }));
+
+    // ── Theme picker ── four preset bundles + the individual knobs beneath, so
+    // an author can start from a preset and diverge one setting at a time. Only
+    // the Book render responds; Manuscript output is untouched.
+    bkInner.appendChild(el('div', { class: 'ms-hd-section-head', text: 'Theme' }));
+    const themeHost = el('div', { class: 'bk-theme-host' });
+    bkInner.appendChild(themeHost);
+    const afterThemeChange = () => { scheduleSave(); if (msMode === 'book') rebuildBook(); renderThemePicker(); };
+    function renderThemePicker() {
+      themeHost.innerHTML = '';
+      const theme = state.book.theme;
+      const strip = el('div', { class: 'bk-theme-strip' });
+      BOOK_THEME_PRESETS.forEach((p) => {
+        const card = el('button', { class: 'bk-theme-card' + (theme.id === p.id ? ' sel' : ''), type: 'button' });
+        card.appendChild(el('span', { class: 'bk-theme-name', text: p.name }));
+        const sw = el('span', { class: 'bk-theme-swatch', text: 'Aa' });
+        sw.style.fontFamily = bookFontFamily(p.font);
+        card.appendChild(sw);
+        card.addEventListener('click', () => { applyThemePreset(p.id); afterThemeChange(); });
+        strip.appendChild(card);
+      });
+      themeHost.appendChild(strip);
+
+      const mkSelect = (label, options, current, onChange) => {
+        const field = el('label', { class: 'bk-knob' });
+        field.appendChild(el('span', { class: 'bk-knob-label', text: label }));
+        const sel = el('select');
+        options.forEach(([val, txt]) => { const o = el('option', { value: val, text: txt }); if (val === current) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener('change', () => onChange(sel.value));
+        field.appendChild(sel);
+        return field;
+      };
+      const knobs = el('div', { class: 'bk-knobs' });
+      knobs.appendChild(mkSelect('Font', [['ebgaramond', 'EB Garamond'], ['literata', 'Literata'], ['crimsonpro', 'Crimson Pro']], theme.font, (v) => { theme.font = v; theme.id = 'custom'; afterThemeChange(); }));
+      knobs.appendChild(mkSelect('Chapter label', [['word', 'Chapter One'], ['numeral', 'Chapter 1'], ['roman', 'I  (roman)'], ['bare', '1  (number)'], ['custom', 'Custom…']], theme.chapterLabel, (v) => { theme.chapterLabel = v; theme.id = 'custom'; afterThemeChange(); }));
+      knobs.appendChild(mkSelect('Chapter opener', [['plain', 'Plain'], ['dropcap', 'Drop cap'], ['raisedcap', 'Raised cap'], ['smallcaps', 'Small caps opening']], theme.opener, (v) => { theme.opener = v; theme.id = 'custom'; afterThemeChange(); }));
+      knobs.appendChild(mkSelect('Scene break', [['asterisks', 'Asterisks   * * *'], ['ornament', 'Ornament   ⁂'], ['space', 'Blank space']], theme.sceneBreak, (v) => { theme.sceneBreak = v; theme.id = 'custom'; afterThemeChange(); }));
+      themeHost.appendChild(knobs);
+
+      if (theme.chapterLabel === 'custom') {
+        const cf = el('label', { class: 'bk-knob bk-knob-wide' });
+        cf.appendChild(el('span', { class: 'bk-knob-label', text: 'Custom label  (# = chapter number)' }));
+        const inp = el('input', { type: 'text', value: theme.chapterLabelCustom || '', placeholder: 'e.g. Part #' });
+        inp.addEventListener('input', () => { theme.chapterLabelCustom = inp.value; scheduleSave(); if (msMode === 'book') rebuildBook(); });
+        cf.appendChild(inp);
+        themeHost.appendChild(cf);
+      }
+
+      const tgl = el('label', { class: 'bk-toggle' });
+      const cb = el('input', { type: 'checkbox' });
+      cb.checked = theme.showChapterTitle !== false;
+      cb.addEventListener('change', () => { theme.showChapterTitle = cb.checked; afterThemeChange(); });
+      tgl.appendChild(cb);
+      tgl.appendChild(el('span', { text: 'Show chapter titles beneath the label' }));
+      themeHost.appendChild(tgl);
+    }
+    renderThemePicker();
+
     bookDrawer.appendChild(bkInner);
   }
 
