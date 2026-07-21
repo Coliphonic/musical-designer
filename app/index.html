@@ -228,8 +228,28 @@
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {
+      // Auto-update: when a newly deployed worker takes control of the page,
+      // reload once onto the fresh code. The hadController guard skips the very
+      // first install (no prior controller → not an update), and the refreshing
+      // guard prevents reload loops. This is what removes the need to reinstall
+      // the PWA on iOS after a deploy.
+      const hadController = !!navigator.serviceWorker.controller;
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hadController || refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').catch(() => {});
+        navigator.serviceWorker.register('/sw.js').then((reg) => {
+          // iOS standalone PWAs check for worker updates lazily; nudge a check
+          // whenever the app is opened or refocused so deploys are noticed.
+          const check = () => reg.update().catch(() => {});
+          document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') check();
+          });
+          window.addEventListener('focus', check);
+        }).catch(() => {});
       });
     }
   </script>

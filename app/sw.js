@@ -1,10 +1,20 @@
 // Service worker for Song Plot (Musical Designer).
-// App-shell cache for offline launch + fast loads. Bump CACHE on each deploy
-// so clients pick up new HTML/CSS/JS.
-const CACHE = 'songplot-v222';
+//
+// Update model (v223+): the app shell (HTML/CSS/JS) is served
+// stale-while-revalidate — every launch returns the cached copy instantly AND
+// fetches a fresh copy in the background, so a new deploy is picked up on its
+// own. Paired with the auto-reload wiring in index.html (which reloads open
+// clients when a newly deployed worker takes control), this removes the need to
+// cache-bust by hand or reinstall the iOS PWA after a deploy. Immutable assets
+// (fonts, dictionaries, icons) stay cache-first.
+//
+// CACHE no longer needs bumping every deploy for correctness. Bump it only to
+//   (a) force an immediate reload-to-latest THIS launch rather than the next, or
+//   (b) hard-invalidate every cached asset at once.
+const CACHE = 'songplot-v223';
 
-// Core static assets. cmudict.txt (2MB) and thesaurus.txt (9MB) are intentionally
-// left out of precache and cached lazily at runtime when first fetched.
+// Precached on install so the very first (offline) launch works. cmudict.txt
+// (2MB) and thesaurus.txt (9MB) are cached lazily at runtime instead.
 const SHELL = [
   '/index.html',
   '/styles.css',
@@ -26,6 +36,11 @@ const SHELL = [
   '/fonts/iAWriterDuo-BoldItalic.woff2',
 ];
 
+// Shell code that changes on deploy — served stale-while-revalidate so it keeps
+// itself current. Everything else static (fonts, icons, dictionaries) is
+// immutable and served cache-first.
+const isShellCode = (pathname) => /\.(?:js|css|html|webmanifest)$/.test(pathname);
+
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())
@@ -40,36 +55,44 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// Stale-while-revalidate: return the cached copy immediately (if any) while
+// refreshing the cache in the background; offline, fall back to the cached copy.
+const staleWhileRevalidate = (req) =>
+  caches.open(CACHE).then((cache) =>
+    cache.match(req).then((hit) => {
+      const network = fetch(req).then((res) => {
+        if (res && res.ok && res.type === 'basic') cache.put(req, res.clone());
+        return res;
+      }).catch(() => hit);
+      return hit || network;
+    })
+  );
+
+// Cache-first for immutable assets: serve from cache, else fetch and store.
+const cacheFirst = (req) =>
+  caches.match(req).then((hit) => hit || fetch(req).then((res) => {
+    if (res && res.ok && res.type === 'basic') {
+      const copy = res.clone();
+      caches.open(CACHE).then((c) => c.put(req, copy));
+    }
+    return res;
+  }));
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return; // let writes pass through
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return; // third-party: ignore
+  if (url.pathname.startsWith('/api/')) return;     // data must always be fresh
 
-  // Never cache the API or auth — data must be fresh.
-  if (url.pathname.startsWith('/api/')) return;
-
-  // Navigations: network-first so login/redirects work, fall back to the
+  // Navigations: network-first so login/redirects work, falling back to the
   // cached shell when offline.
   if (req.mode === 'navigate') {
-    e.respondWith(
-      fetch(req).catch(() => caches.match('/index.html'))
-    );
+    e.respondWith(fetch(req).catch(() => caches.match('/index.html')));
     return;
   }
 
-  // Static assets: cache-first, then network (and cache the result).
-  e.respondWith(
-    caches.match(req).then((hit) => {
-      if (hit) return hit;
-      return fetch(req).then((res) => {
-        if (res && res.ok && res.type === 'basic') {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-        }
-        return res;
-      });
-    })
-  );
+  // App-shell code: stale-while-revalidate. Everything else static: cache-first.
+  e.respondWith(isShellCode(url.pathname) ? staleWhileRevalidate(req) : cacheFirst(req));
 });
