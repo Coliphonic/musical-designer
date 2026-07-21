@@ -7092,6 +7092,39 @@ function buildManuscriptPage(sceneId) {
     return elm;
   };
 
+  // Rename a card straight from its Manuscript divider. Click the title to edit;
+  // Enter/blur commits, Escape reverts. Commit resyncs the Navigator row and the
+  // (hidden) board — navigateTo('board') only unhides stale DOM, so the title
+  // wouldn't otherwise update there.
+  const makeDividerTitleEditable = (elm, c) => {
+    if (state.readonly) return elm;
+    elm.classList.add('ms-div-title-edit');
+    elm.setAttribute('spellcheck', 'false');
+    elm.setAttribute('title', 'Click to rename');
+    elm.addEventListener('mousedown', (e) => e.stopPropagation());
+    elm.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (elm.getAttribute('contenteditable') === 'true') return;
+      elm.setAttribute('contenteditable', 'true');
+      elm.focus();
+      const r = document.createRange(); r.selectNodeContents(elm);
+      const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+    });
+    elm.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); elm.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); elm.textContent = c.title || 'Untitled'; elm.blur(); }
+    });
+    elm.addEventListener('blur', () => {
+      if (state.loading) return;
+      const v = elm.textContent.replace(/\s+/g, ' ').trim();
+      const changed = v !== (c.title || '');
+      elm.textContent = v || 'Untitled';
+      elm.removeAttribute('contenteditable');
+      if (changed) { c.title = v; doSave(); render(); if (refreshNav) refreshNav(); }
+    });
+    return elm;
+  };
+
   const renderCardSection = (sec, c) => {
     sec.innerHTML = '';
     // A beat's body is specifically `lyrics` — its `note` is the sage outline
@@ -7297,7 +7330,11 @@ function buildManuscriptPage(sceneId) {
       const isEmpty = !(c[cardField(c)] || '').trim();
       const div = el('div', { class: 'ms-card-divider' + (isEmpty ? ' ms-card-divider-empty' : ''), 'data-card-id': c.id, 'data-anchor': 'card:' + c.id });
       const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '◦';
-      div.appendChild(el('span', { class: 'ms-card-divider-label', text: icon + ' ' + (c.title || 'Untitled') }));
+      const label = el('span', { class: 'ms-card-divider-label' }, [
+        el('span', { class: 'ms-card-divider-icon', text: icon }),
+        makeDividerTitleEditable(el('span', { class: 'ms-card-divider-title', text: c.title || 'Untitled' }), c),
+      ]);
+      div.appendChild(label);
       doc.appendChild(div);
       const sec = el('div', { class: 'ms-card-section', 'data-card-id': c.id });
       renderCardSection(sec, c);
