@@ -1385,12 +1385,73 @@ function insertCard(act, type) {
   // Scenes have no inline title (vertical), so they open the editor instead.
   if (!focusCardTitle(card.id)) openLyricWindow(card.id);
 }
+// Positioned insert — the board's inline "+" gap picker drops a card at an exact
+// spot, not just the end of the act. Mirrors insertCard but splices relative to a
+// neighbor card index instead of lastIndexOfAct.
+function insertCardAt(refIdx, where, type) {
+  const ref = state.cards[refIdx];
+  if (!ref) return;
+  const card = makeNewCard(type, ref.act);
+  state.cards.splice(refIdx + (where === 'after' ? 1 : 0), 0, card);
+  state.openAct = null;
+  if (type === 'beat' && state.view === 'songs') state.view = 'full';
+  render();
+  // Same landing as insertCard: title focused on the board, or the editor for
+  // scenes (no inline title).
+  if (!focusCardTitle(card.id)) openLyricWindow(card.id);
+}
 function moveCard(from, to, newAct) {
   const moved = state.cards.splice(from, 1)[0];
   moved.act = newAct;
   let t = to;
   if (from < to) t -= 1;
   state.cards.splice(t, 0, moved);
+}
+
+// Inline between-card insert affordance for the board — a thin hover "+" in the
+// gap to a card's left, opening a tiny type picker (mirrors the Manuscript
+// Navigator's quick-add). Nothing shows until hover, so the board stays clean.
+let _boardPicker = null;
+function closeBoardPicker() {
+  if (!_boardPicker) return;
+  _boardPicker.zone.classList.remove('picking');
+  _boardPicker.picker.remove();
+  document.removeEventListener('mousedown', _boardPickerDoc, true);
+  _boardPicker = null;
+}
+function _boardPickerDoc(e) {
+  if (_boardPicker && !_boardPicker.zone.contains(e.target)) closeBoardPicker();
+}
+function boardInsertZone(refIdx) {
+  const isProse = state.format === 'prose';
+  const zone = el('div', { class: 'board-ins', title: 'Insert a card here' }, [
+    el('div', { class: 'board-ins-line' }, [el('span', { class: 'board-ins-plus', text: '+' })]),
+  ]);
+  zone.setAttribute('draggable', 'false');
+  zone.addEventListener('mousedown', (e) => e.stopPropagation()); // never start a card drag
+  zone.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (_boardPicker && _boardPicker.zone === zone) { closeBoardPicker(); return; }
+    closeBoardPicker();
+    const opt = (t, icon, label) => {
+      const b = el('button', { class: 'board-ins-opt', type: 'button' }, [
+        el('span', { class: 'board-ins-opt-icon', text: icon }),
+        el('span', { text: label }),
+      ]);
+      b.addEventListener('click', (ev) => { ev.stopPropagation(); closeBoardPicker(); insertCardAt(refIdx, 'before', t); });
+      return b;
+    };
+    const picker = el('div', { class: 'board-ins-picker' }, isProse ? [
+      opt('scene', '◆', 'Chapter'), opt('beat', '▸', 'Beat'),
+    ] : [
+      opt('song', '♪', 'Song'), opt('beat', '▸', 'Beat'), opt('scene', '◆', 'Scene'),
+    ]);
+    zone.classList.add('picking');
+    zone.appendChild(picker);
+    _boardPicker = { zone, picker };
+    document.addEventListener('mousedown', _boardPickerDoc, true);
+  });
+  return zone;
 }
 
 function percentages() {
@@ -1585,6 +1646,9 @@ function buildCard(c, trueIdx, pct) {
   const card = el('div', { class: 'bcard' + (c.type === 'beat' ? ' beat' : '') + (c.type === 'scene' ? ' scene' : ''), draggable: 'true', 'data-pos': trueIdx, 'data-id': c.id }, kids);
   card.addEventListener('click', (e) => { if (!card.classList.contains('justdragged')) openLyricWindow(c.id); });
   wireCardDrag(card);
+  // Between-card insert: a hover "+" in the gap to this card's left inserts a new
+  // card before it. Absolutely positioned so it never disturbs the lane's flex flow.
+  if (!state.readonly) card.appendChild(boardInsertZone(trueIdx));
   return card;
 }
 

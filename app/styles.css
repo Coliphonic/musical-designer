@@ -138,10 +138,41 @@ body.dark .seg button.active { background: #4a453e; color: #f3eee3; box-shadow: 
 .actcards.dragover { border-color: var(--ink); background: var(--panel); }
 
 .bcard {
+  position: relative;
   width: 218px; background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
   padding: 10px 11px 11px; cursor: grab; display: flex; flex-direction: column; gap: 6px;
   transition: box-shadow .12s, border-color .12s;
 }
+/* Between-card insert: a hover "+" hairline in the 10px gap to a card's left.
+   Absolutely positioned into the gap so it never disturbs the lane's flex flow;
+   invisible until the gap is hovered. Mirrors the Navigator quick-add. */
+.board-ins { position: absolute; left: -10px; top: 0; bottom: 0; width: 10px; z-index: 4; cursor: pointer; }
+.board-ins-line {
+  position: absolute; top: 6px; bottom: 6px; left: 50%; width: 0;
+  border-left: 2px solid var(--energy-line); border-radius: 1px;
+  opacity: 0; transition: opacity .1s; pointer-events: none;
+}
+.board-ins:hover .board-ins-line, .board-ins.picking .board-ins-line { opacity: 1; }
+.board-ins-plus {
+  position: absolute; top: -3px; left: 50%; transform: translateX(-50%);
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--energy); color: #fff;
+  font-size: 11px; line-height: 13px; font-weight: 600; text-align: center;
+}
+.board-ins-picker {
+  position: absolute; top: 14px; left: 2px; z-index: 8;
+  display: flex; flex-direction: column; gap: 2px; padding: 4px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+  box-shadow: 0 6px 20px #0000001a; white-space: nowrap;
+}
+body.dark .board-ins-picker { box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
+.board-ins-opt {
+  display: flex; align-items: center; gap: 6px; padding: 5px 12px;
+  border: none; border-radius: 6px; background: transparent; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; color: var(--ink); text-align: left;
+}
+.board-ins-opt:hover { background: var(--hover); }
+.board-ins-opt-icon { width: 13px; text-align: center; }
 .bcard:hover { box-shadow: 0 4px 14px #00000012; border-color: #d9d3c8; }
 body.dark .bcard:hover { border-color: #4a453e; }
 .bcard.beat { background: var(--btn); border-style: dashed; }
