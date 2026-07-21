@@ -1017,6 +1017,19 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .lwg-row .g-letter { color: var(--energy); font-weight: 700; width: 11px; text-align: center; }
 textarea.lweditor { border: 0; resize: none; outline: none; padding: 20px 26px; font-family: 'iA Writer Duo', 'Courier Prime Sans', 'Courier New', Courier, monospace; font-size: 16px; line-height: 30px; color: var(--ink); white-space: pre; overflow: auto; background: var(--panel); }
 textarea.lweditor::placeholder { color: #c5beb0; }
+/* Chord-dimming backdrop: a mirror div paints the lyric text behind a
+   transparent-text textarea so [C] chord tokens can recede to --muted while the
+   caret and editing stay native. The .lweditor-marks typography MUST match the
+   textarea exactly (font/size/line-height/padding/white-space) or the caret
+   drifts off the visible glyphs. */
+.lweditor-wrap { position: relative; min-height: 0; display: flex; overflow: hidden; background: var(--panel); }
+.lweditor-wrap > textarea.lweditor { flex: 1; position: relative; z-index: 1; background: transparent; }
+textarea.lweditor.lweditor-lit { color: transparent; -webkit-text-fill-color: transparent; caret-color: var(--ink); }
+/* keep the placeholder visible — text-fill-color would otherwise blank it too */
+textarea.lweditor.lweditor-lit::placeholder { color: #c5beb0; -webkit-text-fill-color: #c5beb0; }
+.lweditor-backdrop { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.lweditor-marks { padding: 20px 26px; font-family: 'iA Writer Duo', 'Courier Prime Sans', 'Courier New', Courier, monospace; font-size: 16px; line-height: 30px; white-space: pre; color: var(--ink); will-change: transform; }
+.lwchord-dim { color: var(--muted); opacity: 0.6; }
 .lwside { border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--bg); }
 .lwside .fl { color: var(--energy); }
 .lwside .fl.muted { color: var(--faint); }

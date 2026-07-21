@@ -8243,7 +8243,32 @@ function buildLyricWindow(c) {
   // falling through to the 3-column grid (58px | 1fr | 264px) with only 2
   // children, which squeezed the editor into the narrow 58px gutter track.
   const noGutter = plain || isProse;
-  const editPane = el('div', { class: 'lwbody' + (noGutter ? ' lwbody-plain' : '') }, noGutter ? [editor, side] : [gutter, editor, side]);
+
+  // ---- chord-dimming backdrop (guttered song/beat editor only) ----
+  // The lyric editor is a plain textarea, so a typed [C] chord sits inline as
+  // literal bracket text and breaks up the lyric line while drafting. A mirror
+  // div behind a transparent-text textarea repaints just the chord tokens in
+  // --muted so they recede — the text and caret are untouched (nothing is
+  // parsed or rewritten; the backdrop only re-colours). Only where chords live
+  // (richTools === !noGutter), so scenes/prose keep the bare textarea.
+  let editorHost = editor;
+  let syncMarks = () => {};
+  let syncMarksScroll = () => {};
+  if (richTools) {
+    const marks = el('div', { class: 'lweditor-marks', 'aria-hidden': 'true' });
+    const backdrop = el('div', { class: 'lweditor-backdrop', 'aria-hidden': 'true' }, [marks]);
+    editorHost = el('div', { class: 'lweditor-wrap' }, [backdrop, editor]);
+    editor.classList.add('lweditor-lit'); // transparent text, visible caret — the backdrop shows the words
+    const chordRe = new RegExp(CHORD_RE.source, 'g'); // own instance: CHORD_RE is stateful (/g lastIndex)
+    const litHtml = (val) => escHtml(val).replace(chordRe, (m) => '<span class="lwchord-dim">' + m + '</span>');
+    syncMarksScroll = () => { marks.style.transform = 'translate(' + (-editor.scrollLeft) + 'px, ' + (-editor.scrollTop) + 'px)'; };
+    // Trailing newline keeps the mirror's height in step with the textarea's own
+    // phantom final line, so the last row never drifts out of caret alignment.
+    syncMarks = () => { marks.innerHTML = litHtml(editor.value) + '\n'; syncMarksScroll(); };
+    syncMarks();
+  }
+
+  const editPane = el('div', { class: 'lwbody' + (noGutter ? ' lwbody-plain' : '') }, noGutter ? [editor, side] : [gutter, editorHost, side]);
 
   // The rhyme panel follows the writer's focus (unless the pin holds it):
   //   B — an explicit selection (double-click a word, drag a phrase) wins;
@@ -8281,6 +8306,7 @@ function buildLyricWindow(c) {
       updateGutter(c, gutter, tokens, letters);
       updateVerseNote(c, vnote, tokens);
       updateRhymeFollow();
+      syncMarks(); // repaint the chord-dim backdrop (also catches section/rhyme inserts)
     } else if (isProse) {
       updateProseSummary(editor.value, summary, c.wordTarget);
       if (!tin._touched) { tin.value = LYRIC.lastWord(lastNonEmptyLine(editor.value)); showSynonyms(tin.value); }
@@ -8294,7 +8320,7 @@ function buildLyricWindow(c) {
   };
 
   editor.addEventListener('input', refresh);
-  editor.addEventListener('scroll', () => { gutter.scrollTop = editor.scrollTop; });
+  editor.addEventListener('scroll', () => { gutter.scrollTop = editor.scrollTop; syncMarksScroll(); });
   // Caret moves and selections (double-click, shift-arrow, drag) steer the
   // rhyme panel without touching the text, so they must NOT go through refresh
   // (which saves) — just the lightweight follow.
