@@ -306,6 +306,12 @@ body.dark .sing.empty { background: var(--panel); border-color: var(--energy); }
 .rchip.click { cursor: pointer; }
 .rchip.click:hover { background: var(--hover); }
 .rhint { font-size: 11px; color: var(--faint); }
+.rhyme-in-row { display: flex; gap: 5px; align-items: stretch; }
+.rhyme-in-row .fi { flex: 1; min-width: 0; }
+.rhyme-pin { flex-shrink: 0; width: 33px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--faint); cursor: pointer; padding: 0; }
+.rhyme-pin:hover { color: var(--rose); border-color: var(--rose-line); background: var(--rose-bg); }
+.rhyme-pin.active { color: #fff; background: var(--rose); border-color: var(--rose); }
+.rhyme-pin:focus-visible { border-color: var(--rose); }
 .rhyme-tab-wrap { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .rhyme-tab { flex: 1; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 0; border: none; background: var(--panel); color: var(--faint); cursor: pointer; }
 .rhyme-tab.active { background: var(--hover); color: var(--energy); }

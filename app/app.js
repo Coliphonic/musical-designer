@@ -7731,15 +7731,9 @@ function updateGutter(c, gutter, tokens, letters) {
     ]));
   });
 }
-function updateSummary(c, node, tokens, letters) {
-  tokens = tokens || parseLyricLines(c.lyrics || '', c.type === 'song');
-  const sung = tokens.filter((t) => t.type === 'sung');
-  const syl = sung.reduce((s, t) => s + LYRIC.lineSyll(t.text), 0);
-  const scheme = (letters || rhymeLetters(tokens)).filter(Boolean).join('');
-  node.textContent = `${sung.length} sung lines · ${syl} syllables` + (scheme ? ` · ${scheme.length > 20 ? scheme.slice(0, 20) + '…' : scheme}` : '');
-}
-// Prose Plot's equivalent of updateSummary — word count is the metric that
-// matters, not sung lines/syllables/rhyme scheme.
+// The lyric-window header stat line — for prose only, a live word count (songs
+// dropped the sung-lines/syllables/scheme readout; the gutter carries per-line
+// detail). Word count is the metric a novelist actually watches.
 function updateProseSummary(text, node, target) {
   const n = countWords(text || '');
   const base = n === 1 ? '1 word' : `${n.toLocaleString()} words`;
@@ -8091,6 +8085,10 @@ function buildLyricWindow(c) {
   // Body/Scene-break element set automatically (buildRichEditor reads
   // state.format itself), so it stays available for beats.
   const richTools = !plain && !isProse;
+  // The header stat line is only the live word count for prose; songs/beats no
+  // longer show sung-lines/syllables/scheme up here (the gutter has the per-line
+  // detail). Drop the node entirely for non-prose so it leaves no stray gap.
+  if (!isProse) summary.remove();
 
   // Edit | Sheet segmented toggle — song/beat cards in Song Plot only (the
   // same richTools gate: no rhyme/section tooling in Prose Plot, no Sheet
@@ -8129,6 +8127,23 @@ function buildLyricWindow(c) {
   const rin = el('input', { class: 'fi', type: 'text', placeholder: 'word to rhyme' });
   const res = el('div', { class: 'rhymeresults' });
   const vnote = el('div', { class: 'lwnote' });
+  // Pin: unpinned, the rhyme word follows the lyric as you type; typing a word
+  // into the box engages the pin (visibly), and unpinning resumes following.
+  // Replaces the old rin._touched flag, which killed auto-follow for good.
+  let rhymePinned = false;
+  const rhymePin = el('button', { class: 'rhyme-pin', type: 'button', title: 'Pin this word — keep its rhymes while you type' });
+  rhymePin.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.456.734a1.75 1.75 0 0 1 2.826.504l.613 1.327a3.08 3.08 0 0 0 2.084 1.707l2.454.584c1.332.317 1.8 1.972.832 2.94L11.06 10l3.72 3.72a.75.75 0 1 1-1.061 1.06L10 11.06l-2.204 2.205c-.968.968-2.623.5-2.94-.832l-.584-2.454a3.08 3.08 0 0 0-1.707-2.084l-1.327-.613a1.75 1.75 0 0 1-.504-2.826L4.456.734Z"/></svg>';
+  const setRhymePin = (on) => {
+    rhymePinned = on;
+    rhymePin.classList.toggle('active', on);
+    rhymePin.title = on ? 'Pinned — click to follow the lyric again' : 'Pin this word — keep its rhymes while you type';
+  };
+  rhymePin.addEventListener('click', () => {
+    if (rhymePinned) {
+      setRhymePin(false);
+      updateRhymeFollow(true); // resume following the caret/selection
+    } else setRhymePin(true);
+  });
 
   const secBtns = el('div', { class: 'lwsection-btns' });
   let showRhymes = () => {};
@@ -8185,7 +8200,7 @@ function buildLyricWindow(c) {
     ]));
     side.appendChild(el('div', { class: 'lwzone lwzone-rhymes' }, [
       el('span', { class: 'fl', text: 'Rhymes' }),
-      rhymeTabWrap, rin, res,
+      rhymeTabWrap, el('div', { class: 'rhyme-in-row' }, [rin, rhymePin]), res,
     ]));
     side.appendChild(el('span', { class: 'fl muted', text: 'Notes', style: 'margin-top:2px' }));
     side.appendChild(vnote);
@@ -8230,15 +8245,42 @@ function buildLyricWindow(c) {
   const noGutter = plain || isProse;
   const editPane = el('div', { class: 'lwbody' + (noGutter ? ' lwbody-plain' : '') }, noGutter ? [editor, side] : [gutter, editor, side]);
 
+  // The rhyme panel follows the writer's focus (unless the pin holds it):
+  //   B — an explicit selection (double-click a word, drag a phrase) wins;
+  //   A — otherwise the word at the caret, falling back to the last word typed
+  //       on the current line, then the previous non-empty line's rhyme word.
+  let lastRhymeWord = null;
+  const editorRhymeWord = () => {
+    const val = editor.value;
+    const s = editor.selectionStart == null ? val.length : editor.selectionStart;
+    const e = editor.selectionEnd == null ? s : editor.selectionEnd;
+    if (e > s) return LYRIC.lastWord(val.slice(s, e)); // B: explicit selection
+    const isW = (ch) => /[A-Za-z']/.test(ch || '');    // A: word under the caret
+    let a = s, b = s;
+    while (a > 0 && isW(val[a - 1])) a--;
+    while (b < val.length && isW(val[b])) b++;
+    let w = val.slice(a, b).replace(/^'+|'+$/g, '');
+    if (!w) { const ls = val.lastIndexOf('\n', s - 1) + 1; w = LYRIC.lastWord(val.slice(ls, s)); }
+    if (!w) w = LYRIC.lastWord(lastNonEmptyLine(val));
+    return w;
+  };
+  const updateRhymeFollow = (force) => {
+    if (!richTools || rhymePinned) return;
+    const w = editorRhymeWord();
+    if (!force && w === lastRhymeWord) return; // caret moved but the word didn't — skip the re-render
+    lastRhymeWord = w;
+    rin.value = w;
+    showRhymes(w);
+  };
+
   const refreshTools = () => {
     if (richTools) {
       // One parse + one rhyme pass shared by all three panels (was 3× + 2×).
       const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
       const letters = rhymeLetters(tokens);
       updateGutter(c, gutter, tokens, letters);
-      updateSummary(c, summary, tokens, letters);
       updateVerseNote(c, vnote, tokens);
-      if (!rin._touched) { rin.value = LYRIC.lastWord(lastNonEmptyLine(editor.value)); showRhymes(rin.value); }
+      updateRhymeFollow();
     } else if (isProse) {
       updateProseSummary(editor.value, summary, c.wordTarget);
       if (!tin._touched) { tin.value = LYRIC.lastWord(lastNonEmptyLine(editor.value)); showSynonyms(tin.value); }
@@ -8253,7 +8295,11 @@ function buildLyricWindow(c) {
 
   editor.addEventListener('input', refresh);
   editor.addEventListener('scroll', () => { gutter.scrollTop = editor.scrollTop; });
-  rin.addEventListener('input', () => { rin._touched = true; showRhymes(rin.value); });
+  // Caret moves and selections (double-click, shift-arrow, drag) steer the
+  // rhyme panel without touching the text, so they must NOT go through refresh
+  // (which saves) — just the lightweight follow.
+  ['keyup', 'mouseup', 'select'].forEach((ev) => editor.addEventListener(ev, () => updateRhymeFollow()));
+  rin.addEventListener('input', () => { setRhymePin(true); showRhymes(rin.value); });
 
   // Sheet mode swaps editPane out for a read-only render of just this card —
   // built fresh each time (so it always reflects the latest saved text), while
@@ -8284,8 +8330,11 @@ function buildLyricWindow(c) {
   if (richTools) {
     const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
     const letters = rhymeLetters(tokens);
-    updateGutter(c, gutter, tokens, letters); updateSummary(c, summary, tokens, letters); updateVerseNote(c, vnote, tokens);
+    updateGutter(c, gutter, tokens, letters); updateVerseNote(c, vnote, tokens);
+    // Seed with the last line's rhyme word; once the writer clicks or types,
+    // caret/selection follow (updateRhymeFollow) takes over.
     rin.value = LYRIC.lastWord(lastNonEmptyLine(c[bodyField] || ''));
+    lastRhymeWord = rin.value;
     renderRhymesInsertable(rin.value, res, editor, refresh);
   } else if (isProse) {
     updateProseSummary(c[bodyField] || '', summary, c.wordTarget);
