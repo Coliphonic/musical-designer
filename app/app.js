@@ -1801,6 +1801,7 @@ function classifyLyricLine(ln, ctx, defaultSung) {
     return { tok: { type: 'cue', text: name, dual }, ctx: { inCharBlock: true, blockSung: sung } };
   }
   if (/^~/.test(t)) return { tok: { type: 'sung', text: t.slice(1).trim() }, ctx: { inCharBlock: true, blockSung } }; // ~ forces this line only
+  if (/^!/.test(t)) return { tok: { type: 'action', text: t.slice(1).trim() }, ctx: { inCharBlock: false, blockSung } }; // ! forces action (Fountain), closing the block
   if (/^\(.*\)$/.test(t)) return { tok: { type: 'paren', text: t }, ctx: { inCharBlock, blockSung } };
   // Implicit cue: an ALL-CAPS line that opens a block (Fountain convention —
   // a blank line or section/cue must precede it, so caps lyrics aren't eaten).
@@ -1859,11 +1860,13 @@ function serializeRows(rows, isSong) {
   };
   const parts = [];
   let blockSung = !!isSong;
+  let inBlock = false; // mirrors the parser's inCharBlock, so action rows know when they need the ! marker
   rows.forEach((row, i) => {
     const type = row.type, text = (row.text || '').trim();
-    if (type === 'scenebreak') { parts.push('***'); blockSung = !!isSong; return; }
-    if (!text) { parts.push(''); blockSung = !!isSong; return; }
+    if (type === 'scenebreak') { parts.push('***'); blockSung = !!isSong; inBlock = false; return; }
+    if (!text) { parts.push(''); blockSung = !!isSong; inBlock = false; return; }
     if (type === 'cue') {
+      inBlock = true;
       blockSung = blockModeFrom(i);
       let label = text.toUpperCase();
       if (blockSung && !isSong) label += ' (sings)';
@@ -1877,8 +1880,15 @@ function serializeRows(rows, isSong) {
       parts.push('(' + text.replace(/^\(/, '').replace(/\)$/, '') + ')');
     } else if (type === 'section') {
       parts.push('[' + text.replace(/^\[/, '').replace(/\]$/, '') + ']');
+      inBlock = false;
     } else if (type === 'scenebreak') {
       parts.push('***');
+    } else if (type === 'action') {
+      // In-block action would re-parse as dialogue/lyric (plain text inside a
+      // character block) — the ! forced-action marker keeps it an action
+      // through the round-trip, and closes the block exactly like the parser.
+      parts.push(inBlock ? '!' + text : text);
+      inBlock = false;
     } else {
       parts.push(text);
     }
@@ -2177,20 +2187,28 @@ function bodyLineEl(type, text, key) {
 // it elsewhere (the manuscript hoists it into one persistent bar). `onClose`: run
 // once when the editor commits (so the caller can release that shared bar).
 function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, onClose }) {
-  // Final Draft "ReturnKey" map: hitting Enter advances to the element that
-  // usually follows. Character/Parenthetical → the dialogue element (Lyrics in a
-  // song, Dialogue otherwise); Dialogue/Lyrics → Character; Action stays Action.
-  // Prose Plot writes in one flowing paragraph stream, not typed script lines —
-  // it gets its own narrow element set (Body / Scene break) and cycle.
+  // Typing model: content decides, live. Enter creates a PREDICTED row — styled
+  // at the likely next element's indent but not committed to it; what the
+  // writer types re-classifies it as the text identifies itself (liveInferRow),
+  // and commit (leaving the line) resolves markers. Prose Plot writes in one
+  // flowing paragraph stream, not typed script lines — it gets its own narrow
+  // element set (Body / Scene break) and cycle, and skips live inference.
   const isProse = state.format === 'prose';
   const elCycle  = isProse ? RICH_EL_CYCLE_PROSE  : RICH_EL_CYCLE;
   const elLabels = isProse ? RICH_EL_LABELS_PROSE : RICH_EL_LABELS;
-  const smartNext = (type) => {
-    if (type === 'scenebreak') return 'action';
-    if (type === 'cue' || type === 'paren') return isSong ? 'sung' : 'dialogue';
-    if (type === 'dialogue' || type === 'sung') return 'cue';
+  // Prediction for the row Enter creates — STYLE only, never a commitment.
+  // Predicting the CONTINUATION (another lyric after a lyric, more dialogue
+  // after dialogue) rather than the Final Draft ReturnKey hop (dialogue →
+  // Character) minimizes restyles, because runs of the same element dominate;
+  // a caps name flips the row to Character the moment it reads as one.
+  const predictNext = (row) => {
+    const type = row.dataset.type;
+    if (!(row.textContent || '').trim()) return 'action'; // Enter on an emptied row: the block just closed, action is next
+    if (type === 'cue') return row.dataset.mode ? (row.dataset.mode === 'sung' ? 'sung' : 'dialogue') : (isSong ? 'sung' : 'dialogue'); // a (sings)/(spoken) tag steers the block
+    if (type === 'paren') return isSong ? 'sung' : 'dialogue';
     if (type === 'section') return isSong ? 'cue' : 'action';
-    return type; // action → action
+    if (type === 'scenebreak' || type === 'blank') return 'action';
+    return type; // sung → sung, dialogue → dialogue, action → action
   };
   const tabNext   = (type) => { const i = elCycle.indexOf(type); return elCycle[(i + 1) % elCycle.length]; };
   // Each row carries data-id so an edited line keeps its identity across saves
@@ -2214,31 +2232,39 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const setLineType = (div, type) => {
     div.dataset.type = type;
     div.className = 'ms-el ' + (RICH_EL_CLASS[type] || 'lw-blank ms-el-blank');
-    if (type !== 'cue') delete div.dataset.dual; // dual only applies to cues
+    if (type !== 'cue') { delete div.dataset.dual; delete div.dataset.mode; } // dual/mode only apply to cues
     // Scene break is a divider, not text — converting a line into one discards
     // whatever it held (serializeRows would anyway; ***  round-trips regardless
     // of displayed text) and shows the glyph instead.
     if (type === 'scenebreak') div.innerHTML = emphToHtml('⁂');
   };
-  // ---- Highland/Fountain-style live inference ----
-  // As you type, a committed line's element type is inferred from its own text
-  // plus the block context of the rows above it — Tab/⌘N/dropdown stay a silent
+  // ---- Highland/Fountain-style inference, in two phases ----
+  // Content decides what a line is. A LIVE pass (liveInferRow, below) restyles
+  // the row on every keystroke without touching its text — caps become a
+  // Character, plain text becomes lyric/dialogue/action by block context. A
+  // COMMIT pass (inferRow) runs when the line is left and additionally strips
+  // markers (@ ~ ! parens brackets ***). Tab/⌘N/dropdown stay a silent
   // override (setOrInsertType / the Tab handler mark the row dataset.man='1',
-  // which locks it out of inference for good). Reuses classifyLyricLine (the
-  // same function parseLyricLines calls) so the editor's guess and the printed
-  // parse can never drift apart.
+  // which locks it out of inference for good). Both passes reuse
+  // classifyLyricLine (the same function parseLyricLines calls) so the
+  // editor's guess and the printed parse can never drift apart.
   // Replay the block state classifyLyricLine would be carrying by the time it
   // reached `row`, from the ACTUAL committed types of the rows above (not by
   // re-parsing their text — a manually-overridden row's text may no longer
-  // match its type, and its type is the ground truth). A cue always resets
-  // blockSung to the card default because the (sings)/(spoken) tag that would
-  // override it was already stripped out of the row's stored text when it was
-  // first classified; a sung/dialogue row seen afterward corrects it.
+  // match its type, and its type is the ground truth). A cue resets blockSung
+  // to its remembered (sings)/(spoken) mode (dataset.mode, stamped when the
+  // tag was stripped) or the card default; a sung/dialogue row seen afterward
+  // corrects it either way.
   const blockCtxBefore = (row) => {
     let inCharBlock = false, blockSung = !!isSong;
     for (let p = lineEd.firstElementChild; p && p !== row; p = p.nextElementSibling) {
+      // A row with no text is a blank for context purposes no matter what its
+      // (possibly just-predicted) type says — an empty predicted-Character row
+      // must not open a block, and Enter-Enter must genuinely close one.
+      // (Scene breaks are never empty — they display the ⁂ glyph.)
+      if (!(p.textContent || '').trim()) { inCharBlock = false; continue; }
       const type = p.dataset.type;
-      if (type === 'cue') { inCharBlock = true; blockSung = !!isSong; }
+      if (type === 'cue') { inCharBlock = true; blockSung = p.dataset.mode ? p.dataset.mode === 'sung' : !!isSong; }
       else if (type === 'sung') { if (inCharBlock) blockSung = true; }
       else if (type === 'dialogue') { if (inCharBlock) blockSung = false; }
       else if (type === 'blank' || type === 'scenebreak' || type === 'section') { inCharBlock = false; }
@@ -2269,29 +2295,100 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       delete row.dataset.dirty;
       return;
     }
-    const { tok } = classifyLyricLine(raw, blockCtxBefore(row), isSong);
-    const newType = tok.type === 'blank' ? type : tok.type; // classifyLyricLine only yields blank for empty text, already excluded above
+    let { tok } = classifyLyricLine(raw, blockCtxBefore(row), isSong);
+    let newType = tok.type === 'blank' ? type : tok.type; // classifyLyricLine only yields blank for empty text, already excluded above
+    // A name is a name, even mid-block. Fountain reads a bare CAPS line inside
+    // a character block as a shouted lyric/dialogue continuation, but in the
+    // editor the far more common intent is "new speaker" — so a row that is
+    // already a Character, or was born fresh this session (Enter-made, see
+    // dataset.fresh), re-classifies as a block OPENER, resolving the name and
+    // any (sings)/(spoken)/^ markers exactly as a normal cue would.
+    // serializeRows inserts the separating blank on save, so the round-trip
+    // parse agrees. Fresh rows need ≥2 letters so a lone "I" lyric never
+    // promotes; a real shouted caps lyric stays reachable with ~ or Tab.
+    const cueLetters = (raw.replace(/\s*\([^)]*\)\s*$/, '').match(/[A-Za-z]/g) || []).length;
+    if ((type === 'cue' || (row.dataset.fresh === '1' && cueLetters >= 2)) && newType !== 'cue' && looksLikeCue(raw)) {
+      ({ tok } = classifyLyricLine(raw, { inCharBlock: false, blockSung: !!isSong }, isSong));
+      newType = tok.type;
+    }
     const sameSubtype = newType !== 'section' || tok.subtype === row.dataset.subtype;
     const sameDual = newType !== 'cue' || !!tok.dual === (row.dataset.dual === '1');
-    if (newType === type && sameSubtype && sameDual) { delete row.dataset.dirty; return; }
+    // An explicit (sings)/(spoken) tag is stripped from the display below, so
+    // remember its mode on the row — blockCtxBefore/predictNext honor it,
+    // letting the tag steer the very first line typed underneath (before any
+    // sung/dialogue rows exist to derive the mode from). serializeRows
+    // re-emits the tag from the block's actual line types, so nothing extra is
+    // persisted. Stamped BEFORE the no-change return: live inference usually
+    // typed the row correctly already, so type equality alone can't skip this.
+    if (newType === 'cue') {
+      const m = raw.match(/\(([^)]*)\)\s*\^?\s*$/);
+      const tag = m && m[1].trim().toLowerCase();
+      if (/^(sung|sings|singing|sing)$/.test(tag || '')) row.dataset.mode = 'sung';
+      else if (/^(spoken|speaks|speaking|speak|said)$/.test(tag || '')) row.dataset.mode = 'spoken';
+    }
+    // Display form with markers (~, @, !, [...], (...), a trailing sung/spoken
+    // tag) stripped — classifyLyricLine's tok.text is already the stripped
+    // form for every marker-driven type. The no-change return must ALSO
+    // require the text to match this form: live inference restyles without
+    // stripping, so a marker-typed row usually arrives here with the right
+    // type but the marker still in its text.
+    const display = newType === 'scenebreak' ? '⁂'
+      : newType === 'paren' ? (tok.text || '').replace(/^\(/, '').replace(/\)$/, '')
+      : (tok.text || '');
+    const textSame = display.trim() === rowMarkup.trim();
+    if (newType === type && sameSubtype && sameDual && textSame) { delete row.dataset.dirty; delete row.dataset.fresh; return; }
     const focused = getFocusedLine(lineEd) === row;
     const caretOff = focused ? caretOffsetIn(row) : 0;
     setLineType(row, newType);
     if (newType === 'section' && tok.subtype) row.dataset.subtype = tok.subtype; else delete row.dataset.subtype;
     if (newType === 'cue' && tok.dual) row.dataset.dual = '1'; else if (newType !== 'cue') delete row.dataset.dual;
-    // Strip the marker that triggered the retype (~, @, [...], (...), a
-    // trailing sung/spoken tag) from the displayed text — classifyLyricLine's
-    // tok.text is already the stripped form for every marker-driven type.
-    if (newType === 'cue' || newType === 'sung' || newType === 'paren' || newType === 'section' || newType === 'scenebreak') {
-      const display = newType === 'scenebreak' ? '⁂'
-        : newType === 'paren' ? (tok.text || '').replace(/^\(/, '').replace(/\)$/, '')
-        : (tok.text || '');
+    if (newType === 'cue' || newType === 'sung' || newType === 'action' || newType === 'paren' || newType === 'section' || newType === 'scenebreak') {
       row.innerHTML = emphToHtml(display);
       if (focused) placeCaretAtOffset(row, Math.min(caretOff, (row.textContent || '').length));
     }
     if (focused) styleSel.value = newType;
     delete row.dataset.dirty;
+    delete row.dataset.fresh; // committed — from here on, edits use the conservative rules
     pushHistory(); // fold the retype into its own undo step, distinct from the text edit that triggered it
+  };
+  // ---- live inference (as-you-type) ----
+  // The commit pass above strips markers, so it can only run when a line is
+  // being left. This lighter pass runs on every keystroke and only RESTYLES —
+  // text is never rewritten, so it's safe mid-thought. It covers the four
+  // plain-text elements (Character/Lyrics/Dialogue/Action); marker-driven
+  // types (@ ~ ! (...) [...] ***) keep their commit-time conversion, since
+  // converting those live would eat characters while they're still being typed.
+  const LIVE_TYPES = ['cue', 'sung', 'dialogue', 'action'];
+  const liveInferRow = (row) => {
+    if (isProse || !row || row.dataset.man === '1') return;
+    const type = row.dataset.type;
+    if (!LIVE_TYPES.includes(type) && type !== 'blank') return; // paren/section/scenebreak rows: commit-only
+    const t = emphFromNode(row).trim();
+    if (!t || /^[@~!([]/.test(t) || /^\*/.test(t)) return; // empty keeps its predicted style; markers wait for commit
+    let newType;
+    const letters = (t.replace(/\s*\([^)]*\)\s*$/, '').match(/[A-Za-z]/g) || []).length;
+    if (row.dataset.fresh === '1' && letters >= 2 && looksLikeCue(t)) newType = 'cue'; // a name is a name, even mid-block
+    else {
+      // An existing Character row holds its ground while its NAME still reads
+      // like one — including mid-typing of a trailing "(spoken" tag, whose
+      // unclosed paren would otherwise fail looksLikeCue and demote the row to
+      // lyric/dialogue on every keystroke (e.g. backspacing into an
+      // autocompleted cue to add a mode tag). It only demotes live when the
+      // name itself gains lowercase — a real rewrite into text. Commit
+      // (inferRow) re-resolves the finished tag either way.
+      if (type === 'cue') {
+        const base = t.replace(/\s*\([^)]*\)?\s*$/, '').trim();
+        if (!base || !/[a-z]/.test(base)) return; // still a caps name (or only a tag fragment) — hold
+      }
+      newType = classifyLyricLine(t, blockCtxBefore(row), isSong).tok.type;
+    }
+    if (newType === type || !LIVE_TYPES.includes(newType)) return;
+    // Never restyle to Character off a single letter — "S" is probably the
+    // start of "She…", not a name. The flip waits for the second caps letter
+    // (or commit, which classifies with the parser's full rules).
+    if (newType === 'cue' && letters < 2) return;
+    setLineType(row, newType);
+    if (getFocusedLine(lineEd) === row) styleSel.value = newType;
   };
   // Read the DOM rows back as identified lines — text re-wrapped so each row's
   // text matches parseLyricLines output (so the blob round-trips exactly).
@@ -2821,8 +2918,9 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     line.dataset.dirty = '1';
     closeAc();
     if (advance) {
-      const newType = smartNext(line.dataset.type);
+      const newType = predictNext(line);
       const newLine = mkLine(newType, '');
+      newLine.dataset.fresh = '1'; // predicted, not committed — typing decides
       line.after(newLine);
       placeCursorAt(newLine, false);
       styleSel.value = newType;
@@ -2879,8 +2977,8 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     tryAutoConvertChord(); trySmartTypography();
     if (needsNormalize()) normalize(true);
     const cl = getFocusedLine(lineEd);
-    if (cl) cl.dataset.dirty = '1'; // edited this session — eligible for inference once committed
-    refreshAc(cl);
+    if (cl) { cl.dataset.dirty = '1'; liveInferRow(cl); } // dirty: eligible for commit inference; live: restyle as the text identifies itself
+    refreshAc(cl); // after live inference, so a caps name that just became a cue opens name autocomplete immediately
     queueHistory();
   });
   // Paste as plain text, splitting on newlines into typed rows (strip rich markup).
@@ -2992,8 +3090,8 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       return;
     }
     if (e.key === 'Enter') {
-      // Enter → the element that usually follows (FD ReturnKey); Shift+Enter →
-      // another line of the SAME element (e.g. the next lyric line). A caret in
+      // Enter → a fresh predicted row (see predictNext — style, not commitment);
+      // Shift+Enter → force another line of the SAME element. A caret in
       // mid-line splits it; the text after the caret carries into the new row.
       e.preventDefault();
       const sel = window.getSelection();
@@ -3004,9 +3102,15 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       const off = caretOffsetIn(cur);
       const whole = cur.textContent || '';
       cur.textContent = whole.slice(0, off);
-      const newType = e.shiftKey ? curType : smartNext(curType);
-      const newLine = mkLine(newType, whole.slice(off));
+      const carried = whole.slice(off);
+      // A mid-line split keeps the same element on both halves (it's the same
+      // content, just wrapped); a clean end-of-line Enter births a PREDICTED
+      // row — styled at the likely next element's indent but uncommitted, and
+      // marked fresh so what's typed into it decides what it really is.
+      const newType = (e.shiftKey || carried.trim()) ? curType : predictNext(cur);
+      const newLine = mkLine(newType, carried);
       newLine.dataset.dirty = '1'; // carries user text into a new row this session
+      if (!carried.trim()) newLine.dataset.fresh = '1'; // born empty — full inference freedom, caps → Character
       cur.after(newLine);
       placeCursorAt(newLine, false);
       styleSel.value = newType;
@@ -8117,7 +8221,7 @@ function buildLyricWindow(c) {
         ? 'Write the chapter here…\n\nJust write — paragraphs flow one after another.\n*italic* / **bold** — inline emphasis\n***  — a scene break (on its own line)'
         : 'Write the scene here…\n\nJust write — paragraphs flow one after another.\n*italic* / **bold** — inline emphasis\n***  — a scene break (on its own line)\nCHARACTER — a CAPS line still works for dialogue cues, if you want them')
     : c.type === 'beat'
-    ? 'Write the scene here…\n\nCHARACTER — a CAPS line is who speaks\nDialogue — plain text below the name\n(Parenthetical) — tone / action mid-line\nAction — plain line outside a character\nCHARACTER (sings) — mark a sung outburst\n[Scene] — section heading'
+    ? 'Write the scene here…\n\nCHARACTER — a CAPS line is who speaks\nDialogue — plain text below the name\n(Parenthetical) — tone / action mid-line\nAction — plain line outside a character\n!Line — force action inside dialogue\nCHARACTER (sings) — mark a sung outburst\n[Scene] — section heading'
     : 'Write here…\n\nCHARACTER — a CAPS line is who sings\nLyrics — just type below the name (rhyme-tracked)\nCHARACTER (spoken) — mark a spoken aside\n(Parenthetical) — inline note\n[Chorus] — section chip (resets rhyme)\n[Scene 1: Title] — scene heading\n[#01 Title] — song number header';
   const editor = el('textarea', { class: 'lweditor', wrap: (plain || isProse) ? 'soft' : 'off', spellcheck: 'true', placeholder: (plain && !isProse) ? 'Write the scene here — the book prose for this moment.' : editorPlaceholder });
   editor.value = c[bodyField] || '';
