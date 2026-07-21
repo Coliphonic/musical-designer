@@ -2,7 +2,6 @@
 // Click a card to open the detail drawer and edit every field, incl. "why does this sing?".
 // Drag sideways to reorder or into another lane to change act. + per lane adds a song/beat.
 
-const CCOL = 92, CH = 132, PAD_T = 14, PAD_B = 14;
 const SVGNS = 'http://www.w3.org/2000/svg';
 let _uid = 0;
 // Cards get 'c' ids that are regenerated from scratch on every load (cards
@@ -348,8 +347,8 @@ function openProject(id, afterOpen) {
   }).catch(() => setSaveInd('error'));
 }
 
-function serialize() {
-  return JSON.stringify({
+function serializeData() {
+  return {
     title: state.title, mode: state.mode, status: state.status || 'active', folder: state.folder || '', updated: Date.now(),
     format: state.format || 'song',
     wordTarget: state.wordTarget || 0,
@@ -366,8 +365,9 @@ function serialize() {
     titlePage: state.titlePage,
     scriptHeader: state.scriptHeader,
     book: state.book,
-  });
+  };
 }
+function serialize() { return JSON.stringify(serializeData()); }
 let _saveTimer = null;
 function scheduleSave() {
   if (state.readonly || !state.projectId || state.loading) return;
@@ -399,17 +399,9 @@ function doSave(targetId) {
 function loadProjects() {
   return fetch('/api/shows').then((r) => r.json()).then((list) => { state.projects = list || []; renderShowBtn(); if (state.page === 'library') buildLibraryPage(); }).catch(() => {});
 }
-function newProject() { openNewShowModal(); }
 function duplicateProject() {
   const body = JSON.stringify({ title: state.title + ' (copy)', mode: state.mode, format: state.format || 'song', updated: Date.now(), cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }) });
   fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).then((r) => r.json()).then((d) => loadProjects().then(() => openProject(d.id)));
-}
-function renameProject() {
-  if (state.readonly || !state.projectId) return;
-  const t = prompt('Rename show:', state.title);
-  if (t == null) return;
-  state.title = t.trim() || 'Untitled show';
-  doSave(); render();
 }
 function deleteProject() {
   if (state.readonly || !state.projectId) return;
@@ -1182,12 +1174,13 @@ function snapDefaultLabel() {
 }
 function saveSnapshot(label, cb) {
   if (state.readonly || !state.projectId) return;
-  snapApi('POST', '', { label: label || '', data: JSON.parse(serialize()) }).then((m) => cb && cb(m)).catch(() => {});
+  // snapApi stringifies the body synchronously, so live nested refs are safe.
+  snapApi('POST', '', { label: label || '', data: serializeData() }).then((m) => cb && cb(m)).catch(() => {});
 }
 function restoreSnapshot(snapId) {
   if (state.readonly || !state.projectId) return;
   // Non-destructive: checkpoint the current state first, then load the chosen one.
-  snapApi('POST', '', { label: 'Before restore', data: JSON.parse(serialize()) })
+  snapApi('POST', '', { label: 'Before restore', data: serializeData() })
     .then(() => snapApi('GET', '/' + snapId))
     .then((snap) => {
       if (!snap || !snap.data) return;
@@ -1712,13 +1705,6 @@ function selectInput(opts, val, on) {
   s.addEventListener('change', () => on(s.value));
   return s;
 }
-function sliderInput(val, on) {
-  const r = el('input', { type: 'range', min: '1', max: '10', step: '1' });
-  r.value = val;
-  const out = el('span', { class: 'sv', text: val });
-  r.addEventListener('input', () => { out.textContent = r.value; on(parseInt(r.value, 10)); });
-  return el('div', { class: 'slider-row' }, [r, out]);
-}
 function textareaInput(val, on, ph) {
   const t = el('textarea', { class: 'ft', placeholder: ph || '' });
   t.value = val || '';
@@ -1739,10 +1725,10 @@ function lastNonEmptyLine(text) {
   const lines = (text || '').split('\n').filter((l) => l.trim());
   return lines.length ? lines[lines.length - 1] : '';
 }
-function verseCheck(text, defaultSung) {
+function verseCheck(text, defaultSung, tokens) {
   // Group runs of sung lines into verses (broken by blanks, cues, or sections)
   // and compare their per-line syllable counts.
-  const tokens = parseLyricLines(text || '', defaultSung);
+  tokens = tokens || parseLyricLines(text || '', defaultSung);
   const verses = [];
   let cur = [];
   const flush = () => { if (cur.length) verses.push(cur); cur = []; };
@@ -1761,17 +1747,6 @@ function verseCheck(text, defaultSung) {
   }
   return '';
 }
-function renderRhymes(word, container) {
-  container.innerHTML = '';
-  word = (word || '').toLowerCase().replace(/[^a-z']/g, '');
-  if (!word) { container.appendChild(el('span', { class: 'rhint', text: 'Type a word to find perfect rhymes.' })); return; }
-  if (!LYRIC.ready()) { container.appendChild(el('span', { class: 'rhint', text: 'loading dictionary…' })); return; }
-  if (!LYRIC.inDict(word)) { container.appendChild(el('span', { class: 'rhint', text: '"' + word + '" isn\'t in the dictionary' })); return; }
-  const r = LYRIC.suggest(word);
-  if (!r.perfect.length) { container.appendChild(el('span', { class: 'rhint', text: 'no perfect rhymes found for "' + word + '"' })); return; }
-  r.perfect.forEach((w) => container.appendChild(el('span', { class: 'rchip', text: w })));
-}
-
 // ---- lyric parser ----
 // Plain text is context-sensitive: after a @cue or sung/dialogue line = spoken dialogue
 // (small indent); standalone between action paragraphs = stage action (right-shifted).
@@ -2035,13 +2010,24 @@ function rhymeLetters(tokens) {
 // Every character cue name used anywhere in the show — uppercase, unique, sorted.
 // Parses via parseLyricLines so it catches both legacy @cues and seamless CAPS
 // cues, plus any manually-registered characters. Feeds the cue autocomplete.
+// Called per keystroke from the cue autocomplete, so re-tokenizing the whole
+// show each time adds up. Memoize per card on the lyrics string itself —
+// identity check is cheap and any edit swaps the string.
+const _cueNameCache = new Map(); // card.id → { lyrics, names }
 function collectCharacterNames() {
   const set = new Set();
   (state.cards || []).forEach((c) => {
     if (!c || !c.lyrics) return;
-    parseLyricLines(c.lyrics, c.type === 'song').forEach((tok) => {
-      if (tok.type === 'cue') { const n = (tok.text || '').trim().toUpperCase(); if (n) set.add(n); }
-    });
+    let hit = _cueNameCache.get(c.id);
+    if (!hit || hit.lyrics !== c.lyrics) {
+      const names = [];
+      parseLyricLines(c.lyrics, c.type === 'song').forEach((tok) => {
+        if (tok.type === 'cue') { const n = (tok.text || '').trim().toUpperCase(); if (n) names.push(n); }
+      });
+      hit = { lyrics: c.lyrics, names };
+      _cueNameCache.set(c.id, hit);
+    }
+    hit.names.forEach((n) => set.add(n));
   });
   Object.keys(state.characters || {}).forEach((n) => { const u = (n || '').trim().toUpperCase(); if (u) set.add(u); });
   return [...set].sort();
@@ -7726,13 +7712,13 @@ function insertAtCursor(ta, text) {
   ta.selectionStart = ta.selectionEnd = s + text.length;
   ta.focus();
 }
-function isSectionHeader(ln) { return /^\[.+\]$/.test(ln.trim()); }
-function isCueLine(ln) { return /^@/.test(ln.trim()); }
-function isSungLine(ln) { return /^~/.test(ln.trim()) && !!ln.trim(); }
-function updateGutter(c, gutter) {
+// The three updaters below run together on every editor keystroke; callers
+// precompute tokens/letters once and pass them in (each falls back to parsing
+// itself so one-off calls stay simple).
+function updateGutter(c, gutter, tokens, letters) {
   gutter.innerHTML = '';
-  const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
-  const letters = rhymeLetters(tokens);
+  tokens = tokens || parseLyricLines(c.lyrics || '', c.type === 'song');
+  letters = letters || rhymeLetters(tokens);
   tokens.forEach((tok, i) => {
     if (tok.type === 'cue' || tok.type === 'section') {
       gutter.appendChild(el('div', { class: 'lwg-row lwg-section' }));
@@ -7745,11 +7731,11 @@ function updateGutter(c, gutter) {
     ]));
   });
 }
-function updateSummary(c, node) {
-  const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
+function updateSummary(c, node, tokens, letters) {
+  tokens = tokens || parseLyricLines(c.lyrics || '', c.type === 'song');
   const sung = tokens.filter((t) => t.type === 'sung');
   const syl = sung.reduce((s, t) => s + LYRIC.lineSyll(t.text), 0);
-  const scheme = rhymeLetters(tokens).filter(Boolean).join('');
+  const scheme = (letters || rhymeLetters(tokens)).filter(Boolean).join('');
   node.textContent = `${sung.length} sung lines · ${syl} syllables` + (scheme ? ` · ${scheme.length > 20 ? scheme.slice(0, 20) + '…' : scheme}` : '');
 }
 // Prose Plot's equivalent of updateSummary — word count is the metric that
@@ -7759,8 +7745,8 @@ function updateProseSummary(text, node, target) {
   const base = n === 1 ? '1 word' : `${n.toLocaleString()} words`;
   node.textContent = target ? `${base} / ${target.toLocaleString()}` : base;
 }
-function updateVerseNote(c, node) {
-  const n = verseCheck(c.lyrics || '', c.type === 'song');
+function updateVerseNote(c, node, tokens) {
+  const n = verseCheck(c.lyrics || '', c.type === 'song', tokens);
   node.textContent = n || 'No verse-length mismatches.';
   node.className = 'lwnote' + (n ? ' warn' : '');
 }
@@ -8246,9 +8232,12 @@ function buildLyricWindow(c) {
 
   const refreshTools = () => {
     if (richTools) {
-      updateGutter(c, gutter);
-      updateSummary(c, summary);
-      updateVerseNote(c, vnote);
+      // One parse + one rhyme pass shared by all three panels (was 3× + 2×).
+      const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
+      const letters = rhymeLetters(tokens);
+      updateGutter(c, gutter, tokens, letters);
+      updateSummary(c, summary, tokens, letters);
+      updateVerseNote(c, vnote, tokens);
       if (!rin._touched) { rin.value = LYRIC.lastWord(lastNonEmptyLine(editor.value)); showRhymes(rin.value); }
     } else if (isProse) {
       updateProseSummary(editor.value, summary, c.wordTarget);
@@ -8293,7 +8282,9 @@ function buildLyricWindow(c) {
   win.appendChild(activePane);
 
   if (richTools) {
-    updateGutter(c, gutter); updateSummary(c, summary); updateVerseNote(c, vnote);
+    const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
+    const letters = rhymeLetters(tokens);
+    updateGutter(c, gutter, tokens, letters); updateSummary(c, summary, tokens, letters); updateVerseNote(c, vnote, tokens);
     rin.value = LYRIC.lastWord(lastNonEmptyLine(c[bodyField] || ''));
     renderRhymesInsertable(rin.value, res, editor, refresh);
   } else if (isProse) {
