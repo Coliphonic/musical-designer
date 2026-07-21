@@ -146,10 +146,14 @@ body.dark .seg button.active { background: #4a453e; color: #f3eee3; box-shadow: 
 /* Between-card insert: a hover "+" hairline in the 10px gap to a card's left.
    Absolutely positioned into the gap so it never disturbs the lane's flex flow;
    invisible until the gap is hovered. Mirrors the Navigator quick-add. */
-.board-ins { position: absolute; left: -10px; top: 0; bottom: 0; width: 10px; z-index: 4; cursor: pointer; }
+/* left:-11px, not -10px: absolute offsets are measured from the padding box, so
+   the card's 1px left border would otherwise shove the whole zone (and its line)
+   1px into the gap, leaving the hairline hugging this card. The extra px re-centers
+   it in the true 10px inter-card gap. */
+.board-ins { position: absolute; left: -11px; top: 0; bottom: 0; width: 10px; z-index: 4; cursor: pointer; }
 .board-ins-line {
-  position: absolute; top: 6px; bottom: 6px; left: 50%; width: 0;
-  border-left: 2px solid var(--energy-line); border-radius: 1px;
+  position: absolute; top: 6px; bottom: 6px; left: 50%; transform: translateX(-50%);
+  width: 2px; background: var(--energy-line); border-radius: 1px;
   opacity: 0; transition: opacity .1s; pointer-events: none;
 }
 .board-ins:hover .board-ins-line, .board-ins.picking .board-ins-line { opacity: 1; }
