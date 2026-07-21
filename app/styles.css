@@ -1557,6 +1557,45 @@ body.ms-focus .ms-focus-exit-pill.show { opacity: 1; pointer-events: auto; }
 .ms-nav-label { flex: 1; min-width: 0; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ms-nav-count { flex-shrink: 0; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
 .ms-nav-row.active .ms-nav-count { color: var(--muted); }
+/* Hover "×" delete — revealed only when the row is hovered, so the outline
+   stays uncluttered at rest. */
+.ms-nav-del {
+  flex-shrink: 0; width: 16px; height: 16px; border-radius: 4px;
+  font-size: 14px; line-height: 15px; text-align: center; color: var(--faint);
+  opacity: 0; transition: opacity 0.1s, color 0.1s, background 0.1s; cursor: pointer;
+}
+.ms-nav-row:hover .ms-nav-del { opacity: 1; }
+.ms-nav-del:hover { color: var(--danger); background: var(--hover); }
+/* Navigator quick-add: zero-height hit zones straddle the gaps between rows;
+   hovering one reveals a thin insertion line with a small "+", clicking it
+   opens a tiny inline type picker. Invisible until hover — no resting clutter. */
+.ms-nav-ins { position: relative; height: 8px; margin: -4px 0; z-index: 3; cursor: pointer; }
+.ms-nav-ins-line {
+  position: absolute; left: 20px; right: 8px; top: 50%; height: 0;
+  border-top: 2px solid var(--energy-line); border-radius: 1px;
+  opacity: 0; transition: opacity 0.1s; pointer-events: none;
+}
+.ms-nav-ins:hover .ms-nav-ins-line, .ms-nav-ins.picking .ms-nav-ins-line { opacity: 1; }
+.ms-nav-ins-plus {
+  position: absolute; left: -14px; top: 50%; transform: translateY(-50%);
+  width: 13px; height: 13px; border-radius: 50%;
+  background: var(--energy); color: #fff;
+  font-size: 11px; line-height: 12px; font-weight: 600; text-align: center;
+}
+.ms-nav-ins-picker {
+  position: absolute; left: 8px; top: 8px; z-index: 6;
+  display: flex; gap: 2px; padding: 3px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.14);
+}
+body.dark .ms-nav-ins-picker { box-shadow: 0 4px 14px rgba(0,0,0,0.5); }
+.ms-nav-ins-opt {
+  display: flex; align-items: center; gap: 5px; padding: 4px 8px;
+  border: none; border-radius: 5px; background: transparent; cursor: pointer;
+  font-family: inherit; font-size: 12px; color: var(--muted); white-space: nowrap;
+}
+.ms-nav-ins-opt:hover { background: var(--hover); color: var(--ink); }
+.ms-nav-ins-opt-icon { width: 13px; text-align: center; font-size: 12px; }
 /* Contextual ribbon — the per-page tool row directly under the top nav.
    Shared so each page's toolbar reads as one consistent system. */
 .ribbon, .ms-toolbar {

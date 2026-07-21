@@ -1358,7 +1358,10 @@ function lastIndexOfAct(act) {
   for (let p = li - 1; p >= 0; p--) { let l = -1; state.cards.forEach((c, i) => { if (c.act === LANE_KEYS[p]) l = i; }); if (l >= 0) return l; }
   return -1;
 }
-function insertCard(act, type) {
+// Default card shapes, shared by the board's insertCard and the Manuscript
+// quick-create paths (Navigator gap "+", /song slash command). An explicit
+// title overrides the default one.
+function makeNewCard(type, act, title) {
   // In Prose Plot a "scene" card is a chapter — title it "Chapter N" (one past
   // the current highest chapter number) rather than "Scene 1".
   const sceneTitle = state.format === 'prose'
@@ -1369,6 +1372,11 @@ function insertCard(act, type) {
     : type === 'scene'
     ? { id: uid(), type: 'scene', act, title: sceneTitle, note: '', min: 0 }
     : { id: uid(), type: 'beat', act, title: 'New beat', note: '', lyrics: '', min: 1.5, change: null };
+  if (title) card.title = title;
+  return card;
+}
+function insertCard(act, type) {
+  const card = makeNewCard(type, act);
   state.cards.splice(lastIndexOfAct(act) + 1, 0, card);
   state.openAct = null;
   if (type === 'beat' && state.view === 'songs') state.view = 'full';
@@ -2186,7 +2194,7 @@ function bodyLineEl(type, text, key) {
 // `detachBar`: don't mount the style ribbon inside the editor — the caller mounts
 // it elsewhere (the manuscript hoists it into one persistent bar). `onClose`: run
 // once when the editor commits (so the caller can release that shared bar).
-function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, onClose }) {
+function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, onClose, onSpawnCard }) {
   // Typing model: content decides, live. Enter creates a PREDICTED row — styled
   // at the likely next element's indent but not committed to it; what the
   // writer types re-classifies it as the text identifies itself (liveInferRow),
@@ -2364,7 +2372,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     const type = row.dataset.type;
     if (!LIVE_TYPES.includes(type) && type !== 'blank') return; // paren/section/scenebreak rows: commit-only
     const t = emphFromNode(row).trim();
-    if (!t || /^[@~!([]/.test(t) || /^\*/.test(t)) return; // empty keeps its predicted style; markers wait for commit
+    if (!t || /^[@~!([/]/.test(t) || /^\*/.test(t)) return; // empty keeps its predicted style; markers (and a /command being typed) wait for commit
     let newType;
     const letters = (t.replace(/\s*\([^)]*\)\s*$/, '').match(/[A-Za-z]/g) || []).length;
     if (row.dataset.fresh === '1' && letters >= 2 && looksLikeCue(t)) newType = 'cue'; // a name is a name, even mid-block
@@ -3090,6 +3098,24 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       return;
     }
     if (e.key === 'Enter') {
+      // Slash command: committing a line of the form "/song Title" (or /beat,
+      // /scene, /chapter) spawns a NEW card right after the one being edited.
+      // The command line is removed before commit so it never lands as content;
+      // anything that doesn't match falls through and commits as a normal line.
+      if (onSpawnCard && !e.shiftKey) {
+        const cmd = (line.textContent || '').trim().match(/^\/(song|beat|scene|chapter)(?:\s+(.*))?$/i);
+        if (cmd) {
+          e.preventDefault();
+          const kind = cmd[1].toLowerCase();
+          const type = kind === 'chapter' ? 'scene' : kind;
+          delete line.dataset.dirty; // never commit-infer the removed command line
+          if (line === lastActiveLine) lastActiveLine = null;
+          line.remove();
+          commit(); // save this card as it stands (minus the slash line)
+          onSpawnCard(type, (cmd[2] || '').trim());
+          return;
+        }
+      }
       // Enter → a fresh predicted row (see predictNext — style, not commitment);
       // Shift+Enter → force another line of the SAME element. A caret in
       // mid-line splits it; the text after the caret carries into the new row.
@@ -7069,6 +7095,12 @@ function buildManuscriptPage(sceneId) {
         if (refreshNav) refreshNav(); // outline's note sub-rows track this card's body
       },
       onClose: () => { if (setActiveFormatBar) setActiveFormatBar(null); }, // release the shared bar
+      // "/song Title" + Enter in the editor: a new card lands right after this
+      // one (same act), the doc rebuilds, and the caret drops into it.
+      onSpawnCard: (type, title) => {
+        const at = state.cards.indexOf(c);
+        spawnCardAt(type, at < 0 ? state.cards.length - 1 : at, 'after', title);
+      },
     });
     sec.appendChild(rich);
     // Hoist this editor's ribbon into the single sticky bar (it controls whichever
@@ -7081,7 +7113,50 @@ function buildManuscriptPage(sceneId) {
       msBody.scrollTop += firstEl.getBoundingClientRect().top - anchorY;
     }
     if (ev && rich._focusFromPoint) rich._focusFromPoint(ev.clientX, ev.clientY);
+    // No event (quick-create paths): buildRichEditor's own autofocus ran while
+    // the editor was still detached, so re-focus now that it's in the DOM.
+    else if (rich._focusFirst) rich._focusFirst();
     if (rich._syncBar) rich._syncBar();
+  };
+
+  // ── Quick-create (Navigator gap "+" and the /song slash command) ─────
+  // Insert a new card before/after the card at state.cards[refIdx] (act taken
+  // from that neighbor), save, rebuild the doc, then scroll to the new card
+  // and open its editor ready to type. Any open editor commits first so no
+  // in-flight text is lost to the rebuild.
+  const spawnCardAt = (type, refIdx, where, title) => {
+    const ref = state.cards[refIdx];
+    if (!ref) return;
+    msWrap.querySelectorAll('.ms-card-rich-editor').forEach((rw) => { if (rw._commit) rw._commit(); });
+    const card = makeNewCard(type, ref.act, title);
+    state.cards.splice(refIdx + (where === 'after' ? 1 : 0), 0, card);
+    doSave();
+    render();      // rebuild the (hidden) board too — navigateTo('board') only
+                   // unhides it, so without this the new card never shows there
+    rebuildEdit(); // refreshes the Navigator itself
+    openCardEditor(card.id);
+  };
+  // Delete a card from the Navigator (hover "×"). Mirrors spawnCardAt: commit any
+  // open editor, splice, persist, resync the board, rebuild the manuscript.
+  const deleteCardFromNav = (id) => {
+    const i = state.cards.findIndex((x) => x.id === id);
+    if (i < 0) return;
+    const c = state.cards[i];
+    if (!confirm('Delete "' + (c.title || 'Untitled') + '"?')) return;
+    msWrap.querySelectorAll('.ms-card-rich-editor').forEach((rw) => { if (rw._commit) rw._commit(); });
+    state.cards.splice(i, 1);
+    doSave();
+    render();
+    rebuildEdit();
+  };
+  const openCardEditor = (id) => {
+    const bodyEl = msWrap.querySelector('.ms-body');
+    const c = state.cards.find((x) => x.id === id);
+    if (!bodyEl || !c) return;
+    const div = bodyEl.querySelector('.ms-card-divider[data-card-id="' + id + '"]');
+    if (div) div.scrollIntoView({ block: 'center' });
+    const sec = bodyEl.querySelector('.ms-card-section[data-card-id="' + id + '"]');
+    if (sec) enterCardEditRich(sec, c); // no event → autofocus at the first line
   };
 
   // Card indices shown in Edit mode — the full reading order, or a single
@@ -7705,14 +7780,69 @@ function buildManuscriptPage(sceneId) {
     const bodyEl = msWrap.querySelector('.ms-body');
     if (!bodyEl) return;
     const order = editOrder();
+    // ── Quick-add: the gap between rows (and after the last row of an act)
+    // reveals a thin "+" insertion line on hover; clicking it opens a tiny
+    // inline type picker and inserts a card at exactly that spot. Nothing is
+    // visible until hover — the zones are zero-height hit areas straddling
+    // the gaps. target = { idx (into state.cards), where: 'before'|'after' }.
+    let openPicker = null;
+    const closePicker = () => {
+      if (!openPicker) return;
+      openPicker.zone.classList.remove('picking');
+      openPicker.el.remove();
+      document.removeEventListener('mousedown', openPicker.onDoc, true);
+      openPicker = null;
+    };
+    const addInsertZone = (target) => {
+      if (state.readonly) return;
+      const zone = el('div', { class: 'ms-nav-ins' }, [
+        el('div', { class: 'ms-nav-ins-line' }, [el('span', { class: 'ms-nav-ins-plus', text: '+' })]),
+      ]);
+      // Don't steal focus on mousedown: blurring an open card editor would
+      // commit it and rebuild this very navigator mid-click, killing the
+      // gesture. spawnCardAt commits open editors itself once a type is picked.
+      zone.addEventListener('mousedown', (e) => e.preventDefault());
+      zone.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (openPicker && openPicker.zone === zone) { closePicker(); return; }
+        closePicker();
+        const opt = (type, icon, label) => {
+          const b = el('button', { class: 'ms-nav-ins-opt', type: 'button' }, [
+            el('span', { class: 'ms-nav-ins-opt-icon', text: icon }),
+            el('span', { text: label }),
+          ]);
+          b.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            closePicker();
+            spawnCardAt(type, target.idx, target.where);
+          });
+          return b;
+        };
+        const picker = el('div', { class: 'ms-nav-ins-picker' }, [
+          opt('song', '♪', 'Song'),
+          opt('beat', '◦', 'Beat'),
+          opt('scene', '◆', state.format === 'prose' ? 'Chapter' : 'Scene'),
+        ]);
+        const onDoc = (ev) => { if (!zone.contains(ev.target)) closePicker(); };
+        zone.classList.add('picking');
+        zone.appendChild(picker);
+        document.addEventListener('mousedown', onDoc, true);
+        openPicker = { zone, el: picker, onDoc };
+      });
+      navList.appendChild(zone);
+    };
     let curAct = null;
+    let lastIdx = null; // last card idx appended — anchors the end-of-act zones
     order.forEach((idx) => {
       const c = state.cards[idx];
       if (!c) return;
       if (c.act !== curAct) {
+        if (lastIdx != null) addInsertZone({ idx: lastIdx, where: 'after' }); // end of the previous act
         curAct = c.act;
         navList.appendChild(el('div', { class: 'ms-nav-act', text: LANE_LABELS[c.act] || c.act }));
       }
+      addInsertZone({ idx, where: 'before' });
+      lastIdx = idx;
       const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '◦';
       const rowKids = [
         el('span', { class: 'ms-nav-icon', text: icon }),
@@ -7723,6 +7853,15 @@ function buildManuscriptPage(sceneId) {
       // the chapter you're currently scrolled into).
       if (isProse && c.type === 'scene') {
         rowKids.push(el('span', { class: 'ms-nav-count', text: chapterWordCount(c.id).toLocaleString() }));
+      }
+      // Hover "×" delete — a span (not a button; this row is itself a button)
+      // revealed on row hover, matching the quick-add "+" vocabulary. Its
+      // mousedown is swallowed so it never commits/blurs an open editor.
+      if (!state.readonly) {
+        const del = el('span', { class: 'ms-nav-del', title: 'Delete card', text: '×' });
+        del.addEventListener('mousedown', (e) => { e.preventDefault(); e.stopPropagation(); });
+        del.addEventListener('click', (e) => { e.stopPropagation(); deleteCardFromNav(c.id); });
+        rowKids.push(del);
       }
       const row = el('button', { class: 'ms-nav-row ms-nav-' + c.type }, rowKids);
       row.addEventListener('click', () => {
@@ -7750,6 +7889,7 @@ function buildManuscriptPage(sceneId) {
         navList.appendChild(nrow);
       });
     });
+    if (lastIdx != null) addInsertZone({ idx: lastIdx, where: 'after' }); // end of the final act
     // Highlight the card whose content currently fills the top of the
     // viewport — not just the instant its divider passes by. Track which
     // dividers have scrolled above a trigger line near the top of the body;
@@ -8221,8 +8361,8 @@ function buildLyricWindow(c) {
         ? 'Write the chapter here…\n\nJust write — paragraphs flow one after another.\n*italic* / **bold** — inline emphasis\n***  — a scene break (on its own line)'
         : 'Write the scene here…\n\nJust write — paragraphs flow one after another.\n*italic* / **bold** — inline emphasis\n***  — a scene break (on its own line)\nCHARACTER — a CAPS line still works for dialogue cues, if you want them')
     : c.type === 'beat'
-    ? 'Write the scene here…\n\nCHARACTER — a CAPS line is who speaks\nDialogue — plain text below the name\n(Parenthetical) — tone / action mid-line\nAction — plain line outside a character\n!Line — force action inside dialogue\nCHARACTER (sings) — mark a sung outburst\n[Scene] — section heading'
-    : 'Write here…\n\nCHARACTER — a CAPS line is who sings\nLyrics — just type below the name (rhyme-tracked)\nCHARACTER (spoken) — mark a spoken aside\n(Parenthetical) — inline note\n[Chorus] — section chip (resets rhyme)\n[Scene 1: Title] — scene heading\n[#01 Title] — song number header';
+    ? 'Write the scene here…\n\nCHARACTER — a CAPS line is who speaks\nDialogue — plain text below the name\n(Parenthetical) — tone / action mid-line\nAction — plain line outside a character\n!Line — force action inside dialogue\nCHARACTER (sings) — mark a sung outburst\n[Scene] — section heading\n/song Title — start a new song card (Manuscript)'
+    : 'Write here…\n\nCHARACTER — a CAPS line is who sings\nLyrics — just type below the name (rhyme-tracked)\nCHARACTER (spoken) — mark a spoken aside\n(Parenthetical) — inline note\n[Chorus] — section chip (resets rhyme)\n[Scene 1: Title] — scene heading\n[#01 Title] — song number header\n/song Title — start a new song card (Manuscript)';
   const editor = el('textarea', { class: 'lweditor', wrap: (plain || isProse) ? 'soft' : 'off', spellcheck: 'true', placeholder: (plain && !isProse) ? 'Write the scene here — the book prose for this moment.' : editorPlaceholder });
   editor.value = c[bodyField] || '';
 
