@@ -152,7 +152,7 @@ body.dark .seg button.active { background: #4a453e; color: #f3eee3; box-shadow: 
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; min-width: 58px; }
 .stat.stat-editable { cursor: pointer; }
 .stat.stat-editable:hover { border-color: var(--energy); }
-.stat .k { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.stat .k { font-size: 10px; font-weight: 650; color: var(--faint); text-transform: uppercase; letter-spacing: 0.12em; }
 .stat .v { font-size: 17px; font-weight: 600; margin-top: 1px; font-variant-numeric: tabular-nums; }
 
 
@@ -162,7 +162,7 @@ body.dark .seg button.active { background: #4a453e; color: #f3eee3; box-shadow: 
 .actlabel {
   flex: 0 0 32px; border-radius: 9px; background: var(--btn); color: var(--muted);
   display: flex; align-items: center; justify-content: center; padding: 12px 0;
-  writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+  writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 650; letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 .actcards {
@@ -220,7 +220,7 @@ body.dark .bcard:hover { box-shadow: var(--card-shadow), 0 4px 14px rgba(0,0,0,0
    since writing-mode is vertical) and clipping the overflow. Deliberately NOT
    using -webkit-line-clamp / -webkit-box here: that combination flips the text
    upside-down on iOS WebKit when paired with vertical writing-mode. */
-.bcard.scene .scene-title { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; line-height: 1.85; color: var(--energy-ink); text-align: center; flex: 1; min-height: 0; max-width: 3.7em; overflow: hidden; }
+.bcard.scene .scene-title { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.09em; line-height: 1.85; color: var(--energy-ink); text-align: center; flex: 1; min-height: 0; max-width: 3.7em; overflow: hidden; }
 .bcard.scene .sub { text-align: center; padding: 0 4px; }
 .scene-read-btn { border: 0; background: transparent; color: var(--energy-ink); cursor: pointer; font-size: 10px; padding: 4px 0 2px; opacity: 0.5; line-height: 1; }
 .scene-read-btn:hover { opacity: 1; }
@@ -236,7 +236,7 @@ body.dark.app-prose .scene-read-btn { color: #f0937a; }
 /* Function markers — letterspaced small caps in bare ink, no chip. The color
    alone does the categorizing; a filled/bordered badge read as software
    chrome on what should feel like a manuscript board. */
-.pill { font-size: 9.5px; font-weight: 650; letter-spacing: 0.14em; text-transform: uppercase; padding: 0; }
+.pill { font-size: 10px; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; padding: 0; }
 .pill.beat-pill { color: var(--muted); }
 /* Editable beat-function marker — typed straight on the card (beat cards
    here; every card in Prose Plot). Same small-caps voice as the song
@@ -273,9 +273,11 @@ body.dark .pill[data-fam="purple"] { color: #9e90f0; }
 body.dark .pill[data-fam="red"]    { color: #e06868; }
 body.dark .pill[data-fam="green"]  { color: #70c050; }
 body.dark .pill[data-fam="gray"]   { color: #a09888; }
-.pct { font-size: 11px; font-weight: 650; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
+.pct { font-size: 10.5px; font-weight: 600; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
 .pct.pct-hit { background: transparent; color: var(--energy); font-weight: 700; }
-.bcard .title { font-size: 13px; font-weight: 600; line-height: 1.25; outline: none; }
+/* 650 + a whisper of tracking borrows the rails' confidence, so the mixed-case
+   title and the small-caps function marker above it read as one system. */
+.bcard .title { font-size: 13px; font-weight: 650; letter-spacing: 0.015em; line-height: 1.25; outline: none; }
 /* 1.23 rather than a rounder number: at 13/1.22 the gap between lines came
    out at 2.86px, and holding that same absolute gap at 12.5px is what keeps
    the density while the type gets smaller. Leading is the gap, not the ratio. */
@@ -329,7 +331,7 @@ body.dark .pill[data-fam="gray"]   { color: #a09888; }
 /* intermission / midpoint divider between lanes */
 .laneint { display: flex; align-items: center; gap: 12px; margin: 5px 0 5px 44px; }
 .laneint::before, .laneint::after { content: ''; flex: 1; height: 1px; background: var(--line); }
-.laneint span { font-size: 10px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); background: var(--btn); padding: 3px 12px; border-radius: 20px; font-weight: 600; }
+.laneint span { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); background: var(--btn); padding: 3px 12px; border-radius: 20px; font-weight: 650; }
 .laneint.interm::before, .laneint.interm::after { background: var(--line); }
 .laneint.interm span { background: var(--btn); color: var(--muted); }
 

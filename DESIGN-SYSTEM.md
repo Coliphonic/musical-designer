@@ -107,6 +107,36 @@ matched by eye against 13/1.22, and close to the 15.18px line box Duo gave at
 11.5/1.32. That gap, not the ratio, is the thing to preserve if the size ever
 changes again.
 
+### Board type roles
+
+The board had ten private type specs that differed by half-points nobody chose
+on purpose. They collapse into five **roles** — pick the role, not the numbers:
+
+| Role | Spec | Where |
+| --- | --- | --- |
+| Reading | Atkinson Hyperlegible 12.5 / 1.23 | card notes |
+| Name | system 13 / 650 / 0.015em | card titles |
+| Rail | system 11 / 650 / 0.09em caps | act labels, scene spines |
+| Numeral | system 10.5 / 600 tabular | % badges, card foot |
+| Caps label | system 10 / 650 / 0.12em | function markers, MIDPOINT and
+INTERMISSION, stat keys |
+
+Three rules keep it that way:
+
+- **One caps voice.** Anything uppercase-and-small is the same species of thing
+  — a label — so it takes one size, one weight, one tracking.
+- **The two rails match.** An act label and a scene spine are both wayfinding
+  down the left edge; they were 12/600 and 10.5/700, and now meet in the middle.
+- **Numerals are data, not labels.** The % badge dropped from 11/650 so it stops
+  outshouting the title it shares a card with.
+
+Sizes step monotonically — 13 name, 12.5 reading, 11 rail, 10.5 numeral, 10
+label — so no two roles share a size. Card titles carry 650 and a whisper of
+tracking to borrow the rails' confidence, which is what lets a mixed-case title
+and the small-caps marker above it read as one system. Titles stay in the
+system sans: putting them in Atkinson was tried and its true-700 (there is no
+600 cut) read louder than the board wants.
+
 ### Board scaling
 
 Cards are a fixed 218px, so more screen meant more tiny cards rather than a
