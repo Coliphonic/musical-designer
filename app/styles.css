@@ -1746,7 +1746,7 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
   flex: 0 0 212px;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
+  background: var(--bg);
   border-right: 1px solid var(--line);
   overflow: hidden;
 }
@@ -1764,12 +1764,14 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 .notes-rail-list { flex: 1; overflow-y: auto; padding: 6px; }
 .notes-rail-row {
   display: flex; align-items: center; gap: 4px; width: 100%;
-  padding: 7px 6px 7px 9px; margin-bottom: 1px; border: none; background: transparent; border-radius: 6px;
-  border-left: 2px solid transparent; cursor: pointer; text-align: left;
+  padding: 7px 6px 7px 10px; margin-bottom: 2px; border: none; background: transparent;
+  border-left: 1px solid transparent; cursor: pointer; text-align: left;
   font-family: inherit; color: var(--muted);
 }
+/* Selection is a hairline spine, the same gesture the board uses for scene
+   rules — not a filled block. Hover still tints, so the row stays clickable. */
 .notes-rail-row:hover { background: var(--hover); color: var(--ink); }
-.notes-rail-row.active { background: var(--hover); color: var(--ink); border-left-color: var(--energy); font-weight: 600; }
+.notes-rail-row.active { background: transparent; color: var(--ink); border-left-color: var(--energy); font-weight: 600; }
 .notes-rail-label { flex: 1; min-width: 0; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .notes-rail-dots {
   flex-shrink: 0; display: flex; align-items: center; justify-content: center;
@@ -1798,7 +1800,12 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 .notes-fmt-btn.em { font-style: italic; font-family: Georgia, 'Times New Roman', serif; font-size: 14px; }
 .notes-fmt-divider { width: 1px; height: 18px; background: var(--line); margin: 0 5px; flex-shrink: 0; }
 .notes-scroll { flex: 1; overflow-y: auto; background: var(--bg); }
-.notes-doc { max-width: 760px; padding: 30px 40px 90px; }
+/* The note is a sheet of paper on the desk — same surface and shadow as the
+   board cards, so every writing surface in the app is made of one material. */
+.notes-doc {
+  max-width: 760px; padding: 34px 44px 70px; margin: 24px auto 40px;
+  background: var(--card); box-shadow: var(--card-shadow); border-radius: 10px;
+}
 .notes-title-head {
   display: block; width: 100%; border: none; background: transparent; color: var(--ink);
   font-family: inherit; font-size: 26px; font-weight: 800; letter-spacing: -0.02em;
@@ -1808,7 +1815,8 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 .notes-title-head::placeholder { color: var(--faint); }
 .notes-editor {
   min-height: 55vh; padding-top: 16px;
-  font-size: 14.5px; line-height: 1.65; color: var(--ink);
+  font-family: 'iA Writer Duo', 'Courier Prime Sans', monospace;
+  font-size: 13.5px; line-height: 1.6; color: var(--ink);
 }
 .notes-editor:focus { outline: none; background: transparent; }
 .notes-editor h2 { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 10px; }
