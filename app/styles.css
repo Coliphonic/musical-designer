@@ -1388,6 +1388,10 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
 
 .page { flex: 1; min-height: 0; overflow-y: auto; padding: 0; }
 #page-board { padding: 0; }
+/* The ribbon is full-bleed with its own inner gutter, so the board content
+   below it has to carry a matching one — otherwise the act rails run into
+   the window edge while the toolbar above them sits inset. */
+#board, #page-board > .hint { padding-left: 14px; padding-right: 14px; }
 /* Breathing room between the ribbon and the first row of cards. */
 .board-header.ribbon + div { margin-top: 12px; }
 
