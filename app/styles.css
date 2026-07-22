@@ -2330,12 +2330,12 @@ body.dark .ch-kind-btn.active { background: #6a61d0; }
    typed-in text is the most prominent voice on the page — labels recede. */
 .dna-wrap { max-width: 720px; margin: 16px auto 60px; padding: 0 16px; }
 
-.dna-ledger { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.dna-ledger { background: var(--card); box-shadow: var(--card-shadow); border-radius: 7px; overflow: hidden; }
 
 .dna-field { display: flex; flex-direction: column; gap: 5px; margin: 4px 0 24px; }
 .dna-field-lbl { font-size: 12px; font-weight: 600; color: var(--muted); }
-.dna-field-in { width: 100%; font-size: 15px; font-weight: 500; color: var(--ink); font-family: inherit; line-height: 1.4; border: 1px solid var(--line); border-radius: 7px; background: var(--panel); padding: 10px 12px; resize: none; overflow: hidden; }
-.dna-field-in:focus { outline: none; border-color: var(--energy); }
+.dna-field-in { width: 100%; font-size: 15px; font-weight: 500; color: var(--ink); font-family: inherit; line-height: 1.4; border: none; box-shadow: var(--card-shadow); border-radius: 7px; background: var(--card); padding: 10px 12px; resize: none; overflow: hidden; }
+.dna-field-in:focus { outline: none; box-shadow: var(--card-shadow), inset 0 0 0 1px var(--energy); }
 
 .dna-in { width: 100%; border: none; background: transparent; resize: none; overflow: hidden; padding: 0; color: var(--ink); font-family: inherit; font-size: 13.5px; line-height: 1.5; min-height: 21px; }
 .dna-in:focus, .dna-field-in:focus, .dna-pole:focus, .dna-tray-sel:focus { outline: none; }
@@ -2344,16 +2344,20 @@ body.dark .ch-kind-btn.active { background: #6a61d0; }
 /* The 7 beats, chronological. Mirrored pairs share an indent level, stepping
    in toward the Midpoint hinge and back out — the shape shows the chiasmus. */
 .dna-chiasmus { display: flex; flex-direction: column; gap: 7px; }
-.dna-beat { background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 10px 14px; }
+/* Beats are paper cards. The chiasmus indents them left AND tapers them on the
+   right, so the mirror shape reads on both edges — that shape is the feature. */
+.dna-beat { background: var(--card); box-shadow: var(--card-shadow); border-radius: 7px; padding: 10px 14px; }
 .dna-depth-1 { margin: 0 30px; }
 .dna-depth-2 { margin: 0 60px; }
 .dna-depth-3 { margin: 0 90px; }
-.dna-beat-name { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 3px; }
+/* Beat names are canonical structure terms — same taxonomy voice as the board's
+   function pills, not chrome labels. */
+.dna-beat-name { font-size: 9.5px; font-weight: 650; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
 .dna-catch { margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
 
 .dna-divider { border-top: 1px solid var(--line); margin: 28px 0 18px; }
 .dna-sec-head { margin-bottom: 12px; }
-.dna-sec-title { font-size: 15px; font-weight: 700; color: var(--ink); margin: 0; }
+.dna-sec-title { font-size: 11px; font-weight: 650; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin: 0; }
 .dna-sec-sub { font-size: 12px; color: var(--muted); margin: 0; line-height: 1.5; }
 
 .dna-stakes { display: block; }
