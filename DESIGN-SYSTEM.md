@@ -88,13 +88,35 @@ Corollary: **names are mixed case, labels are small caps.**
 | Where | Font |
 | --- | --- |
 | UI, titles, chrome | system sans |
-| Board card body text | iA Writer Duo, 11.5px / 1.32 |
+| Board card body text | Atkinson Hyperlegible, 12.5px / 1.23 |
 | Notes body | iA Writer Duo, 13.5px / 1.6 |
 | Manuscript + lyric sheets | Courier Prime (typewriter script) |
 | Book export | the OFL book faces |
 
-iA Writer Duo is the "typed notecard" voice. Line-height 1.32 on cards was tuned
-deliberately — tighter reads more like a notecard, and 1.48 felt airy.
+iA Writer Duo is the "typed notecard" voice, still used for the Notes page.
+
+Board cards moved off it: Atkinson Hyperlegible (Braille Institute, OFL) is
+drawn for letter distinction at small sizes, which is the working condition on
+a card, and losing the monospace rhythm lets notes recede so titles and
+function tags carry the scan.
+
+**Set leading on cards as an absolute gap, not a ratio.** Atkinson has a much
+larger x-height than Duo at the same nominal size, so a multiplier that suited
+one opens visible gaps in the other. 12.5/1.23 leaves 2.88px between lines —
+matched by eye against 13/1.22, and close to the 15.18px line box Duo gave at
+11.5/1.32. That gap, not the ratio, is the thing to preserve if the size ever
+changes again.
+
+### Board scaling
+
+Cards are a fixed 218px, so more screen meant more tiny cards rather than a
+more readable board. `#board` zooms in two tiers — 1.1× past 1700px, 1.2× past
+2300px — so card, title, note, tag and gap all scale together. `zoom` and not
+`transform`, so wrapping, drag hit-testing and scroll extents stay honest.
+
+1.2× is a deliberate ceiling: 1.6× and 1.3× were both tried and read as a
+kids' app at 1440p. Chrome (nav, ribbon, card editor) stays at UI scale — the
+content wall grows, the furniture doesn't.
 
 ## 4. Fields and controls
 
