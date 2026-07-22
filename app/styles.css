@@ -347,9 +347,11 @@ body.dark .sing.empty { background: var(--panel); border-color: var(--energy); }
 
 /* rhyme tools */
 .rhymeresults { display: flex; flex-wrap: wrap; gap: 5px; }
-.rchip { font-size: 12px; background: var(--panel); color: var(--energy); border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+/* Chips are highlighter swatches: a soft tint of the zone accent on the paper,
+   no drawn border. Hover deepens the tint. */
+.rchip { font-size: 12px; background: var(--hover); color: var(--energy); border: none; border-radius: 4px; padding: 2px 7px; }
 .rchip.click { cursor: pointer; }
-.rchip.click:hover { background: var(--hover); }
+.rchip.click:hover { background: var(--line); }
 .rhint { font-size: 11px; color: var(--faint); }
 /* Tab pairs (Perfect|Near, Definition|Synonyms) — hairline box, both halves
    on the same neutral ground; the colored text label alone marks selection
@@ -1092,32 +1094,33 @@ textarea.lweditor.lweditor-lit::placeholder { color: #c5beb0; -webkit-text-fill-
 .lwg-section { background: var(--hover); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .lwsection-btns { display: flex; flex-wrap: wrap; gap: 5px; }
 
-/* Editor sidebar zones — each tool is a quiet panel card with a print-style
-   section head: small-caps label in the zone's accent over a tinted hairline
-   rule (no pills — those are reserved for data chips like song functions).
+/* Editor sidebar zones — each tool is a paper card (board-card surface and
+   shadow, no border) with a print-style section head: small-caps label in the
+   zone's accent over a tinted hairline rule (no pills — those are reserved for
+   data chips like song functions).
    Rhymes rose (sound), Dictionary sage (sense), Details azure (facts).
    Prose Plot's Structure/Thesaurus zones inherit. */
 .lwzone {
   display: flex; flex-direction: column; gap: 9px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  background: var(--card); box-shadow: var(--card-shadow); border-radius: 10px;
   padding: 11px 12px 12px;
 }
 .lwzone > .fl {
-  align-self: stretch; font-size: 10px; letter-spacing: 0.08em;
+  align-self: stretch; font-size: 10px; font-weight: 650; letter-spacing: 0.14em;
   padding: 0 0 6px; border-bottom: 1px solid;
 }
 .lwzone-sections > .fl, .lwzone-lookup > .fl { color: var(--sage); border-color: var(--sage-line); }
 .lwzone-rhymes   > .fl { color: var(--rose); border-color: var(--rose-line); }
 /* Chips, tabs and inputs pick up their zone's accent so the two chip clouds
    (rhymes vs synonyms) read as different tools at a glance. */
-.lwzone-sections .rchip { color: var(--sage); border-color: var(--sage-line); }
-.lwzone-sections .rchip.click:hover { background: var(--sage-bg); }
-.lwzone-rhymes .rchip { color: var(--rose); border-color: var(--rose-line); }
-.lwzone-rhymes .rchip.click:hover { background: var(--rose-bg); }
+.lwzone-sections .rchip { color: var(--sage); background: var(--sage-bg); }
+.lwzone-sections .rchip.click:hover { background: color-mix(in srgb, var(--sage) 18%, var(--card)); }
+.lwzone-rhymes .rchip { color: var(--rose); background: var(--rose-bg); }
+.lwzone-rhymes .rchip.click:hover { background: color-mix(in srgb, var(--rose) 18%, var(--card)); }
 .lwzone-rhymes .rhyme-tab.active { color: var(--rose); }
 .lwzone-rhymes .fi:focus { border-color: var(--rose); }
-.lwzone-lookup .rchip { color: var(--sage); border-color: var(--sage-line); }
-.lwzone-lookup .rchip.click:hover { background: var(--sage-bg); }
+.lwzone-lookup .rchip { color: var(--sage); background: var(--sage-bg); }
+.lwzone-lookup .rchip.click:hover { background: color-mix(in srgb, var(--sage) 18%, var(--card)); }
 .lwzone-lookup .rhyme-tab.active { color: var(--sage); }
 /* Definitions are read-only sense lines, not chips: part of speech in sage
    small caps, gloss in full ink (it's the payload — not secondary text, which
@@ -1730,8 +1733,10 @@ body.dark .ms-mode-seg, body.dark .ribbon .seg { background: #2a2640; }
 .ms-mode-seg button.active, .ribbon .seg button.active { background: var(--energy); color: #fff; box-shadow: none; }
 body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { background: var(--energy); color: #fff; }
 /* Small-caps label treatment: pin these segments to match the base .seg button
-   chrome-label size/weight (letter-spacing + uppercase cascade from .seg button). */
-.ms-mode-seg button, .ribbon .seg button { font-size: 10px; font-weight: 650; }
+   chrome-label size/weight (letter-spacing + uppercase cascade from .seg button).
+   The lyric-window Edit|Sheet seg is excluded: those are navigation names, which
+   stay mixed case at 12px/500 to match the Manuscript button beside them. */
+.ms-mode-seg:not(.lw-mode-seg) button, .ribbon .seg button { font-size: 10px; font-weight: 650; }
 /* Outer manuscript container: a non-scrolling flex column so .ms-wrap fills it
    and only the inner sheet body scrolls — keeps the side drawer pinned. */
 #ms-body { display: flex; flex-direction: column; overflow: hidden; }
