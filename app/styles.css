@@ -1416,8 +1416,8 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
    together — and `zoom` (not `transform`) so wrapping, drag-and-drop hit
    testing and scroll extents all stay honest. Chrome (nav, ribbon, editor)
    deliberately stays at UI scale; only the content wall grows. */
-@media (min-width: 1700px) { #board, #page-board > .hint { zoom: 1.15; } }
-@media (min-width: 2300px) { #board, #page-board > .hint { zoom: 1.3; } }
+@media (min-width: 1700px) { #board, #page-board > .hint { zoom: 1.1; } }
+@media (min-width: 2300px) { #board, #page-board > .hint { zoom: 1.2; } }
 
 .sb-save-dot {
   width: 8px;
