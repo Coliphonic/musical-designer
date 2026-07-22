@@ -38,6 +38,10 @@
      hex literals. Prose Plot re-points these to coral in one place. */
   --energy-ink: #3c3489; --energy-bg: #efeefe; --energy-line: #c7c0f2;
   --energy-line-soft: #d8d3f5; --energy-wash: #f0eefb; --energy-focus: #8b7fe8;
+  /* Board cards are shadowed paper, not bordered boxes; beat cards run a warm half-step. */
+  --card: #ffffff; --card-beat: #fdfcf9;
+  --card-shadow: 0 1px 2px rgba(60,50,30,0.08), 0 2px 8px rgba(60,50,30,0.10);
+  --scene-rule: #c7c0f2; /* scene spine's left rule; == --energy-line here, but flips independently in prose */
   --danger: #a32d2d; --danger-bg: #fbeaea;
   --tension: #d85a30; --tension-line: #e8cabd;
   /* Editor-zone accents: Sections = sage (matches loglines), Rhymes = rose, Details = azure. */
@@ -60,6 +64,9 @@ body.dark {
   --energy: #8b82e8;
   --energy-ink: #b8aef0; --energy-bg: #211d33; --energy-line: #3d3760;
   --energy-line-soft: #3a3357; --energy-wash: #2a2540; --energy-focus: #8b7fe8;
+  --card: #282521; --card-beat: #232120;
+  --card-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.25);
+  --scene-rule: #4c4478;
   --danger: #e88080; --danger-bg: #3a1f1f;
   --tension: #e07a55; --tension-line: #5a3a2c;
   --sage: #9cc28d; --sage-bg: #16210f; --sage-line: #3a5a2d;
@@ -75,11 +82,13 @@ body.app-prose {
   --energy: #dd6349;
   --energy-ink: #9a4a34; --energy-bg: #fdece7; --energy-line: #f0c4b3;
   --energy-line-soft: #f2d5cb; --energy-wash: #fbe9e3; --energy-focus: #dd8a72;
+  --scene-rule: #c07a63; /* chapters read as terracotta spines, not purple */
 }
 body.dark.app-prose {
   --energy: #f0937a;
   --energy-ink: #edc2ae; --energy-bg: #2a1f1c; --energy-line: #5a3d33;
   --energy-line-soft: #3a2620; --energy-wash: #33221d; --energy-focus: #dd8a72;
+  --scene-rule: #6b4a3c;
 }
 
 * { box-sizing: border-box; }
@@ -139,9 +148,9 @@ body.dark .seg button.active { background: #4a453e; color: #f3eee3; box-shadow: 
 
 .bcard {
   position: relative;
-  width: 218px; background: var(--panel); border: 1px solid var(--line); border-radius: 7px;
+  width: 218px; background: var(--card); border-radius: 7px; box-shadow: var(--card-shadow);
   padding: 10px 11px 11px; cursor: grab; display: flex; flex-direction: column; gap: 6px;
-  transition: box-shadow .12s, border-color .12s;
+  transition: box-shadow .12s;
 }
 /* Between-card insert: a hover "+" hairline in the 10px gap to a card's left.
    Absolutely positioned into the gap so it never disturbs the lane's flex flow;
@@ -177,29 +186,26 @@ body.dark .board-ins-picker { box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
 }
 .board-ins-opt:hover { background: var(--hover); }
 .board-ins-opt-icon { width: 13px; text-align: center; }
-.bcard:hover { box-shadow: 0 4px 14px #00000012; border-color: #d9d3c8; }
-body.dark .bcard:hover { border-color: #4a453e; }
-.bcard.beat { background: var(--btn); border-style: dashed; }
-.bcard.beat:hover { border-style: solid; }
-.bcard.scene { background: var(--energy-bg); border-color: var(--energy-line); width: 50px; min-height: 100px; padding: 10px 0; align-items: center; justify-content: space-between; overflow: hidden; }
+.bcard:hover { box-shadow: var(--card-shadow), 0 4px 14px #00000012; }
+body.dark .bcard:hover { box-shadow: var(--card-shadow), 0 4px 14px rgba(0,0,0,0.30); }
+.bcard.beat { background: var(--card-beat); }
+/* Ghost spine: no paper, just a hairline left rule dividing the beats it heads. */
+.bcard.scene { background: transparent; border: 0; border-left: 1px solid var(--scene-rule); border-radius: 0; box-shadow: none; width: 50px; min-height: 100px; padding: 10px 0; align-items: center; justify-content: space-between; overflow: hidden; }
 /* Cap the vertical label at ~2 columns by constraining its block axis (width,
    since writing-mode is vertical) and clipping the overflow. Deliberately NOT
    using -webkit-line-clamp / -webkit-box here: that combination flips the text
    upside-down on iOS WebKit when paired with vertical writing-mode. */
-.bcard.scene .scene-title { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; font-weight: 700; text-transform: uppercase; text-decoration: underline; letter-spacing: 0.07em; line-height: 1.85; color: var(--energy-ink); text-align: center; flex: 1; min-height: 0; max-width: 3.7em; overflow: hidden; }
+.bcard.scene .scene-title { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.09em; line-height: 1.85; color: var(--energy-ink); text-align: center; flex: 1; min-height: 0; max-width: 3.7em; overflow: hidden; }
 .bcard.scene .sub { text-align: center; padding: 0 4px; }
 .scene-read-btn { border: 0; background: transparent; color: var(--energy-ink); cursor: pointer; font-size: 10px; padding: 4px 0 2px; opacity: 0.5; line-height: 1; }
 .scene-read-btn:hover { opacity: 1; }
-/* Dark scene cards keep a heavier, brighter border than the standard dark line. */
-body.dark .bcard.scene { border-color: #5a5080; border-width: 1.5px; }
-/* Prose Plot recontextualizes scenes as chapters — the accent vars handle the
-   coral flip; dark-prose titles stay the stronger coral (not the softer ink). */
-body.dark.app-prose .bcard.scene { border-color: #6b4a3c; }
+/* Prose Plot recontextualizes scenes as chapters — --scene-rule carries the
+   terracotta flip for the left rule; dark-prose titles stay the stronger coral. */
 body.dark.app-prose .bcard.scene .scene-title { color: #f0937a; }
 body.dark.app-prose .scene-read-btn { color: #f0937a; }
 .bcard.dragging { opacity: 0.4; }
-.bcard.drop-before { box-shadow: inset 3px 0 0 var(--ink); }
-.bcard.drop-after { box-shadow: inset -3px 0 0 var(--ink); }
+.bcard.drop-before { box-shadow: inset 3px 0 0 var(--ink), var(--card-shadow); }
+.bcard.drop-after { box-shadow: inset -3px 0 0 var(--ink), var(--card-shadow); }
 
 .bcard .top { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 /* Function markers — letterspaced small caps in bare ink, no chip. The color
@@ -242,11 +248,11 @@ body.dark .pill[data-fam="purple"] { color: #9e90f0; }
 body.dark .pill[data-fam="red"]    { color: #e06868; }
 body.dark .pill[data-fam="green"]  { color: #70c050; }
 body.dark .pill[data-fam="gray"]   { color: #a09888; }
-.pct { font-size: 11px; font-weight: 700; color: var(--ink); background: var(--btn); border-radius: 5px; padding: 2px 6px; font-variant-numeric: tabular-nums; margin-left: auto; }
-.pct.pct-hit { color: #fff; background: var(--energy); }
+.pct { font-size: 11px; font-weight: 650; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
+.pct.pct-hit { background: transparent; color: var(--energy); font-weight: 700; }
 .bcard .title { font-size: 13px; font-weight: 600; line-height: 1.25; outline: none; }
-.bcard .sub { font-size: 11px; color: var(--muted); line-height: 1.3; outline: none; }
-.bcard .sub.note { color: var(--note); font-size: 11.5px; line-height: 1.4; }
+.bcard .sub { font-family: 'iA Writer Duo', monospace; font-size: 11.5px; color: var(--muted); line-height: 1.32; outline: none; }
+.bcard .sub.note { color: var(--note); }
 /* editable title/sub sit flush until hovered/focused, so cards stay clean at rest */
 .title.cardedit, .sub.cardedit { border-radius: 4px; padding: 0 3px; margin: 0 -3px; }
 .title.cardedit:hover, .sub.cardedit:hover { cursor: text; box-shadow: inset 0 0 0 1px var(--line); }
