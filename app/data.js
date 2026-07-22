@@ -1226,6 +1226,110 @@ const SHOWS = {
       { lane: '3', type: 'song', title: 'Finale', fn: 'finaleultimo', voicing: 'Company', min: 2.5 },
     ],
   },
+  hercules: {
+    title: 'Hercules', year: 2025, form: 'two-act',
+    teaches: 'Screen-to-stage adaptation, and what a film score cannot do: the 1997 songbook is front-loaded, so Act One inherits seven numbers and Act Two is written almost from scratch — plus a narrator chorus (the Muses) extended into a five-part spine that carries the act structure the film never needed',
+    // ENRICHED reference (2026-07-22): the West End production, Theatre Royal
+    // Drury Lane, opened 24 June 2025. No lyrics reproduced — structure only.
+    //
+    // SOURCING NOTE: the running order and the film/stage provenance of each
+    // number are verified against published song lists and the 2019 Public
+    // Works new-song announcements — worth stating because the secondary
+    // sources contradict each other (one lists "Great Bolts of Thunder" as a
+    // film song; it is new, and so are "Forget About It" and "To Be Human",
+    // both written for the 2019 Delacorte staging). Scene-level beats follow
+    // the show's published synopsis and the film's retained narrative arc; the
+    // reliable study value here is the SCORE ARCHITECTURE, not staging detail.
+    characters: {
+      'HERCULES': { voiceType: 'Tenor', desc: 'Son of Zeus, raised mortal — freakishly strong, socially disastrous, and desperate to belong somewhere. The stage version gives him two extra solos the film never needed ("Today\'s Gonna Be My Day", "Doomed to Be Human"), because a stage protagonist has to carry an evening rather than a 93-minute cartoon.' },
+      'MEG (MEGARA)': { voiceType: 'Mezzo-Soprano', desc: 'Wry, guarded, and indentured to Hades after selling her soul to save a man who left her. The one major character the adaptation barely touches — her film characterization is retained almost intact, which is itself a lesson about what already worked.' },
+      'HADES': { voiceType: 'Baritone', desc: 'Lord of the Underworld, running the family business he never wanted, with a plan to release the Titans and take Olympus. Gains a proper stage villain song ("Getting Even") — the film gave its funniest character no number of his own, an omission the adaptation corrects first.' },
+      'PHIL (PHILOCTETES)': { voiceType: 'Baritone', desc: 'The washed-up satyr trainer with a wall of failures and one last hope. The stage promotes him substantially: where the film gave him one number, the West End gives him three ("One Last Hope", "I\'m Back!", "Phil Goes the Distance") — the comic sidekick reweighted into a second lead.' },
+      'THE MUSES': { voiceType: 'Ensemble', desc: 'Calliope, Clio, Melpomene, Terpsichore and Thalia — gospel narrators, and the adaptation\'s structural engine. The film used them for three "Gospel Truth" numbers; the stage extends the device to five and adds "A Muse Bouche", turning a stylistic flourish into the spine that gets the show across its act break.' },
+      'DESPINA': { voiceType: 'Alto', desc: 'Hercules\'s adoptive mother, and a pure adaptation invention: the film\'s couple, Amphitryon and Alcmene, condensed into one single mother with a new modern Greek name and her own lullaby. A textbook consolidation — two characters who shared a function become one who can carry a song.' },
+      'PAIN AND PANIC': { voiceType: 'Tenor', desc: 'Hades\'s incompetent minions, who spend the stage version in a series of mortal disguises. They inherit the "Getting Even" reprise, which gives the henchmen a flicker of conscience the film never bothered with.' },
+      'ZEUS': { voiceType: 'Bass', desc: 'Hercules\'s father, and the setter of the terms: prove yourself a true hero and regain your godhood. His condition is the plot\'s contract, and the finale is his to grant.' },
+      'PEGASUS': { voiceType: '', desc: 'The winged horse, still silent, still a puppet problem for any staging of this title — the one element that a screen-to-stage transfer has to solve with craft rather than script.' },
+    },
+    titlePage: {
+      subtitle: 'A Musical',
+      authors: 'Music by Alan Menken · Lyrics by David Zippel · Book by Robert Horn and Kwame Kwei-Armah · Directed and choreographed by Casey Nicholaw · Based on the 1997 Walt Disney film',
+      settings: ['Mount Olympus, the Underworld, and mortal Greece', 'Myth time — the Muses narrate throughout, in gospel', 'Theatre Royal Drury Lane, West End, from 24 June 2025'],
+      productionNotes: 'Reference study object — structural scaffold only; no lyric text is reproduced. This is the shelf\'s screen-to-stage case study, and the lesson is a counting exercise. The 1997 film contributes nine numbers, and seven of them fall in Act One (three Gospel Truths, "Go the Distance" and its reprise, "One Last Hope", "Zero to Hero"); Act Two inherits only "I Won\'t Say (I\'m in Love)" and "A Star Is Born". A beloved film score, transferred faithfully, leaves you with a strong first act and an empty second — so roughly a dozen new Menken/Zippel numbers were written, nearly all of them after the interval. Note also what the adaptation adds structurally: a villain song the film never had, two extra numbers for the sidekick, a lullaby for a consolidated mother character, and two more Gospel Truths so the narrator chorus can span both acts. Development ran Public Works at the Delacorte (2019, book by Kristoffer Diaz) → Hamburg (2024) → the West End (2025).',
+    },
+    cards: [
+      // ===== ACT ONE (lanes 1 + 2A) =====
+      { lane: '1', type: 'scene', title: 'Mount Olympus' },
+      { lane: '1', type: 'song', title: 'Prologue', fn: 'opening', voicing: 'Ensemble', min: 2 },
+      { lane: '1', type: 'song', title: 'The Gospel Truth I (Mount Olympus)', fn: 'opening', voicing: 'Muses + Ensemble', min: 3 },
+      { lane: '1', type: 'beat', title: 'A god is born', note: 'The Muses take the narration and the gods celebrate the infant Hercules. The film\'s opening device — gospel narrators fronting a Greek myth — is kept intact, because it is the one thing the movie did that was already theatrical.', min: 1 },
+      { lane: '1', type: 'scene', title: 'The Underworld' },
+      { lane: '1', type: 'song', title: 'The Gospel Truth II (Underworld)', fn: 'villain', voicing: 'Muses + Ensemble', min: 2.5 },
+      { lane: '1', type: 'beat', title: 'Hades and the prophecy', note: 'Hades, running the family business he resents, learns that in eighteen years he can overthrow Zeus with the Titans — provided Hercules does not fight. The plot\'s single condition, stated in the first ten minutes.', min: 1.5 },
+      { lane: '1', type: 'beat', title: 'The baby is stolen', note: 'Pain and Panic take the infant and administer the potion that makes him mortal — but he does not drink the last drop, and keeps his strength. The premise\'s engine: a demigod stuck between two worlds because a pair of idiots rushed a job.', min: 1.5 },
+      { lane: '1', type: 'song', title: "Despina's Lullaby", fn: 'ballad', voicing: 'Despina, Muses', min: 3 },
+      { lane: '1', type: 'beat', title: 'The adaptation\'s new mother', note: 'A song that exists only on stage, for a character who exists only on stage: Despina, the film\'s two adoptive parents condensed into one single mother. Consolidating two functionally identical characters into one who can hold a ballad — the clearest craft lesson in the first fifteen minutes.', min: 1 },
+      { lane: '1', type: 'song', title: 'The Gospel Truth III (Herc Was Mortal)', fn: 'motif', voicing: 'Muses', min: 2 },
+      { lane: '1', type: 'scene', title: 'A Village in Greece — Years Later' },
+      { lane: '1', type: 'song', title: "Today's Gonna Be My Day", fn: 'charm', voicing: 'Hercules', min: 3 },
+      { lane: '1', type: 'beat', title: 'The boy who breaks everything', note: 'A new stage number establishing the adolescent misfit before the famous one arrives — optimism first, longing second. The film could introduce Hercules in a two-minute montage; a stage protagonist needs to sing before he wants.', min: 1 },
+      { lane: '1', type: 'beat', title: 'Despina tells him the truth', note: 'The medallion, and the admission that he was found rather than born to her. The scene the lullaby was planted for — the adaptation gives the reveal a relationship to break, which the film handled as exposition.', min: 1.5 },
+      { lane: '1', type: 'scene', title: 'The Temple of Zeus' },
+      { lane: '1', type: 'song', title: 'Go the Distance', fn: 'iwant', voicing: 'Hercules', min: 3.5 },
+      { lane: '1', type: 'beat', title: 'The terms', note: 'Zeus names the condition: prove yourself a true hero and your godhood is restored. The I Want is inherited from the film unchanged, and it still does the job — the one number in the score that never needed rewriting.', min: 1.5 },
+      { lane: '1', type: 'song', title: 'Go the Distance (Reprise)', fn: 'reprise', voicing: 'Hercules, Muses', min: 1.5 },
+
+      { lane: '2A', type: 'scene', title: "Phil's Island" },
+      { lane: '2A', type: 'song', title: 'One Last Hope', fn: 'comedy', voicing: 'Phil, Hercules', min: 4 },
+      { lane: '2A', type: 'beat', title: 'A wall of failures', note: 'Phil\'s résumé of heroes who let him down, and his refusal — then his relapse into hope. The film\'s only Phil number, and the stage keeps it as the anchor for the two it will add later.', min: 1.5 },
+      { lane: '2A', type: 'beat', title: 'Training, and Pegasus', note: 'The montage the film could cut freely and a stage has to choreograph — the sequence where a screen-to-stage transfer either finds its physical language or doesn\'t.', min: 1.5 },
+      { lane: '2A', type: 'scene', title: 'The Road to Thebes' },
+      { lane: '2A', type: 'beat', title: 'Rescuing a woman who did not ask', note: 'Hercules saves Meg from a river centaur; she is unimpressed and entirely capable of leaving. The meet-cute is a rescue the rescued party resents — which is why the number that follows can be a love song without either of them admitting to one.', min: 1.5 },
+      { lane: '2A', type: 'song', title: 'Forget About It', fn: 'love', voicing: 'Hercules, Meg', min: 3.5 },
+      { lane: '2A', type: 'beat', title: 'The duet the film never had', note: 'New for the stage (2019 Delacorte): a proper two-hander for the leads early, because a film can carry a romance on reaction shots and a musical has to sing it. The adaptation\'s single biggest structural addition to Act One.', min: 1 },
+      { lane: '2A', type: 'beat', title: 'Meg belongs to Hades', note: 'The reveal held back from Hercules: she sold her soul to save a man who then left her, and she is now the Underworld\'s errand-runner. The audience learns it and the hero does not — the show\'s dramatic irony installed before the interval.', min: 1.5 },
+      { lane: '2A', type: 'song', title: 'The Gospel Truth IV (So Not Dead)', fn: 'motif', voicing: 'Muses', min: 1.5 },
+      { lane: '2A', type: 'song', title: 'Getting Even', fn: 'villain', voicing: 'Hades, Pain, Panic', min: 3.5 },
+      { lane: '2A', type: 'beat', title: 'The villain finally gets a song', note: 'The film gave its funniest character no number of his own; the stage fixes that first. A reference point for the diagnostic question "who in my show is carrying plot without carrying music?"', min: 1 },
+      { lane: '2A', type: 'scene', title: 'Thebes' },
+      { lane: '2A', type: 'beat', title: 'A city that has stopped believing in heroes', note: 'Thebes is besieged, cynical, and entirely uninterested in another self-declared champion. The hero arrives at his destination and is turned away — the last obstacle before the monster that makes his name.', min: 1.5 },
+      { lane: '2A', type: 'beat', title: 'The Hydra', note: 'The set-piece monster: every head cut off becomes two. The problem the whole first act has been training toward, and the fight that turns a local strongman into a celebrity.', min: 2 },
+      { lane: '2A', type: 'song', title: 'Zero to Hero', fn: 'finale', voicing: 'Muses, Phil, Hercules + Co.', min: 4 },
+      { lane: '2A', type: 'beat', title: 'Fame, and the thing still missing', note: 'Merchandise, endorsements, crowds — and Zeus\'s terms still unmet, because none of this is being a true hero. The film\'s big production number becomes the Act One finale, and the gap it opens is what Act Two is written to fill.', min: 1.5 },
+
+      // ===== ACT TWO (lanes 2B + 3) — almost entirely new writing =====
+      { lane: '2B', type: 'scene', title: 'Thebes — The Height of Fame' },
+      { lane: '2B', type: 'song', title: 'A Muse Bouche', fn: 'motif', voicing: 'Muses', min: 2 },
+      { lane: '2B', type: 'beat', title: 'The narrators restart the evening', note: 'A new number whose only job is to reopen the show after an interval the film never had. The clearest evidence of the adaptation problem: Act Two begins with a song that exists purely because there is an Act Two.', min: 1 },
+      { lane: '2B', type: 'song', title: "I'm Back!", fn: 'comedy', voicing: 'Phil + Ensemble', min: 3 },
+      { lane: '2B', type: 'song', title: 'Getting Even (Reprise)', fn: 'reprise', voicing: 'Pain, Panic', min: 1.5 },
+      { lane: '2B', type: 'beat', title: 'The henchmen waver', note: 'Hades\'s minions weigh changing sides — a beat of conscience the film never gave them, and a use for a reprise that develops character rather than restating a theme.', min: 1 },
+      { lane: '2B', type: 'beat', title: 'Not yet a true hero', note: 'Hercules goes to Zeus expecting the reward and is refused: fame is not heroism, and the gap is something he has to work out himself. The second-act low point set up entirely by an Act One promise.', min: 1.5 },
+      { lane: '2B', type: 'song', title: 'Phil Goes the Distance', fn: 'charm', voicing: 'Phil', min: 3 },
+      { lane: '2B', type: 'song', title: 'Doomed to Be Human', fn: 'soliloquy', voicing: 'Hercules', min: 3.5 },
+      { lane: '2B', type: 'beat', title: 'The dark night, newly written', note: 'A despair solo the film had no room for, in the slot the form demands. Two new numbers back to back — one for the sidekick, one for the hero — doing the work a screen story could do with a look and a cut.', min: 1 },
+      { lane: '2B', type: 'beat', title: 'Sent to find his weakness', note: 'Hades dispatches Meg to locate the one thing that can stop Hercules, and she finds it: it is her.', min: 1.5 },
+      { lane: '2B', type: 'song', title: "I Won't Say (I'm in Love)", fn: 'love', voicing: 'Meg, Muses', min: 3.5 },
+      { lane: '2B', type: 'beat', title: 'The Muses as her own argument', note: 'One of only two film songs left in Act Two, and the best example of the narrator chorus earning its keep: the Muses stop narrating and start arguing with the character they are narrating.', min: 1 },
+      { lane: '2B', type: 'song', title: "I Won't Say (I'm in Love) (Reprise)", fn: 'reprise', voicing: 'Hercules', min: 1.5 },
+      { lane: '2B', type: 'beat', title: 'Phil sees, and quits', note: 'Phil witnesses Meg with Hades, tells Hercules, and is not believed — so he leaves. The hero isolated from his trainer and his god at once, immediately before the deal.', min: 1.5 },
+      { lane: '2B', type: 'beat', title: 'Twenty-four hours', note: 'Hades offers the bargain: surrender your strength for a day and Meg goes free — with a guarantee she will not be harmed, which Hades gives because he already knows how to break it.', min: 2 },
+
+      { lane: '3', type: 'scene', title: 'Olympus Falls' },
+      { lane: '3', type: 'beat', title: 'The Titans released', note: 'The prophecy collected: the Titans go up the mountain, Olympus is taken, and the hero who could have stopped it has signed his strength away.', min: 2 },
+      { lane: '3', type: 'song', title: 'Great Bolts of Thunder', fn: 'production', voicing: 'Muses, Pain, Panic + Co.', min: 4 },
+      { lane: '3', type: 'beat', title: 'The eleventh-hour spectacle', note: 'A new number staging the battle between Olympus and the Underworld — written because a stage cannot cut to a wide shot, and it has to sing what a film would simply show. Released as a single, remixed, which tells you what the production thinks its showstopper is.', min: 1.5 },
+      { lane: '3', type: 'beat', title: 'Meg takes the blow', note: 'Powerless, Hercules is nearly killed; Meg is crushed pushing him clear. The guarantee is void because she is harmed — so his strength returns, bought by the injury that voids the deal. The plot\'s cleverest mechanism, inherited whole from the film.', min: 2 },
+      { lane: '3', type: 'beat', title: 'The Titans beaten, and too late', note: 'Hercules wins the fight and returns to find Meg dying. The victory the whole show promised, arriving as the wrong prize.', min: 1.5 },
+      { lane: '3', type: 'scene', title: 'The River Styx' },
+      { lane: '3', type: 'beat', title: 'He dives for her soul', note: 'Hercules bargains himself into the Styx to trade his life for hers — and it is this, not the Hydra and not the Titans, that satisfies Zeus\'s condition. The definition of "true hero" the show withheld for two acts, paid off as an action rather than a speech.', min: 2 },
+      { lane: '3', type: 'song', title: 'To Be Human', fn: 'eleven', voicing: 'Hercules', min: 4 },
+      { lane: '3', type: 'beat', title: 'The choice', note: 'Offered the godhood he has wanted since his I Want, Hercules turns it down to stay mortal with Meg. The stage gives the decision its own number (new for 2019) — the film let the moment pass in dialogue, and the adaptation correctly identifies it as the one thing the whole evening was for.', min: 1.5 },
+      { lane: '3', type: 'song', title: "The Gospel Truth V (That's Our Tale)", fn: 'motif', voicing: 'Muses + Ensemble', min: 2 },
+      { lane: '3', type: 'beat', title: 'The spine closes', note: 'The fifth and last Gospel Truth. The film needed three; the stage needed five, spaced so the narrators open the show, cover the act break, and close it — a chorus device promoted into load-bearing structure.', min: 1 },
+      { lane: '3', type: 'song', title: 'A Star Is Born', fn: 'finaleultimo', voicing: 'Company', min: 3.5 },
+    ],
+  },
 };
 
 // ---- Reference Novels (Prose Plot only) ----
