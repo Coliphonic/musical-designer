@@ -41,6 +41,12 @@
   /* Board cards are shadowed paper, not bordered boxes; beat cards run a warm half-step. */
   --card: #ffffff; --card-beat: #fdfcf9;
   --card-shadow: 0 1px 2px rgba(60,50,30,0.08), 0 2px 8px rgba(60,50,30,0.10);
+  /* Elevation scale: paper resting on the desk (--card-shadow), paper lifted
+     off it (menus, popovers), paper floating above everything (dialogs,
+     windows). Floating surfaces carry no border — the shadow does the lifting. */
+  --shadow-pop: 0 1px 4px rgba(60,50,30,0.10), 0 8px 24px rgba(60,50,30,0.20);
+  --shadow-modal: 0 2px 6px rgba(60,50,30,0.10), 0 18px 50px rgba(60,50,30,0.26);
+  --scrim: rgba(60,50,30,0.30);
   --scene-rule: #c7c0f2; /* scene spine's left rule; == --energy-line here, but flips independently in prose */
   --danger: #a32d2d; --danger-bg: #fbeaea;
   --tension: #d85a30; --tension-line: #e8cabd;
@@ -66,6 +72,9 @@ body.dark {
   --energy-line-soft: #3a3357; --energy-wash: #2a2540; --energy-focus: #8b7fe8;
   --card: #282521; --card-beat: #232120;
   --card-shadow: 0 1px 2px rgba(0,0,0,0.35), 0 2px 6px rgba(0,0,0,0.25);
+  --shadow-pop: 0 1px 4px rgba(0,0,0,0.40), 0 8px 24px rgba(0,0,0,0.55);
+  --shadow-modal: 0 2px 6px rgba(0,0,0,0.40), 0 18px 50px rgba(0,0,0,0.62);
+  --scrim: rgba(0,0,0,0.62);
   --scene-rule: #4c4478;
   --danger: #e88080; --danger-bg: #3a1f1f;
   --tension: #e07a55; --tension-line: #5a3a2c;
@@ -175,10 +184,9 @@ body.dark .seg button.active { background: #4a453e; color: #f3eee3; box-shadow: 
 .board-ins-picker {
   position: absolute; top: 14px; left: 2px; z-index: 8;
   display: flex; flex-direction: column; gap: 2px; padding: 4px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
-  box-shadow: 0 6px 20px #0000001a; white-space: nowrap;
+  background: var(--card); border-radius: 9px;
+  box-shadow: var(--shadow-pop); white-space: nowrap;
 }
-body.dark .board-ins-picker { box-shadow: 0 6px 20px rgba(0,0,0,0.5); }
 .board-ins-opt {
   display: flex; align-items: center; gap: 6px; padding: 5px 12px;
   border: none; border-radius: 6px; background: transparent; cursor: pointer;
@@ -276,7 +284,7 @@ body.dark .pill[data-fam="gray"]   { color: #a09888; }
 .bcard:hover .conflict:empty, .bcard .conflict:empty:focus { border: 1px dashed var(--line); border-radius: 5px; padding: 1px 5px; margin: -1px -5px; color: var(--faint); }
 .bcard .statusdot.click { cursor: pointer; width: 9px; height: 9px; }
 .bcard .statusdot.click:hover { box-shadow: 0 0 0 2px var(--hover), 0 0 0 3px var(--line); }
-.minipop { position: fixed; z-index: 4000; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 8px 24px rgba(0,0,0,0.18); padding: 4px; display: flex; flex-direction: column; gap: 1px; min-width: 134px; }
+.minipop { position: fixed; z-index: 4000; background: var(--card); border-radius: 9px; box-shadow: var(--shadow-pop); padding: 4px; display: flex; flex-direction: column; gap: 1px; min-width: 134px; }
 .minipop-item { display: flex; align-items: center; gap: 8px; width: 100%; background: none; border: 0; border-radius: 6px; padding: 6px 9px; font-family: inherit; font-size: 12.5px; color: var(--ink); cursor: pointer; text-align: left; }
 .minipop-item:hover { background: var(--hover); }
 .minipop-item.active { background: var(--btn); font-weight: 600; }
@@ -293,7 +301,7 @@ body.dark .pill[data-fam="gray"]   { color: #a09888; }
 }
 .addtile .addbtn { width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--line); background: var(--panel); color: var(--muted); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0; }
 .addtile .addbtn:hover { background: var(--ink); color: #fff; }
-.addtile .addmenu { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); z-index: 6; background: var(--panel); border: 1px solid var(--line); border-radius: 9px; box-shadow: 0 6px 20px #0000001a; padding: 4px; display: none; flex-direction: column; gap: 2px; }
+.addtile .addmenu { position: absolute; top: 40px; left: 50%; transform: translateX(-50%); z-index: 6; background: var(--card); border-radius: 9px; box-shadow: var(--shadow-pop); padding: 4px; display: none; flex-direction: column; gap: 2px; }
 .addtile .addmenu.open { display: flex; }
 .addtile .addmenu button { white-space: nowrap; border: 0; background: transparent; padding: 6px 14px; border-radius: 6px; font-size: 12.5px; color: var(--ink); cursor: pointer; text-align: left; font-family: inherit; }
 .addtile .addmenu button:hover { background: var(--hover); }
@@ -313,9 +321,8 @@ body.dark .pill[data-fam="gray"]   { color: #a09888; }
 /* detail drawer */
 .lwpush { border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; font-weight: 500; font-family: inherit; padding: 6px 12px; border-radius: 7px; cursor: pointer; }
 .lwpush:hover { background: var(--hover); color: var(--ink); border-color: var(--ink); }
-/* Dark mode: lift the editor windows off the near-identical board behind them. */
-body.dark .lyricwin-overlay { background: rgba(0,0,0,0.62); }
-body.dark .lyricwin { border-color: #4a443a; box-shadow: 0 28px 80px rgba(0,0,0,0.6); }
+/* Dark mode lifts the editor windows off the near-identical board behind them
+   via --scrim and --shadow-modal, which both deepen in the dark palette. */
 
 .fld { display: flex; flex-direction: column; gap: 5px; }
 .fld[hidden] { display: none !important; }
@@ -1038,8 +1045,8 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 @media (max-width: 760px) { .bm-cols { grid-template-columns: 1fr; } }
 
 /* full-screen lyric editor window */
-.lyricwin-overlay { position: fixed; inset: 0; background: #2c2c2a55; z-index: 40; display: flex; align-items: center; justify-content: center; padding: 24px; }
-.lyricwin { width: 1000px; max-width: 96vw; height: 86vh; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 24px 70px #00000033; display: flex; flex-direction: column; overflow: hidden; }
+.lyricwin-overlay { position: fixed; inset: 0; background: var(--scrim); z-index: 40; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.lyricwin { width: 1000px; max-width: 96vw; height: 86vh; background: var(--card); border-radius: 14px; box-shadow: var(--shadow-modal); display: flex; flex-direction: column; overflow: hidden; }
 /* Prev/next card arrows: bare chevrons in the dimmed overlay margin, outside
    the window itself, so the window's own chrome stays untouched. Faint at
    rest, full-strength on hover. Hidden below a width where there isn't
@@ -1531,12 +1538,12 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
 
 /* Modal */
 .modal-overlay {
-  position: fixed; inset: 0; background: #2c2c2a55; z-index: 50;
+  position: fixed; inset: 0; background: var(--scrim); z-index: 50;
   display: flex; align-items: center; justify-content: center;
 }
 .modal-box {
-  background: var(--panel); border: 1px solid var(--line);
-  border-radius: 14px; box-shadow: 0 20px 60px #00000028;
+  background: var(--card);
+  border-radius: 14px; box-shadow: var(--shadow-modal);
   padding: 24px; width: 380px; max-width: 94vw;
   display: flex; flex-direction: column; gap: 18px;
 }
@@ -1675,10 +1682,9 @@ body.ms-focus .ms-focus-exit-pill.show { opacity: 1; pointer-events: auto; }
 .ms-nav-ins-picker {
   position: absolute; left: 8px; top: 8px; z-index: 6;
   display: flex; gap: 2px; padding: 3px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-  box-shadow: 0 4px 14px rgba(0,0,0,0.14);
+  background: var(--card); border-radius: 8px;
+  box-shadow: var(--shadow-pop);
 }
-body.dark .ms-nav-ins-picker { box-shadow: 0 4px 14px rgba(0,0,0,0.5); }
 .ms-nav-ins-opt {
   display: flex; align-items: center; gap: 5px; padding: 4px 8px;
   border: none; border-radius: 5px; background: transparent; cursor: pointer;
@@ -2035,8 +2041,8 @@ mark.chord-tag::after {
 
 /* Note create/edit popup and the read-only viewer popover. */
 .note-popup {
-  position: fixed; z-index: 4001; width: 240px; background: var(--panel); border: 1px solid var(--sage-line);
-  border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); padding: 10px;
+  position: fixed; z-index: 4001; width: 240px; background: var(--card);
+  border-radius: 10px; box-shadow: var(--shadow-pop); padding: 10px;
 }
 .note-popup-ta {
   width: 100%; min-height: 64px; resize: vertical; font-family: inherit; font-size: 13px; padding: 8px;
@@ -2045,7 +2051,7 @@ mark.chord-tag::after {
 .note-popup-btns { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
 .note-popup-delete { margin-right: auto; }
 .note-popup-btns .pbtn.primary { background: var(--sage); border-color: var(--sage); color: #fff; }
-.note-popup-ro { padding: 12px; border-color: var(--sage-line); }
+.note-popup-ro { padding: 12px; }
 .note-popup-text { font-size: 13px; color: var(--ink); white-space: pre-wrap; word-break: break-word; max-width: 216px; }
 .note-popup-close {
   position: absolute; top: 6px; right: 6px; width: 20px; height: 20px;
@@ -2432,8 +2438,8 @@ body.dark .ch-kind-btn.active { background: #6a61d0; }
 .lib-shared { color: var(--energy); border-color: color-mix(in srgb, var(--energy) 40%, transparent); background: color-mix(in srgb, var(--energy) 9%, transparent); }
 
 .lib-menu {
-  position: fixed; z-index: 1200; min-width: 150px; background: var(--panel);
-  border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 30px #0003;
+  position: fixed; z-index: 1200; min-width: 150px; background: var(--card);
+  border-radius: 10px; box-shadow: var(--shadow-pop);
   padding: 5px; display: flex; flex-direction: column;
 }
 .lib-menu-item {
