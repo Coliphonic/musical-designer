@@ -403,7 +403,10 @@ body.dark .sing.empty { background: var(--panel); border-color: var(--energy); }
 .ms-zoom-btn:hover:not(:disabled) { background: var(--hover); color: var(--ink); }
 .ms-zoom-btn:disabled { opacity: 0.35; cursor: default; }
 .ms-zoom-lbl { font-size: 12px; color: var(--muted); min-width: 38px; text-align: center; font-variant-numeric: tabular-nums; }
-.ms-body { flex: 1; overflow-y: auto; background: #888; }
+/* The field the pages rest on is a warm grey, not a neutral one — same desk
+   family as the rest of the app, so Manuscript doesn't read as a separate
+   program. Dark mode already uses the app desk tone (below). */
+.ms-body { flex: 1; overflow-y: auto; background: #9a948a; }
 body.dark .ms-body { background: var(--bg); }
 /* Settings is the icon variant of the shared ribbon button: square, no text,
    a larger glyph. Height/border/hover come from the shared rule below. */
@@ -1602,14 +1605,14 @@ body.ms-focus .ms-edit-doc .ms-card-section:hover {
 }
 body.ms-focus .ms-focus-exit-pill.show { opacity: 1; pointer-events: auto; }
 .ms-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; overflow: hidden; position: relative; }
-.ms-wrap .ms-body { flex: 1; min-width: 0; overflow-y: auto; background: #888; }
+.ms-wrap .ms-body { flex: 1; min-width: 0; overflow-y: auto; background: #9a948a; }
 
 /* Edit-mode outline navigator (jump nav) */
 .ms-nav {
   flex: 0 0 212px;
   display: flex;
   flex-direction: column;
-  background: var(--panel);
+  background: var(--bg);
   border-right: 1px solid var(--line);
   overflow: hidden;
   transition: flex-basis 0.16s ease;
@@ -1857,8 +1860,10 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
   content: '';
   flex: 1;
   height: 1px;
-  background: #b0aca6;
+  background: #c0bab0;
 }
+body.dark .ms-card-divider::before,
+body.dark .ms-card-divider::after { background: #b0aca6; }
 .ms-card-divider-label {
   display: inline-flex;
   align-items: baseline;
@@ -1885,9 +1890,12 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
   width: 816px;
   margin: 0 auto;
   cursor: text;
-  box-shadow: 0 2px 12px #0003;
+  /* Warm shadow, same family as the board cards — a page and a card are the
+     same material at two scales. Dark keeps a black shadow (below). */
+  box-shadow: 0 1px 3px rgba(60,50,30,0.13), 0 3px 14px rgba(60,50,30,0.16);
   min-height: 40px;
 }
+body.dark .ms-card-section { box-shadow: 0 2px 12px #0003; }
 .ms-card-content { }
 .ms-card-section-empty { min-height: 56px; display: flex; align-items: center; }
 .ms-card-placeholder {
