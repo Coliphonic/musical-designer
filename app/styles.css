@@ -120,8 +120,11 @@ html, body {
 .seg button.active { background: var(--panel); color: var(--ink); box-shadow: 0 1px 2px #0000000f; }
 body.dark .seg button.active { background: #4a453e; color: #f3eee3; box-shadow: 0 1px 2px rgba(0,0,0,0.45); }
 
-.pbtn { font-family: inherit; font-size: 12.5px; padding: 7px 11px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px; cursor: pointer; }
-.pbtn:hover { background: var(--hover); }
+/* Buttons carry fills, never outlines: primary takes the accent (a fill means
+   commitment), everything else a tonal ground. --hover rather than --btn as the
+   resting tone so the button still reads on the tinted chrome ribbons. */
+.pbtn { font-family: inherit; font-size: 12.5px; padding: 7px 11px; border: none; background: var(--hover); color: var(--ink); border-radius: 8px; cursor: pointer; }
+.pbtn:hover:not(:disabled) { background: var(--line); }
 .pbtn:disabled { opacity: 0.4; cursor: default; }
 .pbtn-ico { display: inline-flex; align-items: center; gap: 6px; }
 .pbtn-ico svg { display: block; flex-shrink: 0; }
@@ -329,11 +332,13 @@ body.dark .pill[data-fam="gray"]   { color: #a09888; }
 .fld.row2 { flex-direction: row; gap: 12px; }
 .fld.row2 > .fld { flex: 1; }
 .fl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); font-weight: 600; }
-.fi { width: 100%; font-family: inherit; font-size: 13px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); }
-.fi:focus { outline: none; border-color: var(--ink); }
+/* On the desk a surface rises; on paper a field sinks. Fields are recessed
+   wells — desk tone behind a hairline impression, focus tightens to the accent. */
+.fi { width: 100%; font-family: inherit; font-size: 13px; padding: 8px 10px; border: none; box-shadow: inset 0 0 0 1px var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
+.fi:focus { outline: none; box-shadow: inset 0 0 0 1px var(--energy); }
 select.fi { cursor: pointer; }
-textarea.ft { width: 100%; font-family: inherit; font-size: 13px; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; resize: vertical; min-height: 64px; color: var(--ink); line-height: 1.5; background: var(--bg); }
-textarea.ft:focus { outline: none; border-color: var(--ink); }
+textarea.ft { width: 100%; font-family: inherit; font-size: 13px; padding: 9px 10px; border: none; box-shadow: inset 0 0 0 1px var(--line); border-radius: 8px; resize: vertical; min-height: 64px; color: var(--ink); line-height: 1.5; background: var(--bg); }
+textarea.ft:focus { outline: none; box-shadow: inset 0 0 0 1px var(--energy); }
 
 .sing { background: var(--energy-bg); border: 1px solid var(--energy-line); border-radius: 10px; padding: 12px; }
 .sing .fl { color: var(--energy-ink); }
@@ -1127,7 +1132,7 @@ textarea.lweditor.lweditor-lit::placeholder { color: #c5beb0; -webkit-text-fill-
 .lwzone-rhymes .rchip { color: var(--rose); background: var(--rose-bg); }
 .lwzone-rhymes .rchip.click:hover { background: color-mix(in srgb, var(--rose) 18%, var(--card)); }
 .lwzone-rhymes .rhyme-tab.active { color: var(--rose); }
-.lwzone-rhymes .fi:focus { border-color: var(--rose); }
+.lwzone-rhymes .fi:focus { box-shadow: inset 0 0 0 1px var(--rose); }
 .lwzone-lookup .rchip { color: var(--sage); background: var(--sage-bg); }
 .lwzone-lookup .rchip.click:hover { background: color-mix(in srgb, var(--sage) 18%, var(--card)); }
 .lwzone-lookup .rhyme-tab.active { color: var(--sage); }
@@ -1177,7 +1182,7 @@ textarea.lweditor.lweditor-lit::placeholder { color: #c5beb0; -webkit-text-fill-
 .lwdetails-caret { font-size: 9px; width: 10px; }
 .lwdetails-body { display: flex; flex-direction: column; gap: 13px; padding: 10px 0 4px; }
 .lwdetails-body .fl { color: var(--azure); }
-.lwdetails .fi:focus { border-color: var(--azure); }
+.lwdetails .fi:focus { box-shadow: inset 0 0 0 1px var(--azure); }
 .lwdelete { align-self: flex-start; background: none; border: 0; color: var(--danger); font-size: 13px; padding: 6px 0; cursor: pointer; }
 
 /* inline-editable card fields: placeholder when empty */
@@ -1534,8 +1539,8 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
 .sp-dots:hover { background: var(--tn-hover); color: var(--tn-ink); }
 .sp-divider { height: 1px; background: var(--tn-border); margin: 4px 0; }
 .sp-actions { display: flex; flex-direction: column; gap: 3px; }
-.sp-actions .pbtn { width: 100%; text-align: left; background: transparent; border-color: transparent; color: var(--tn-pill-ink); font-size: 12.5px; padding: 6px 10px; }
-.sp-actions .pbtn:hover { background: var(--tn-hover); color: var(--tn-ink); border-color: transparent; }
+.sp-actions .pbtn { width: 100%; text-align: left; background: transparent; color: var(--tn-pill-ink); font-size: 12.5px; padding: 6px 10px; }
+.sp-actions .pbtn:hover { background: var(--tn-hover); color: var(--tn-ink); }
 .sp-actions .pbtn:disabled { opacity: 0.3; }
 .sp-actions .pbtn.danger { color: #ffb3b3; }
 .sp-actions .pbtn.danger:hover:not(:disabled) { background: rgba(255,120,120,0.16); color: #fff; }
@@ -1552,11 +1557,21 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
   padding: 24px; width: 380px; max-width: 94vw;
   display: flex; flex-direction: column; gap: 18px;
 }
-.modal-box .seg { display: flex; }
-.modal-box .seg button { flex: 1; text-align: center; }
+/* Segmented controls split by layer: on chrome, selection is a fill (the board
+   ribbon, the Manuscript mode segs); on paper it's accent ink — the tab-pair
+   pattern from the lyric bench, no filled thumb. */
+.modal-box .seg { display: flex; background: transparent; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; padding: 0; }
+.modal-box .seg button { flex: 1; text-align: center; background: transparent; border-radius: 0; box-shadow: none;
+  font-size: 9.5px; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); padding: 6px 10px; }
+.modal-box .seg button + button { border-left: 1px solid var(--line); }
+.modal-box .seg button.active { background: transparent; color: var(--energy); }
+.modal-box .seg button:not(.active):hover { background: transparent; color: var(--muted); }
+/* Out-specifies `body.dark .seg button.active`, which would otherwise restore
+   the filled thumb in dark mode. */
+body.dark .modal-box .seg button.active { background: transparent; color: var(--energy); }
 .modal-title { font-size: 17px; font-weight: 600; margin: 0; color: var(--ink); }
 .modal-btns { display: flex; justify-content: flex-end; gap: 8px; }
-.pbtn.primary { background: var(--energy); color: #fff; border-color: var(--energy); }
+.pbtn.primary { background: var(--energy); color: #fff; }
 .pbtn.primary:hover:not(:disabled) { filter: brightness(1.08); }
 
 .find-opts { display: flex; gap: 16px; font-size: 12.5px; color: var(--muted); }
@@ -2055,7 +2070,7 @@ mark.chord-tag::after {
 }
 .note-popup-btns { display: flex; gap: 6px; justify-content: flex-end; margin-top: 8px; }
 .note-popup-delete { margin-right: auto; }
-.note-popup-btns .pbtn.primary { background: var(--sage); border-color: var(--sage); color: #fff; }
+.note-popup-btns .pbtn.primary { background: var(--sage); color: #fff; }
 .note-popup-ro { padding: 12px; }
 .note-popup-text { font-size: 13px; color: var(--ink); white-space: pre-wrap; word-break: break-word; max-width: 216px; }
 .note-popup-close {
