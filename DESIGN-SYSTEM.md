@@ -87,11 +87,24 @@ Corollary: **names are mixed case, labels are small caps.**
 
 | Where | Font |
 | --- | --- |
-| UI, titles, chrome | system sans |
+| UI, titles, chrome | Bricolage Grotesque (`var(--ui-font)`) |
 | Board card body text | Atkinson Hyperlegible, 12.5px / 1.23 |
 | Notes body | iA Writer Duo, 13.5px / 1.6 |
 | Manuscript + lyric sheets | Courier Prime (typewriter script) |
 | Book export | the OFL book faces |
+
+The UI face is **Bricolage Grotesque** — a grotesque with deliberate
+irregularity, chosen over five quieter candidates (Instrument Sans, Schibsted
+Grotesk, Familjen Grotesk, Space Grotesk, Epilogue) because the app should not
+read as one more word processor. Self-hosted, variable 200–800 in one file per
+subset, so every UI weight costs a single download. `font-optical-sizing: auto`
+is on: the opsz axis gives 10px caps labels a sturdier cut than 17px numerals,
+which is most of why one family covers the whole 10–17px range.
+
+Always reference it as `var(--ui-font)`, never by name. Surfaces that sit
+*inside* a typewriter or book context (manuscript divider labels, autocomplete
+rows, style hints) opt back out to chrome with that variable — hard-coding the
+stack is how it drifted before.
 
 iA Writer Duo is the "typed notecard" voice, still used for the Notes page.
 
@@ -115,10 +128,10 @@ on purpose. They collapse into five **roles** — pick the role, not the numbers
 | Role | Spec | Where |
 | --- | --- | --- |
 | Reading | Atkinson Hyperlegible 12.5 / 1.23 | card notes |
-| Name | system 13 / 650 / 0.015em | card titles |
-| Rail | system 11 / 650 / 0.09em caps | act labels, scene spines |
-| Numeral | system 10.5 / 600 tabular | % badges, card foot |
-| Caps label | system 10 / 650 / 0.12em | function markers, MIDPOINT and
+| Name | UI 13 / 650 / 0.015em | card titles |
+| Rail | UI 11 / 650 / 0.09em caps | act labels, scene spines |
+| Numeral | UI 10.5 / 600 tabular | % badges, card foot |
+| Caps label | UI 10 / 650 / 0.12em | function markers, MIDPOINT and
 INTERMISSION, stat keys |
 
 Three rules keep it that way:
@@ -133,9 +146,9 @@ Three rules keep it that way:
 Sizes step monotonically — 13 name, 12.5 reading, 11 rail, 10.5 numeral, 10
 label — so no two roles share a size. Card titles carry 650 and a whisper of
 tracking to borrow the rails' confidence, which is what lets a mixed-case title
-and the small-caps marker above it read as one system. Titles stay in the
-system sans: putting them in Atkinson was tried and its true-700 (there is no
-600 cut) read louder than the board wants.
+and the small-caps marker above it read as one system. Titles stay in the UI
+face: putting them in Atkinson was tried and its true-700 (there is no 600 cut)
+read louder than the board wants.
 
 ### Board scaling
 

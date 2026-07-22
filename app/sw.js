@@ -11,7 +11,7 @@
 // CACHE no longer needs bumping every deploy for correctness. Bump it only to
 //   (a) force an immediate reload-to-latest THIS launch rather than the next, or
 //   (b) hard-invalidate every cached asset at once.
-const CACHE = 'songplot-v233';
+const CACHE = 'songplot-v234';
 
 // Precached on install so the very first (offline) launch works. cmudict.txt
 // (2MB) and thesaurus.txt (9MB) are cached lazily at runtime instead.
@@ -39,6 +39,9 @@ const SHELL = [
   // bold or italic on a note, so those cuts stay on-demand like the book faces.
   '/fonts/AtkinsonHyperlegible-Regular.woff2',
   '/fonts/AtkinsonHyperlegible-Regular-ext.woff2',
+  // The UI face. One variable file covers every weight the chrome uses, and
+  // without it the first offline launch falls back to the system sans.
+  '/fonts/BricolageGrotesque.woff2',
 ];
 
 // Shell code that changes on deploy — served stale-while-revalidate so it keeps
