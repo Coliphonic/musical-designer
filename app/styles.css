@@ -1194,18 +1194,24 @@ body.dark .bcard [contenteditable]:focus { background: #000; color: #fff; box-sh
 
 body { display: flex; flex-direction: column; height: 100vh; height: 100dvh; overflow: hidden; }
 
-/* ===== Top navigation ===== */
-.topnav {
+/* ===== Top navigation =====
+   The --tn-* skin lives on <body>, not on .topnav, because the menus that drop
+   out of the bar (app switcher, show switcher) are portalled to body and must
+   read the same skin — that's what keeps them coloured with the bar in dark
+   mode and in Prose Plot's terracotta, instead of hardcoding one palette. */
+body {
   --tn-bg: #3a3475; --tn-border: #2e2960; --tn-ink: #f1eefc; --tn-muted: #c2bcee;
   --tn-pill-bg: #4c4592; --tn-pill-ink: #cdc8ee; --tn-active-bg: #ffffff; --tn-active-ink: #3a3475;
   --tn-hover: #4c4592; --tn-brand: #ffffff;
+}
+.topnav {
   flex-shrink: 0;
   background: var(--tn-bg);
   border-bottom: 1px solid var(--tn-border);
   padding-top: env(safe-area-inset-top);
   z-index: 20;
 }
-body.dark .topnav {
+body.dark {
   --tn-bg: #201d2b; --tn-border: #2e2a40; --tn-ink: #e8e3d8; --tn-muted: #9a93b0;
   --tn-pill-bg: #2a2640; --tn-pill-ink: #b3abe0; --tn-active-bg: #6a61d0; --tn-active-ink: #ffffff;
   --tn-hover: #2a2738; --tn-brand: #8b82e8;
@@ -1214,12 +1220,12 @@ body.dark .topnav {
    so the app reads as a different room, not a re-tinted Song Plot. Combined
    dark+prose selector out-specifies plain body.dark so it wins regardless of
    which theme is active. */
-body.app-prose .topnav {
+body.app-prose {
   --tn-bg: #9a4a34; --tn-border: #7c3c2a; --tn-ink: #fdf1ec; --tn-muted: #ecc3b3;
   --tn-pill-bg: #b8674a; --tn-pill-ink: #fbe2d8; --tn-active-bg: #ffffff; --tn-active-ink: #9a4a34;
   --tn-hover: #b8674a; --tn-brand: #ffffff;
 }
-body.dark.app-prose .topnav {
+body.dark.app-prose {
   --tn-bg: #241a17; --tn-border: #3a2620; --tn-ink: #f3e4dc; --tn-muted: #cf9c89;
   --tn-pill-bg: #3a2620; --tn-pill-ink: #edc2ae; --tn-active-bg: #f0937a; --tn-active-ink: #241a17;
   --tn-hover: #33221d; --tn-brand: #f0937a;
@@ -1335,13 +1341,15 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
 .tn-show-slot { position: relative; display: flex; align-items: center; }
 .tn-show-slot [hidden] { display: none !important; }
 .tn-waffle-icon { color: var(--tn-muted); display: inline-flex; flex-shrink: 0; }
+/* App + show switchers wear the top bar's skin: they drop out of the bar, so
+   they belong to the shell layer, not the paper layer. --tn-* comes from body. */
 .waffle-menu {
   position: fixed;
   top: calc(52px + env(safe-area-inset-top));
   left: 12px;
   width: 200px;
-  background: #2c2a26;
-  border: 1px solid #555;
+  background: var(--tn-bg);
+  border: 1px solid var(--tn-border);
   border-radius: 10px;
   box-shadow: 0 12px 32px #00000055;
   z-index: 50;
@@ -1353,11 +1361,11 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
 .waffle-item {
   display: flex; align-items: center; gap: 8px;
   border: none; background: none; border-radius: 7px; padding: 8px 10px;
-  color: #e0dbd0; font-family: inherit; font-size: 13px; text-align: left; cursor: pointer;
+  color: var(--tn-pill-ink); font-family: inherit; font-size: 13px; text-align: left; cursor: pointer;
 }
-.waffle-item:hover { background: #3a3830; color: #f8f3e8; }
-.waffle-item.active { color: #f5f0e4; font-weight: 600; }
-.waffle-item-check { width: 14px; flex-shrink: 0; color: var(--energy); }
+.waffle-item:hover { background: var(--tn-hover); color: var(--tn-ink); }
+.waffle-item.active { color: var(--tn-ink); font-weight: 600; }
+.waffle-item-check { width: 14px; flex-shrink: 0; color: var(--tn-brand); }
 
 @media (max-width: 880px) {
   .tn-nav { position: static; transform: none; left: auto; top: auto; margin: 0 auto; }
@@ -1404,7 +1412,7 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
   align-items: center;
   justify-content: space-between;
   padding: 4px 8px 6px;
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid var(--tn-border);
   margin-bottom: 4px;
 }
 .sp-close-label {
@@ -1412,19 +1420,19 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: #706860;
+  color: var(--tn-muted);
 }
 .sp-close-btn {
   background: none;
   border: none;
-  color: #908880;
+  color: var(--tn-muted);
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
   padding: 2px 6px;
   border-radius: 5px;
 }
-.sp-close-btn:hover { background: #3a3830; color: #f0ebe0; }
+.sp-close-btn:hover { background: var(--tn-hover); color: var(--tn-ink); }
 /* ---- Reference "teaches" study banner ---- */
 .ref-teach { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; padding: 9px 14px; background: var(--energy-bg); border: 1px solid var(--energy-line-soft); border-radius: 9px; }
 .ref-teach-tag { flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #fff; background: #6a61d0; padding: 3px 8px; border-radius: 5px; }
@@ -1464,8 +1472,8 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
   top: calc(52px + env(safe-area-inset-top));
   left: 12px;
   width: 264px;
-  background: #2c2a26;
-  border: 1px solid #555;
+  background: var(--tn-bg);
+  border: 1px solid var(--tn-border);
   border-radius: 0 0 10px 10px;
   box-shadow: 0 12px 32px #00000055;
   z-index: 50;
@@ -1481,7 +1489,7 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #9a9488;
+  color: var(--tn-muted);
   padding: 6px 10px 2px;
 }
 .sp-item-row {
@@ -1489,8 +1497,8 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
   align-items: center;
   border-radius: 7px;
 }
-.sp-item-row:hover { background: #3a3830; }
-.sp-item-row:hover .sp-item { color: #f8f3e8; background: none; }
+.sp-item-row:hover { background: var(--tn-hover); }
+.sp-item-row:hover .sp-item { color: var(--tn-ink); background: none; }
 .sp-item-row:hover .sp-dots { opacity: 1; }
 .sp-item {
   display: block;
@@ -1501,7 +1509,7 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
   border-radius: 7px;
   border: none;
   background: none;
-  color: #e0dbd0;
+  color: var(--tn-pill-ink);
   font-family: inherit;
   font-size: 13px;
   cursor: pointer;
@@ -1510,14 +1518,14 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
   text-overflow: ellipsis;
 }
 .sp-item:hover { background: none; }
-.sp-item.active { color: #f5f0e4; font-weight: 600; }
-.sp-item-row:has(.sp-item.active) { background: #3d3a34; }
+.sp-item.active { color: var(--tn-ink); font-weight: 600; }
+.sp-item-row:has(.sp-item.active) { background: var(--tn-hover); }
 .sp-dots {
   flex-shrink: 0;
   opacity: 0;
   background: none;
   border: none;
-  color: #c0b8ac;
+  color: var(--tn-muted);
   cursor: pointer;
   font-size: 15px;
   letter-spacing: -1px;
@@ -1526,14 +1534,14 @@ body.on-library #sb-find, body.on-library #sb-export, body.on-library #sb-snapsh
   line-height: 1;
   transition: opacity 0.1s, background 0.1s;
 }
-.sp-dots:hover { background: #4a4840; color: #f8f3e8; }
-.sp-divider { height: 1px; background: #444; margin: 4px 0; }
+.sp-dots:hover { background: var(--tn-hover); color: var(--tn-ink); }
+.sp-divider { height: 1px; background: var(--tn-border); margin: 4px 0; }
 .sp-actions { display: flex; flex-direction: column; gap: 3px; }
-.sp-actions .pbtn { width: 100%; text-align: left; background: transparent; border-color: transparent; color: #d8d0c4; font-size: 12.5px; padding: 6px 10px; }
-.sp-actions .pbtn:hover { background: #3a3830; color: #f8f3e8; border-color: transparent; }
+.sp-actions .pbtn { width: 100%; text-align: left; background: transparent; border-color: transparent; color: var(--tn-pill-ink); font-size: 12.5px; padding: 6px 10px; }
+.sp-actions .pbtn:hover { background: var(--tn-hover); color: var(--tn-ink); border-color: transparent; }
 .sp-actions .pbtn:disabled { opacity: 0.3; }
-.sp-actions .pbtn.danger { color: #e88080; }
-.sp-actions .pbtn.danger:hover:not(:disabled) { background: #3a2020; }
+.sp-actions .pbtn.danger { color: #ffb3b3; }
+.sp-actions .pbtn.danger:hover:not(:disabled) { background: rgba(255,120,120,0.16); color: #fff; }
 
 
 /* Modal */
