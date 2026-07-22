@@ -28,7 +28,13 @@ const LYRIC = (function () {
     ready = true;
   }
 
-  function words(line) { return (line.toLowerCase().match(/[a-z']+/g)) || []; }
+  // App-only inline markup (chords, notes, strike, highlight) must never reach
+  // the tokenizer: "[Am]Morning" would otherwise count "am" as a syllable and
+  // "[[note:id:payload]]" would count its base64. app.js injects its own
+  // stripper via setStrip() so the markup grammar stays defined in one place;
+  // unset, the engine still works standalone on plain text.
+  let strip = (s) => s;
+  function words(line) { return (strip(line || '').toLowerCase().match(/[a-z']+/g)) || []; }
   function lastWord(line) { const w = words(line); return w.length ? w[w.length - 1].replace(/^'+|'+$/g, '') : ''; }
 
   // heuristic fallback for out-of-vocabulary words
@@ -109,6 +115,7 @@ const LYRIC = (function () {
   return {
     load,
     ready: () => ready,
+    setStrip: (fn) => { if (typeof fn === 'function') strip = fn; },
     lineSyll, scheme, suggest, nearSuggest, lastWord, keyOf, syllOf,
     inDict: (w) => !!(DICT && DICT.get((w || '').toLowerCase())),
   };

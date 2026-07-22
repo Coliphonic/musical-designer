@@ -9085,6 +9085,11 @@ loadProjects().then(() => {
   openReference('fiddler');
 });
 
+// Teach the lyric engine to ignore our inline markup before it tokenises, so
+// "[Am]Morning" is one syllable and not two. Same stripper the Fountain and
+// EPUB exporters use — the chord/note grammar is defined once, in this file.
+LYRIC.setStrip(stripToFountainText);
+
 // Load the pronouncing dictionary; refresh an open song editor once ready.
 fetch('cmudict.txt').then((r) => r.text()).then((t) => {
   LYRIC.load(t);
