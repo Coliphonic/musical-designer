@@ -8706,12 +8706,23 @@ function buildLyricWindow(c) {
   };
 
   editor.addEventListener('input', refresh);
-  // Two-way scroll lock: the editor drives the gutter, and wheel-scrolling the
-  // gutter itself drives the editor right back — otherwise the rhyme letters
-  // drift off their lines. No loop: assigning an unchanged scrollTop fires no
-  // scroll event, so the ping-pong settles immediately.
+  // Scroll sync: the editor is the ONLY native scroller. The gutter is
+  // overflow:hidden and mirrors it programmatically; its own wheel/touch input
+  // is translated straight into editor.scrollTop rather than scrolling itself.
+  // (The previous two-way lock — both overflow:auto, each scroll handler
+  // writing the other's scrollTop — fed back on iOS, where scroll events
+  // arrive async during momentum: the reflected write landed on a stale value,
+  // yanking the editor backwards and killing the fling.)
   editor.addEventListener('scroll', () => { gutter.scrollTop = editor.scrollTop; syncMarksScroll(); });
-  gutter.addEventListener('scroll', () => { editor.scrollTop = gutter.scrollTop; });
+  gutter.addEventListener('wheel', (e) => { e.preventDefault(); editor.scrollTop += e.deltaY; }, { passive: false });
+  let gutterTouchY = null;
+  gutter.addEventListener('touchstart', (e) => { gutterTouchY = e.touches[0].clientY; }, { passive: true });
+  gutter.addEventListener('touchmove', (e) => {
+    if (gutterTouchY == null) return;
+    e.preventDefault(); // the gutter can't scroll, so the drag would rubber-band the page behind
+    editor.scrollTop += gutterTouchY - e.touches[0].clientY;
+    gutterTouchY = e.touches[0].clientY;
+  }, { passive: false });
   // Selections (double-click, shift-arrow, drag) steer the rhyme panel without
   // touching the text, so they must NOT go through refresh (which saves) — just
   // the lightweight follow. (It ignores collapsed carets, so plain typing and
