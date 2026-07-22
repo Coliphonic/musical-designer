@@ -4824,6 +4824,13 @@ function buildCharactersPage() {
       const removeBtn = el('button', { class: 'ch-remove', title: 'Remove character' });
       removeBtn.textContent = '×';
       removeBtn.addEventListener('click', () => {
+        // A name still cued in the lyrics re-lists itself on every rebuild, so
+        // for those the × only wipes the record (voice type, desc, notes, kind,
+        // web spot) — say so instead of pretending the card will go away.
+        const msg = apps.length
+          ? '"' + name + '" appears in the ' + (isProse ? 'manuscript' : 'lyrics') + ', so the card will stay — this clears their voice type, description, notes and web position. Clear them?'
+          : 'Remove "' + name + '"? This cannot be undone.';
+        if (!confirm(msg)) return;
         delete state.characters[name];
         scheduleSave();
         buildCharactersPage();
