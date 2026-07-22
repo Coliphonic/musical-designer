@@ -128,7 +128,10 @@ Manuscript →) run compact at 11px/600 mixed case as a set.
   focus rings in a zone inherit its accent so the two chip clouds read as
   different tools at a glance.
 - **Function families** keep their nine colours, now as *text colour only*.
-- Per-character hues (`--ch-hue`) colour the count metadata and focus ring.
+- Per-character hues (`--ch-hue`) colour the count metadata and focus ring —
+  as `oklch(0.52 0.11 h)` light / `oklch(0.72 0.10 h)` dark, so every hue sits
+  at the same perceived darkness (fountain-pen inks). Raw `hsl(h,55%,55%)` let
+  green/yellow characters shout while blues behaved — the crayon-box look.
 - The Manuscript page field is warm grey `#9a948a` in light mode — warm, not
   neutral, so Manuscript belongs to the same desk as everything else. Dark mode
   already uses the app desk tone.

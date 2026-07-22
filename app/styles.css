@@ -2224,7 +2224,12 @@ body.dark .ms-style-hint { color: #8b83a8; }
 }
 
 .ch-card {
-  --ch-accent: hsl(var(--ch-hue, 250), 55%, 55%);
+  /* Per-character identity colour, in OKLCH so every hue sits at the SAME
+     perceived darkness and chroma — fountain-pen inks, not highlighters. The
+     old hsl(h,55%,55%) let green/yellow characters shout while blues behaved,
+     which is what made the page read as crayon-box. Hue comes from charHue()
+     as a plain number; oklch takes it unitless. */
+  --ch-accent: oklch(0.52 0.11 var(--ch-hue, 250));
   background: var(--card);
   box-shadow: var(--card-shadow);
   border-radius: 7px;
@@ -2235,6 +2240,8 @@ body.dark .ms-style-hint { color: #8b83a8; }
   position: relative;
   overflow: hidden;
 }
+/* Ink at 0.52 lightness vanishes on the dark desk — lift it, keep the hue. */
+body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
 .ch-card.ch-manual::before { opacity: 0.45; }
 
 .ch-card-head {
