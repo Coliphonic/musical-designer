@@ -1144,6 +1144,88 @@ const SHOWS = {
       { lane: '3', type: 'song', title: 'Great Adventure', fn: 'finaleultimo', voicing: 'Company', min: 4 },
     ],
   },
+  maybehappyending: {
+    title: 'Maybe Happy Ending', year: 2024, form: 'one-act-90',
+    teaches: 'The one-act two-hander — countdown pacing (a failing battery as the clock) against Spelling Bee\'s elimination rhythm; a diegetic crooner for a narrator; and a ring ending: the finale replays the opening scene with the memories erased. Best Musical with four actors',
+    // ENRICHED reference (2026-07-22): the shelf's second one-act, built to be
+    // read against Spelling Bee — elimination rhythm there, countdown here.
+    // No lyrics reproduced (2024, in copyright) — structure only. Study hooks:
+    // the crooner-as-narrator who lives on the lost owner's records; the
+    // rom-com contract stated inside the fiction ("we will not fall in love");
+    // and the ring — the finale re-runs scene one after the memory erasure,
+    // with Claire's memory left deliberately open.
+    characters: {
+      'OLIVER': { voiceType: 'Tenor', desc: 'A Helperbot 3 — the older model: durable, literal, proud of it. Lives in one room on jazz records and routine, saving bottle-deposit money to go find the owner who said he\'d be back. Built to last, which becomes the cruelest spec in the show (Darren Criss\'s Tony).' },
+      'CLAIRE': { voiceType: 'Mezzo-Soprano', desc: 'A Helperbot 5 — newer, quicker, discontinued. Her battery is failing and the parts no longer exist: obsolescence doing the work of terminal illness. Practical about everything, including — at first — love.' },
+      'GIL BRENTLEY': { voiceType: 'Baritone', desc: 'A jazz crooner who exists mostly on vinyl — the show\'s diegetic narrator, threading the evening from Oliver\'s record player. The needle drops are the emotional commentary; the last record turns out to be a goodbye.' },
+      'JAMES': { voiceType: 'Baritone', desc: 'Oliver\'s former owner — present only in memory duets and a piano. The trip\'s destination, and the show\'s withheld truth: the man Oliver is waiting for stopped being able to come back years ago.' },
+      'JUNSEO': { voiceType: 'Speaking', desc: 'James\'s son (doubled with James on Broadway) — the one who made his father leave the robot behind, resenting the machine that replaced him. His two visits reframe everything: first the grief, then the peace offering — an administrator password.' },
+      'SUHAN & JIYEON': { voiceType: '', desc: 'Claire\'s former owners, seen only in prerecorded video — the marriage whose collapse taught Claire what love costs. Jiyeon\'s parting gift, admin access to a deleted memory, is Claire\'s evidence.' },
+      'HWABOON': { voiceType: '', desc: 'Oliver\'s potted plant — silent scene partner, confidant, and the keeper of the ending\'s one secret ("Don\'t tell her"). Billed with its own bio on Broadway.' },
+    },
+    titlePage: {
+      subtitle: 'A One-Act Musical',
+      authors: 'Music by Will Aronson · Book & Lyrics by Hue Park & Will Aronson · Written simultaneously in Korean and English',
+      settings: ['Seoul and Jeju Island, in the 2060s', 'Helperbot Yards — retirement housing for obsolete helper robots', 'One unbroken act: a two-hander carried by four actors'],
+      productionNotes: 'Reference study object — structural scaffold only; no lyric text is reproduced. The shelf\'s second one-act, built for comparison with Spelling Bee: the Bee paces by elimination ritual, this paces by countdown — Claire\'s discontinued battery is the clock. Study the diegetic crooner (Gil Brentley lives on Oliver\'s records; the score\'s jazz voice is revealed as the lost owner\'s parting gift), the promise-as-contract ("we will not fall in love") stated inside the fiction, and the ring ending — the finale replays scene one after the erasure, and whether Claire remembers is left deliberately open. Seoul 2016 → Atlanta 2020 → Broadway 2024; six Tonys including Best Musical, with four actors.',
+    },
+    cards: [
+      // ===== LANE 1 — the world in one room (~25%) =====
+      { lane: '1', type: 'scene', title: 'Helperbot Yards — Oliver\'s Room' },
+      { lane: '1', type: 'song', title: 'Why Love?', fn: 'diegetic', voicing: 'Gil Brentley', min: 2.5 },
+      { lane: '1', type: 'beat', title: 'A world in one room', note: 'Oliver\'s cycle: power on, greet HwaBoon the plant, play the records, collect the parts subscription, wait for James — "back soon from Jeju." Years pass inside the routine without denting it.', min: 1 },
+      { lane: '1', type: 'song', title: 'World Within My Room', fn: 'iwant', voicing: 'Oliver', min: 4 },
+      { lane: '1', type: 'beat', title: 'The knock', note: 'Claire — a newer Helperbot 5 — needs to borrow a charger. Oliver lectures her on Helperbot-3 durability before letting her in. Every line of this scene is a plant: the finale will replay it word for word.', min: 1 },
+      { lane: '1', type: 'song', title: 'The Way That It Has to Be', fn: 'charm', voicing: 'Claire + Company', min: 3 },
+      { lane: '1', type: 'song', title: 'Charger Exchange Ballet', fn: 'production', voicing: 'Orchestra (wordless)', min: 2 },
+      { lane: '1', type: 'beat', title: 'The battery', note: 'She stops coming; he finds the rigged power supply and the truth behind it — her model is discontinued, the parts are gone, she is dying. Obsolescence does the work of terminal illness, and the one-act has its countdown.', min: 1 },
+      { lane: '1', type: 'song', title: 'Where You Belong', fn: 'ballad', voicing: 'Oliver & James (memory)', min: 3.5 },
+      { lane: '1', type: 'beat', title: 'The bottle-deposit fund', note: 'Claire has found Oliver\'s secret: years of deposit money saved toward Jeju, to find James. The want has a jar it\'s been filling the whole show.', min: 1 },
+      { lane: '1', type: 'beat', title: 'Fireflies, please', note: 'Claire asks to come — Jeju\'s forest is the last place on Earth with fireflies, and she wants to see them while her battery still lets her. Two wants, one trip: his past, her ending.', min: 1 },
+
+      // ===== LANE 2A — the road, and the promise (~25–50%) =====
+      { lane: '2A', type: 'scene', title: 'The Road South' },
+      { lane: '2A', type: 'song', title: 'Hitting the Road, Part 1', fn: 'drive', voicing: 'Oliver, Claire', min: 2 },
+      { lane: '2A', type: 'song', title: 'Goodbye, My Room', fn: 'ballad', voicing: 'Oliver, Claire', min: 3 },
+      { lane: '2A', type: 'beat', title: 'The cover story', note: 'Two robots can\'t book a holiday, so they travel as a human couple — rehearsing the manners, the paperwork, the plausible how-we-met. The disguise is the courtship, neither of them says so.', min: 1 },
+      { lane: '2A', type: 'song', title: 'Hitting the Road, Part 2', fn: 'reprise', voicing: 'Oliver, Claire', min: 1 },
+      { lane: '2A', type: 'song', title: 'The Rainy Day We Met', fn: 'charm', voicing: 'Oliver, Claire', min: 3 },
+      { lane: '2A', type: 'beat', title: 'A borrowed meet-cute', note: 'The invented backstory, performed: a love song that is technically a lie, sung as cover before the love exists — the show letting the fake thing rehearse the real one.', min: 1 },
+      { lane: '2A', type: 'beat', title: 'The promise', note: 'Claire\'s one rule for the trip: whatever happens, they will not fall in love. She\'s seen what love did to her owners. The rom-com contract, stated inside the fiction — signed by both, kept by neither.', min: 1 },
+      { lane: '2A', type: 'scene', title: 'A Love Hotel' },
+      { lane: '2A', type: 'song', title: 'Jenny', fn: 'diegetic', voicing: 'Gil Brentley', min: 2.5 },
+      { lane: '2A', type: 'beat', title: 'Terminator 2 on cable', note: 'Overnight on the shared charger, they watch a robot movie and audit how machines get written. Two obsolete models, laughing at the fiction of themselves — the bond forms in commentary.', min: 1 },
+      { lane: '2A', type: 'song', title: 'How to Be Not Alone', fn: 'ballad', voicing: 'Claire', min: 3.5 },
+      { lane: '2A', type: 'beat', title: 'While he sleeps', note: 'Claire opens Oliver\'s memories and finds what he can\'t: James\'s move to Jeju was never temporary. The midpoint secret — she now carries the truth that breaks the trip\'s premise, and says nothing yet.', min: 1 },
+
+      // ===== LANE 2B — the truth on Jeju (~50–75%) =====
+      { lane: '2B', type: 'song', title: 'Hitting the Road, Part 3', fn: 'reprise', voicing: 'Oliver, Claire', min: 1 },
+      { lane: '2B', type: 'song', title: 'What I Learned from People', fn: 'soliloquy', voicing: 'Claire', min: 3.5 },
+      { lane: '2B', type: 'beat', title: 'Show, don\'t tell', note: 'Instead of telling Oliver what she found, Claire shows him her own worst memory — Jiyeon\'s parting gift of admin access, the deleted scene of Suhan\'s advances. Why she doesn\'t trust what love does. (The song was the show\'s original title.)', min: 1 },
+      { lane: '2B', type: 'scene', title: 'Jeju Island' },
+      { lane: '2B', type: 'beat', title: 'The son at the door', note: 'At James\'s house: Junseo, the son. James died years ago. Junseo resented the machine that replaced him as his father\'s companion and made James leave Oliver behind. The wait was over before the show began.', min: 1 },
+      { lane: '2B', type: 'beat', title: 'A record for a goodbye', note: 'James\'s parting gift was a Gil Brentley LP — the crooner threading the whole score is revealed as the owner\'s love, made playable. A piano version of "Goodbye Love" underneath; nobody sings.', min: 1 },
+      { lane: '2B', type: 'beat', title: 'Fireflies anyway', note: 'The heartbreak doesn\'t cancel the wish. Into the forest; one firefly, caught in a jar between them. Claire\'s want, granted in the same scene Oliver\'s dies.', min: 1 },
+      { lane: '2B', type: 'song', title: 'Never Fly Away', fn: 'love', voicing: 'Oliver, Claire', min: 3.5 },
+
+      // ===== LANE 3 — the choice, and the ring (~75–100%) =====
+      { lane: '3', type: 'beat', title: 'Back, and different', note: 'Seoul again, the trip over, the promise quietly failed. The two-hander\'s scenes are the same shapes as Act One — charger, room, records — but every one plays differently now.', min: 1 },
+      { lane: '3', type: 'song', title: 'A Sentimental Person', fn: 'diegetic', voicing: 'Gil Brentley', min: 2 },
+      { lane: '3', type: 'song', title: 'When You\'re in Love', fn: 'love', voicing: 'Oliver, Claire', min: 3 },
+      { lane: '3', type: 'beat', title: 'Touch sequence', note: 'The kiss, choreographed as machinery learning tenderness — a wordless instrumental doing the scene a lyric can\'t. The chamber musical\'s answer to a production number is two hands.', min: 1 },
+      { lane: '3', type: 'beat', title: 'The arithmetic', note: 'Perhaps a year left for Claire; decades of durability for Oliver. The countdown they\'ve been outrunning becomes the relationship\'s spec sheet: loving her means outliving her.', min: 1 },
+      { lane: '3', type: 'song', title: 'Then I Can Let You Go', fn: 'eleven', voicing: 'Oliver, Claire, Gil Brentley', min: 4 },
+      { lane: '3', type: 'song', title: 'Goodbye, My Room (Reprise)', fn: 'reprise', voicing: 'Oliver, Claire', min: 1.5 },
+      { lane: '3', type: 'beat', title: 'Failing to forget', note: 'They part to spare each other the ending — and can\'t stop replaying each other. For machines with perfect recall, "moving on" isn\'t a metaphor problem; it\'s a storage problem.', min: 1 },
+      { lane: '3', type: 'beat', title: 'Junseo\'s password', note: 'Junseo returns asking for good memories of his father, and leaves his administrator password as a peace offering. Both robots now hold the keys to their own forgetting — the choice becomes available.', min: 1 },
+      { lane: '3', type: 'song', title: 'Maybe Happy Ending', fn: 'ballad', voicing: 'Oliver, Claire', min: 3.5 },
+      { lane: '3', type: 'beat', title: 'The choice', note: 'Erase the memories, keep the fact: it still happened. The title song reframes deletion as a kind of happy ending — grief managed like a settings menu, and meant sincerely.', min: 1 },
+      { lane: '3', type: 'scene', title: 'Oliver\'s Room, Again' },
+      { lane: '3', type: 'song', title: 'Why Love? (Reprise)', fn: 'diegetic', voicing: 'Gil Brentley', min: 1.5 },
+      { lane: '3', type: 'beat', title: 'The knock, again', note: 'Scene one replays: Claire at the door, the charger request, the Helperbot-3 speech — then Oliver credits the newer models with everything she once taught him, and tells HwaBoon "Don\'t tell her." Whether Claire erased her memories is left deliberately open.', min: 1.5 },
+      { lane: '3', type: 'song', title: 'Finale', fn: 'finaleultimo', voicing: 'Company', min: 2.5 },
+    ],
+  },
 };
 
 // ---- Reference Novels (Prose Plot only) ----
