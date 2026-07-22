@@ -1797,27 +1797,33 @@ function lastNonEmptyLine(text) {
   const lines = (text || '').split('\n').filter((l) => l.trim());
   return lines.length ? lines[lines.length - 1] : '';
 }
-function verseCheck(text, defaultSung, tokens) {
-  // Group runs of sung lines into verses (broken by blanks, cues, or sections)
-  // and compare their per-line syllable counts.
-  tokens = tokens || parseLyricLines(text || '', defaultSung);
+// Verse-length check, rendered as amber syllable counts in the editor gutter
+// (it used to be a sentence in a sidebar card, which cost a whole zone to
+// mostly say "all clear"). Runs of sung lines (broken by blanks, cues, or
+// sections) are verses; each verse is compared line-by-line against the
+// nearest EARLIER verse with the same number of lines — verse against verse,
+// chorus against chorus. Comparing everything against verse 1 (the old rule)
+// flagged every chorus line as a "mismatch" with a differently-shaped verse.
+// Returns tokenIndex -> expected syllable count for the lines that diverge.
+function verseMismatches(tokens) {
   const verses = [];
   let cur = [];
-  const flush = () => { if (cur.length) verses.push(cur); cur = []; };
-  tokens.forEach((tok) => {
-    if (tok.type === 'sung') cur.push(LYRIC.lineSyll(tok.text));
+  const flush = () => { if (cur.length >= 2) verses.push(cur); cur = []; };
+  tokens.forEach((tok, i) => {
+    if (tok.type === 'sung') cur.push({ i, s: LYRIC.lineSyll(tok.text) });
     else if (tok.type === 'blank' || tok.type === 'cue' || tok.type === 'section') flush();
   });
   flush();
-  const sections = verses.filter((s) => s.length >= 2);
-  if (sections.length < 2) return '';
-  const base = sections[0];
-  for (let v = 1; v < sections.length; v++) {
-    for (let i = 0; i < Math.min(base.length, sections[v].length); i++) {
-      if (sections[v][i] !== base[i]) return `Section ${v + 1}, line ${i + 1}: ${sections[v][i]} syllables vs ${base[i]} in section 1 — may not sit on the same tune.`;
+  const marks = new Map();
+  for (let v = 1; v < verses.length; v++) {
+    let ref = null;
+    for (let p = v - 1; p >= 0; p--) if (verses[p].length === verses[v].length) { ref = verses[p]; break; }
+    if (!ref) continue; // one-of-a-kind shape (a bridge, a tag) — nothing to hold it to
+    for (let k = 0; k < verses[v].length; k++) {
+      if (verses[v][k].s !== ref[k].s) marks.set(verses[v][k].i, ref[k].s);
     }
   }
-  return '';
+  return marks;
 }
 // ---- lyric parser ----
 // Plain text is context-sensitive: after a @cue or sung/dialogue line = spoken dialogue
@@ -8060,19 +8066,44 @@ function insertAtCursor(ta, text) {
 // The three updaters below run together on every editor keystroke; callers
 // precompute tokens/letters once and pass them in (each falls back to parsing
 // itself so one-off calls stay simple).
+// Instant hover tip for amber gutter counts. A native title needs a second of
+// motionless hover and is silently dropped by the browser half the time, which
+// made the warning feel broken; this one appears on mouseenter. Singleton —
+// at most one tip exists, and it dies on mouseleave, scroll, or gutter rebuild.
+let _gutterTip = null;
+function hideGutterTip() { if (_gutterTip) { _gutterTip.remove(); _gutterTip = null; } }
+function showGutterTip(anchor, text) {
+  hideGutterTip();
+  const tip = el('div', { class: 'gtip', text });
+  document.body.appendChild(tip);
+  const r = anchor.getBoundingClientRect();
+  tip.style.left = (r.right + 10) + 'px';
+  tip.style.top = Math.max(8, r.top + r.height / 2 - tip.offsetHeight / 2) + 'px';
+  _gutterTip = tip;
+}
 function updateGutter(c, gutter, tokens, letters) {
   gutter.innerHTML = '';
+  hideGutterTip(); // its anchor row just got rebuilt out from under it
+  if (!gutter._tipWired) { gutter.addEventListener('scroll', hideGutterTip); gutter._tipWired = true; }
   tokens = tokens || parseLyricLines(c.lyrics || '', c.type === 'song');
   letters = letters || rhymeLetters(tokens);
+  const marks = verseMismatches(tokens);
   tokens.forEach((tok, i) => {
     if (tok.type === 'cue' || tok.type === 'section') {
       gutter.appendChild(el('div', { class: 'lwg-row lwg-section' }));
       return;
     }
     const sung = tok.type === 'sung';
+    const want = sung ? marks.get(i) : undefined;
+    const syl = el('span', { class: 'g-syl' + (want != null ? ' g-syl-warn' : ''), text: sung ? LYRIC.lineSyll(tok.text) : '' });
+    if (want != null) {
+      const tip = `vs ${want} in the matching line of the earlier verse`;
+      syl.addEventListener('mouseenter', () => showGutterTip(syl, tip));
+      syl.addEventListener('mouseleave', hideGutterTip);
+    }
     gutter.appendChild(el('div', { class: 'lwg-row' }, [
       el('span', { class: 'g-letter', text: sung ? letters[i] : '' }),
-      el('span', { class: 'g-syl', text: sung ? LYRIC.lineSyll(tok.text) : '' }),
+      syl,
     ]));
   });
 }
@@ -8083,11 +8114,6 @@ function updateProseSummary(text, node, target) {
   const n = countWords(text || '');
   const base = n === 1 ? '1 word' : `${n.toLocaleString()} words`;
   node.textContent = target ? `${base} / ${target.toLocaleString()}` : base;
-}
-function updateVerseNote(c, node, tokens) {
-  const n = verseCheck(c.lyrics || '', c.type === 'song', tokens);
-  node.textContent = n || 'No verse-length mismatches.';
-  node.className = 'lwnote' + (n ? ' warn' : '');
 }
 function renderRhymeChips(words, container, editor, refresh) {
   words.forEach((w) => {
@@ -8126,9 +8152,32 @@ function renderSynonymsInsertable(word, container, editor, refresh) {
   word = (word || '').toLowerCase().replace(/[^a-z']/g, '');
   if (!word) { container.appendChild(el('span', { class: 'rhint', text: 'Type a word to find synonyms.' })); return; }
   if (!THES.ready()) { container.appendChild(el('span', { class: 'rhint', text: 'loading thesaurus…' })); return; }
-  const list = THES.lookup(word);
+  // Try the word, then its base forms (chairs -> chair, went -> go) so an
+  // inflected selection still finds synonyms. DEFS supplies the stemmer; if the
+  // dictionary hasn't loaded yet it just falls back to the literal word.
+  const forms = (typeof DEFS !== 'undefined' && DEFS.ready()) ? DEFS.baseForms(word) : [word];
+  let list = [];
+  for (const f of forms) { list = THES.lookup(f); if (list.length) break; }
   if (!list.length) { container.appendChild(el('span', { class: 'rhint', text: 'no synonyms for "' + word + '"' })); return; }
   renderRhymeChips(list, container, editor, refresh);
+}
+
+// Definitions for the word under the cursor (see defs.js). Unlike rhymes and
+// synonyms these aren't insertable — they're read-only sense lines, so no
+// chips and no editor/refresh plumbing.
+function renderDefinitions(word, container) {
+  container.innerHTML = '';
+  word = (word || '').toLowerCase().replace(/[^a-z'-]/g, '');
+  if (!word) { container.appendChild(el('span', { class: 'rhint', text: 'Type or select a word to define it.' })); return; }
+  if (!DEFS.ready()) { container.appendChild(el('span', { class: 'rhint', text: 'loading dictionary…' })); return; }
+  const senses = DEFS.lookup(word);
+  if (!senses.length) { container.appendChild(el('span', { class: 'rhint', text: 'no definition for "' + word + '"' })); return; }
+  senses.forEach((s) => {
+    container.appendChild(el('div', { class: 'defsense' }, [
+      el('span', { class: 'defpos', text: s.label }),
+      el('span', { class: 'defgloss', text: s.gloss }),
+    ]));
+  });
 }
 // The card's metadata fields as a collapsible panel inside the editor sidebar —
 // the former right-side detail drawer, folded in. onChange syncs the editor header.
@@ -8471,45 +8520,16 @@ function buildLyricWindow(c) {
   const side = el('div', { class: 'lwside' });
   const rin = el('input', { class: 'fi', type: 'text', placeholder: 'word to rhyme' });
   const res = el('div', { class: 'rhymeresults' });
-  const vnote = el('div', { class: 'lwnote' });
-  // Pin: unpinned, the rhyme word follows the lyric as you type; typing a word
-  // into the box engages the pin (visibly), and unpinning resumes following.
-  // Replaces the old rin._touched flag, which killed auto-follow for good.
-  let rhymePinned = false;
-  const rhymePin = el('button', { class: 'rhyme-pin', type: 'button', title: 'Pin this word — keep its rhymes while you type' });
-  rhymePin.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4.456.734a1.75 1.75 0 0 1 2.826.504l.613 1.327a3.08 3.08 0 0 0 2.084 1.707l2.454.584c1.332.317 1.8 1.972.832 2.94L11.06 10l3.72 3.72a.75.75 0 1 1-1.061 1.06L10 11.06l-2.204 2.205c-.968.968-2.623.5-2.94-.832l-.584-2.454a3.08 3.08 0 0 0-1.707-2.084l-1.327-.613a1.75 1.75 0 0 1-.504-2.826L4.456.734Z"/></svg>';
-  const setRhymePin = (on) => {
-    rhymePinned = on;
-    rhymePin.classList.toggle('active', on);
-    rhymePin.title = on ? 'Pinned — click to follow the lyric again' : 'Pin this word — keep its rhymes while you type';
-  };
-  rhymePin.addEventListener('click', () => {
-    if (rhymePinned) {
-      setRhymePin(false);
-      updateRhymeFollow(true); // resume following the caret/selection
-    } else setRhymePin(true);
-  });
 
-  const secBtns = el('div', { class: 'lwsection-btns' });
+  // Section headers ([Verse], [Chorus], …) used to have a row of insert chips
+  // here. They're typed directly now — bracket-completed as you write — so the
+  // chips were redundant chrome and the space goes to the Dictionary instead.
   let showRhymes = () => {};
+  let showLookup = () => {};
   const rhymeTabWrap = el('div', { class: 'rhyme-tab-wrap' });
+  const lookupTabWrap = el('div', { class: 'rhyme-tab-wrap' });
+  const lres = el('div', { class: 'rhymeresults' });
   if (richTools) {
-    ['Verse', 'Pre-Chorus', 'Chorus', 'Bridge', 'Intro', 'Outro'].forEach((name) => {
-      const btn = el('span', { class: 'rchip click', text: name, title: 'Insert section header' });
-      btn.addEventListener('click', () => {
-        const alwaysNum = name === 'Verse' || name === 'Bridge';
-        const re = new RegExp('\\[' + name + '(?:\\s+\\d+)?\\]', 'gi');
-        const count = (editor.value.match(re) || []).length;
-        const label = (count === 0 && !alwaysNum) ? '[' + name + ']' : '[' + name + ' ' + (count + 1) + ']';
-        const s = editor.selectionStart != null ? editor.selectionStart : editor.value.length;
-        const before = editor.value.slice(0, s), after = editor.value.slice(s);
-        const pre = before.length && !before.endsWith('\n') ? '\n' : '';
-        const post = after.length && !after.startsWith('\n') ? '\n' : '';
-        insertAtCursor(editor, pre + label + post);
-        refresh();
-      });
-      secBtns.appendChild(btn);
-    });
     // Rhyme tabs
     let rhymeMode = 'perfect';
     const tabPerfect = el('button', { class: 'rhyme-tab active', text: 'Perfect' });
@@ -8532,6 +8552,31 @@ function buildLyricWindow(c) {
       tabNear.classList.add('active'); tabPerfect.classList.remove('active');
       showRhymes(rin.value);
     });
+
+    // Dictionary tabs — Definition (read-only sense lines) | Synonyms
+    // (insertable chips, same as Prose Plot's thesaurus). Driven by the same
+    // word as the rhyme panel, so selecting a word fills both at once.
+    let lookupMode = 'define';
+    const tabDefine = el('button', { class: 'rhyme-tab active', text: 'Definition' });
+    const tabSyn    = el('button', { class: 'rhyme-tab', text: 'Synonyms' });
+    lookupTabWrap.appendChild(tabDefine);
+    lookupTabWrap.appendChild(tabSyn);
+
+    showLookup = (word) => {
+      if (lookupMode === 'define') renderDefinitions(word, lres);
+      else renderSynonymsInsertable(word, lres, editor, refresh);
+    };
+
+    tabDefine.addEventListener('click', () => {
+      lookupMode = 'define';
+      tabDefine.classList.add('active'); tabSyn.classList.remove('active');
+      showLookup(rin.value);
+    });
+    tabSyn.addEventListener('click', () => {
+      lookupMode = 'syn';
+      tabSyn.classList.add('active'); tabDefine.classList.remove('active');
+      showLookup(rin.value);
+    });
   }
 
   // Group the lyric-writing tools into accented zones so each function reads
@@ -8539,16 +8584,18 @@ function buildLyricWindow(c) {
   // this applies in Prose Plot — no rhyme scheme, no song sections — so it's
   // gated on richTools (musical beats only) instead of just `!plain`.
   if (richTools) {
-    side.appendChild(el('div', { class: 'lwzone lwzone-sections' }, [
-      el('span', { class: 'fl', text: 'Sections' }),
-      secBtns,
-    ]));
     side.appendChild(el('div', { class: 'lwzone lwzone-rhymes' }, [
       el('span', { class: 'fl', text: 'Rhymes' }),
-      rhymeTabWrap, el('div', { class: 'rhyme-in-row' }, [rin, rhymePin]), res,
+      rhymeTabWrap, rin, res,
     ]));
-    side.appendChild(el('span', { class: 'fl muted', text: 'Notes', style: 'margin-top:2px' }));
-    side.appendChild(vnote);
+    // Same word as the rhyme panel above — select a word in the lyric and its
+    // rhymes and its meaning land side by side.
+    side.appendChild(el('div', { class: 'lwzone lwzone-lookup' }, [
+      el('span', { class: 'fl', text: 'Dictionary' }),
+      lookupTabWrap, lres,
+    ]));
+    ensureThesaurusLoaded();
+    ensureDefsLoaded();
   }
   // Prose Plot's equivalent of the Sections zone — a single Scene break
   // insert, since that's the only structural marker prose writing needs here.
@@ -8615,41 +8662,35 @@ function buildLyricWindow(c) {
 
   const editPane = el('div', { class: 'lwbody' + (noGutter ? ' lwbody-plain' : '') }, noGutter ? [editor, side] : [gutter, editorHost, side]);
 
-  // The rhyme panel follows the writer's focus (unless the pin holds it):
-  //   B — an explicit selection (double-click a word, drag a phrase) wins;
-  //   A — otherwise the word at the caret, falling back to the last word typed
-  //       on the current line, then the previous non-empty line's rhyme word.
+  // The rhyme/dictionary panels follow an EXPLICIT selection only — double-click
+  // a word, or drag across a phrase (its last word wins). A bare caret does not
+  // steer them: following the caret meant the whole right-hand column churned on
+  // every keystroke and cursor move, which is distracting while you're writing.
+  // With nothing selected the panels simply hold whatever they last showed.
   let lastRhymeWord = null;
   const editorRhymeWord = () => {
     const val = editor.value;
     const s = editor.selectionStart == null ? val.length : editor.selectionStart;
     const e = editor.selectionEnd == null ? s : editor.selectionEnd;
-    if (e > s) return LYRIC.lastWord(val.slice(s, e)); // B: explicit selection
-    const isW = (ch) => /[A-Za-z']/.test(ch || '');    // A: word under the caret
-    let a = s, b = s;
-    while (a > 0 && isW(val[a - 1])) a--;
-    while (b < val.length && isW(val[b])) b++;
-    let w = val.slice(a, b).replace(/^'+|'+$/g, '');
-    if (!w) { const ls = val.lastIndexOf('\n', s - 1) + 1; w = LYRIC.lastWord(val.slice(ls, s)); }
-    if (!w) w = LYRIC.lastWord(lastNonEmptyLine(val));
-    return w;
+    if (e <= s) return ''; // collapsed caret: leave the panels alone
+    return LYRIC.lastWord(val.slice(s, e));
   };
-  const updateRhymeFollow = (force) => {
-    if (!richTools || rhymePinned) return;
+  const updateRhymeFollow = () => {
+    if (!richTools) return;
     const w = editorRhymeWord();
-    if (!force && w === lastRhymeWord) return; // caret moved but the word didn't — skip the re-render
+    if (!w || w === lastRhymeWord) return; // no selection, or the same word — hold
     lastRhymeWord = w;
     rin.value = w;
     showRhymes(w);
+    showLookup(w); // Rhymes and Dictionary track the same word
   };
 
   const refreshTools = () => {
     if (richTools) {
-      // One parse + one rhyme pass shared by all three panels (was 3× + 2×).
+      // One parse + one rhyme pass shared by the gutter and rhyme panel.
       const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
       const letters = rhymeLetters(tokens);
-      updateGutter(c, gutter, tokens, letters);
-      updateVerseNote(c, vnote, tokens);
+      updateGutter(c, gutter, tokens, letters); // includes the amber verse-length marks
       updateRhymeFollow();
       syncMarks(); // repaint the chord-dim backdrop (also catches section/rhyme inserts)
     } else if (isProse) {
@@ -8665,12 +8706,18 @@ function buildLyricWindow(c) {
   };
 
   editor.addEventListener('input', refresh);
+  // Two-way scroll lock: the editor drives the gutter, and wheel-scrolling the
+  // gutter itself drives the editor right back — otherwise the rhyme letters
+  // drift off their lines. No loop: assigning an unchanged scrollTop fires no
+  // scroll event, so the ping-pong settles immediately.
   editor.addEventListener('scroll', () => { gutter.scrollTop = editor.scrollTop; syncMarksScroll(); });
-  // Caret moves and selections (double-click, shift-arrow, drag) steer the
-  // rhyme panel without touching the text, so they must NOT go through refresh
-  // (which saves) — just the lightweight follow.
+  gutter.addEventListener('scroll', () => { editor.scrollTop = gutter.scrollTop; });
+  // Selections (double-click, shift-arrow, drag) steer the rhyme panel without
+  // touching the text, so they must NOT go through refresh (which saves) — just
+  // the lightweight follow. (It ignores collapsed carets, so plain typing and
+  // cursor moves cost one no-op call.)
   ['keyup', 'mouseup', 'select'].forEach((ev) => editor.addEventListener(ev, () => updateRhymeFollow()));
-  rin.addEventListener('input', () => { setRhymePin(true); showRhymes(rin.value); });
+  rin.addEventListener('input', () => { lastRhymeWord = rin.value; showRhymes(rin.value); showLookup(rin.value); });
 
   // Sheet mode swaps editPane out for a read-only render of just this card —
   // built fresh each time (so it always reflects the latest saved text), while
@@ -8701,12 +8748,13 @@ function buildLyricWindow(c) {
   if (richTools) {
     const tokens = parseLyricLines(c.lyrics || '', c.type === 'song');
     const letters = rhymeLetters(tokens);
-    updateGutter(c, gutter, tokens, letters); updateVerseNote(c, vnote, tokens);
-    // Seed with the last line's rhyme word; once the writer clicks or types,
-    // caret/selection follow (updateRhymeFollow) takes over.
+    updateGutter(c, gutter, tokens, letters);
+    // Seed with the last line's rhyme word; from then on only an explicit
+    // selection (or typing in the box) changes what the panels show.
     rin.value = LYRIC.lastWord(lastNonEmptyLine(c[bodyField] || ''));
     lastRhymeWord = rin.value;
     renderRhymesInsertable(rin.value, res, editor, refresh);
+    showLookup(rin.value);
   } else if (isProse) {
     updateProseSummary(c[bodyField] || '', summary, c.wordTarget);
     tin.value = LYRIC.lastWord(lastNonEmptyLine(c[bodyField] || ''));
@@ -9043,4 +9091,16 @@ function ensureThesaurusLoaded() {
     THES.load(t);
     if (state.lyricWinId) refreshLyricWindow();
   }).catch(() => { _thesLoading = false; });
+}
+
+// Definitions (7MB) are likewise fetched on demand the first time a lyric
+// window opens rather than at boot, so the app still starts on a cold cache.
+let _defsLoading = false;
+function ensureDefsLoaded() {
+  if (DEFS.ready() || _defsLoading) return;
+  _defsLoading = true;
+  fetch('defs.txt').then((r) => r.text()).then((t) => {
+    DEFS.load(t);
+    if (state.lyricWinId) refreshLyricWindow();
+  }).catch(() => { _defsLoading = false; });
 }

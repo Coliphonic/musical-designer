@@ -7,6 +7,7 @@ const https = require('https');
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const zlib = require('zlib');
 
 const ROOT = __dirname;
 const PORT = Number(process.env.PORT) || Number(process.argv[2]) || 8090;
@@ -64,6 +65,42 @@ const TYPES = {
   '.woff': 'font/woff',
   '.woff2': 'font/woff2',
 };
+
+// Static responses are gzipped when the client accepts it and the payload is
+// text — cmudict (2MB), thesaurus (9.4MB) and defs (7MB) are the whole reason:
+// raw they are a punishing download on an iPad, gzipped they are ~a quarter the
+// size. Compressed buffers are memoised per file (invalidated by mtime+size) so
+// the small VPS compresses each asset once, not once per request. Fonts/PNGs are
+// already compressed, so they're skipped.
+const GZIPPABLE = /^(?:text\/|application\/(?:javascript|json|manifest\+json)|image\/svg)/;
+const _gzCache = new Map(); // fp -> { key, buf }
+
+function sendStatic(req, res, type, data, fp) {
+  const accepts = /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''));
+  if (!accepts || data.length < 1024 || !GZIPPABLE.test(type)) {
+    res.writeHead(200, { 'content-type': type });
+    res.end(data);
+    return;
+  }
+  let gz;
+  try {
+    const st = fs.statSync(fp);
+    const key = st.mtimeMs + ':' + st.size;
+    const hit = _gzCache.get(fp);
+    if (hit && hit.key === key) gz = hit.buf;
+    else {
+      gz = zlib.gzipSync(data, { level: 6 });
+      if (_gzCache.size > 64) _gzCache.clear();
+      _gzCache.set(fp, { key, buf: gz });
+    }
+  } catch (_) {
+    res.writeHead(200, { 'content-type': type });
+    res.end(data);
+    return;
+  }
+  res.writeHead(200, { 'content-type': type, 'content-encoding': 'gzip', vary: 'Accept-Encoding' });
+  res.end(gz);
+}
 
 function sendJSON(res, code, obj) {
   res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' });
@@ -643,8 +680,7 @@ http
         res.end(html);
         return;
       }
-      res.writeHead(200, { 'content-type': TYPES[path.extname(fp)] || 'application/octet-stream' });
-      res.end(data);
+      sendStatic(req, res, TYPES[path.extname(fp)] || 'application/octet-stream', data, fp);
     });
   })
   .listen(PORT, () => console.log('Musical Designer serving on http://localhost:' + PORT));

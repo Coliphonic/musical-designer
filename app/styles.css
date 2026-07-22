@@ -341,16 +341,14 @@ body.dark .sing.empty { background: var(--panel); border-color: var(--energy); }
 .rchip.click { cursor: pointer; }
 .rchip.click:hover { background: var(--hover); }
 .rhint { font-size: 11px; color: var(--faint); }
-.rhyme-in-row { display: flex; gap: 5px; align-items: stretch; }
-.rhyme-in-row .fi { flex: 1; min-width: 0; }
-.rhyme-pin { flex-shrink: 0; width: 33px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--faint); cursor: pointer; padding: 0; }
-.rhyme-pin:hover { color: var(--rose); border-color: var(--rose-line); background: var(--rose-bg); }
-.rhyme-pin.active { color: #fff; background: var(--rose); border-color: var(--rose); }
-.rhyme-pin:focus-visible { border-color: var(--rose); }
+/* Tab pairs (Perfect|Near, Definition|Synonyms) — hairline box, both halves
+   on the same neutral ground; the colored text label alone marks selection
+   (zone accent, set per-zone below). No filled thumb: a fill reads as one half
+   being raised/recessed, which made the pair look like option vs non-option. */
 .rhyme-tab-wrap { display: flex; gap: 0; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .rhyme-tab { flex: 1; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; padding: 4px 0; border: none; background: var(--panel); color: var(--faint); cursor: pointer; }
-.rhyme-tab.active { background: var(--hover); color: var(--energy); }
-.rhyme-tab:hover:not(.active) { background: var(--hover); }
+.rhyme-tab.active { color: var(--energy); }
+.rhyme-tab:hover:not(.active) { color: var(--muted); }
 
 /* Act header: ACT ONE — centered bold underlined */
 .lw-act-header { text-align: center; font-weight: 700; text-decoration: underline; letter-spacing: 0.06em; }
@@ -1050,6 +1048,18 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .lwgutter::-webkit-scrollbar { display: none; }
 .lwg-row { height: 30px; line-height: 30px; display: flex; gap: 6px; align-items: center; justify-content: flex-end; padding-right: 9px; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .lwg-row .g-letter { color: var(--energy); font-weight: 700; width: 11px; text-align: center; }
+/* Verse-length check: a syllable count goes amber when it diverges from the
+   matching line of the nearest same-shaped earlier verse. Hover pops the .gtip
+   explainer instantly (custom, not a native title — those need a second of
+   motionless hover and get dropped half the time, so the cue felt broken). */
+.lwg-row .g-syl-warn { color: var(--tension); font-weight: 700; }
+.gtip {
+  position: fixed; z-index: 200; pointer-events: none;
+  max-width: 240px; padding: 5px 9px;
+  font-size: 11px; line-height: 1.4; color: var(--ink);
+  background: var(--panel); border: 1px solid var(--tension-line);
+  border-radius: 6px; box-shadow: 0 4px 14px rgba(0,0,0,0.18);
+}
 textarea.lweditor { border: 0; resize: none; outline: none; padding: 20px 26px; font-family: 'iA Writer Duo', 'Courier Prime Sans', 'Courier New', Courier, monospace; font-size: 16px; line-height: 30px; color: var(--ink); white-space: pre; overflow: auto; background: var(--panel); }
 textarea.lweditor::placeholder { color: #c5beb0; }
 /* Chord-dimming backdrop: a mirror div paints the lyric text behind a
@@ -1067,21 +1077,46 @@ textarea.lweditor.lweditor-lit::placeholder { color: #c5beb0; -webkit-text-fill-
 .lwchord-dim { color: var(--muted); opacity: 0.6; }
 .lwside { border-left: 1px solid var(--line); padding: 16px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; background: var(--bg); }
 .lwside .fl { color: var(--energy); }
-.lwside .fl.muted { color: var(--faint); }
-.lwnote { font-size: 11.5px; color: var(--muted); line-height: 1.45; background: var(--panel); border: 1px solid var(--line); border-radius: 7px; padding: 9px; }
-.lwnote.warn { color: var(--tension); background: var(--btn); border-color: var(--line); }
 .lwg-section { background: var(--hover); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
 .lwsection-btns { display: flex; flex-wrap: wrap; gap: 5px; }
 
-/* Editor sidebar zones — colour the text/accents only, on the plain sidebar
-   background (no filled boxes): Sections sage (matches loglines), Rhymes rose. */
-.lwzone { display: flex; flex-direction: column; gap: 9px; }
-.lwzone-sections .fl { color: var(--sage); }
-.lwzone-sections .rchip { color: var(--sage); }
-.lwzone-rhymes .fl { color: var(--rose); }
-.lwzone-rhymes .rchip { color: var(--rose); }
+/* Editor sidebar zones — each tool is a quiet panel card with a print-style
+   section head: small-caps label in the zone's accent over a tinted hairline
+   rule (no pills — those are reserved for data chips like song functions).
+   Rhymes rose (sound), Dictionary sage (sense), Details azure (facts).
+   Prose Plot's Structure/Thesaurus zones inherit. */
+.lwzone {
+  display: flex; flex-direction: column; gap: 9px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 11px 12px 12px;
+}
+.lwzone > .fl {
+  align-self: stretch; font-size: 10px; letter-spacing: 0.08em;
+  padding: 0 0 6px; border-bottom: 1px solid;
+}
+.lwzone-sections > .fl, .lwzone-lookup > .fl { color: var(--sage); border-color: var(--sage-line); }
+.lwzone-rhymes   > .fl { color: var(--rose); border-color: var(--rose-line); }
+/* Chips, tabs and inputs pick up their zone's accent so the two chip clouds
+   (rhymes vs synonyms) read as different tools at a glance. */
+.lwzone-sections .rchip { color: var(--sage); border-color: var(--sage-line); }
+.lwzone-sections .rchip.click:hover { background: var(--sage-bg); }
+.lwzone-rhymes .rchip { color: var(--rose); border-color: var(--rose-line); }
+.lwzone-rhymes .rchip.click:hover { background: var(--rose-bg); }
 .lwzone-rhymes .rhyme-tab.active { color: var(--rose); }
 .lwzone-rhymes .fi:focus { border-color: var(--rose); }
+.lwzone-lookup .rchip { color: var(--sage); border-color: var(--sage-line); }
+.lwzone-lookup .rchip.click:hover { background: var(--sage-bg); }
+.lwzone-lookup .rhyme-tab.active { color: var(--sage); }
+/* Definitions are read-only sense lines, not chips: part of speech in sage
+   small caps, gloss in full ink (it's the payload — not secondary text, which
+   kept it from reading distinctly against the grey Notes). */
+.defsense { display: block; font-size: 11.5px; line-height: 1.5; color: var(--ink); }
+.defsense + .defsense { margin-top: 7px; padding-top: 7px; border-top: 1px dashed var(--sage-line); }
+.defpos {
+  display: block; font-size: 8.5px; font-weight: 600; letter-spacing: 0.07em;
+  text-transform: uppercase; color: var(--sage); margin-bottom: 2px;
+}
+.defgloss { display: block; color: var(--ink); }
 
 /* plain editor (scenes): no syllable gutter, prose wraps */
 .lwbody-plain { grid-template-columns: 1fr 264px; }
@@ -1111,9 +1146,10 @@ textarea.lweditor.lweditor-lit::placeholder { color: #c5beb0; -webkit-text-fill-
    dark background behind it. */
 .lw-sheet-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 28px; display: flex; justify-content: center; align-items: flex-start; }
 
-/* Details panel folded into the editor sidebar — azure text on plain background */
+/* Details panel folded into the editor sidebar — azure text; its own top rule
+   already separates it, so the head stays a plain label (no second rule). */
 .lwdetails { margin-top: 4px; border-top: 1px solid var(--line); padding-top: 10px; }
-.lwdetails-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: 0; padding: 4px 0; cursor: pointer; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--azure); font-weight: 600; }
+.lwdetails-head { display: flex; align-items: center; gap: 6px; width: 100%; background: none; border: 0; padding: 4px 0; cursor: pointer; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--azure); font-weight: 600; }
 .lwdetails-caret { font-size: 9px; width: 10px; }
 .lwdetails-body { display: flex; flex-direction: column; gap: 13px; padding: 10px 0 4px; }
 .lwdetails-body .fl { color: var(--azure); }
