@@ -276,7 +276,7 @@ body.dark .pill[data-fam="gray"]   { color: #a09888; }
 .pct { font-size: 11px; font-weight: 650; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
 .pct.pct-hit { background: transparent; color: var(--energy); font-weight: 700; }
 .bcard .title { font-size: 13px; font-weight: 600; line-height: 1.25; outline: none; }
-.bcard .sub { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 12.5px; color: var(--muted); line-height: 1.26; outline: none; }
+.bcard .sub { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 13px; color: var(--muted); line-height: 1.22; outline: none; }
 .bcard .sub.note { color: var(--note); }
 /* editable title/sub sit flush until hovered/focused, so cards stay clean at rest */
 .title.cardedit, .sub.cardedit { border-radius: 4px; padding: 0 3px; margin: 0 -3px; }
