@@ -187,6 +187,11 @@ CACHE, verify in preview.
 | `carol` (2026-07-10) | 64 = 5 + 59 | stave | ~28.5k words |
 | `gatsby` | 90 = 9 + 81 | chapter | ~47k words |
 | `pride` (2026-07-22) | 106 = 15 + 91 | **movement** | ~120.5k words |
+| `holes` (2026-07-22) | 90 = 11 + 79 | **movement (timeline-labelled)** | ~47k words; post-1929, no quotes |
+
+`holes` and `gatsby` are deliberately the same shape — 90 cards at ~47k words —
+so the shelf carries a controlled comparison: one timeline versus three, same
+length, same grain.
 
 Two invariants worth keeping, both verified by script rather than eye:
 
@@ -207,6 +212,20 @@ with explicit chapter ranges (`Chapters 28–33 · Hunsford and Rosings`), which
 is how the novel actually travels, house by house. Every beat names its own
 chapter in the note. Expect the same for *Jane Eyre* (38 ch.), *Dracula* and
 *Middlemarch*-scale books; keep chapter grain only where chapters are few.
+
+*Holes* extends the idea: with 50 very short chapters and three interleaved
+timelines, its scene cards name the **timeline** as well as the chapter range
+(`Chapter 7 · Latvia, 150 Years Ago`), so reading the spine labels down the
+board gives you the braid pattern at a glance. When a book's structure *is* the
+lesson, put it in the scene titles.
+
+**Rebalancing tool.** Hitting the min-sum invariant by hand is tedious and
+error-prone (P&P took two correction passes). `scratchpad/rebalance.js` — kept
+out of the repo — takes the entry key and a list of per-movement word targets,
+scales each beat's `min` proportionally, rounds to 0.1 and pushes the residual
+onto the largest beats, so relative beat weight survives and the sums land
+exactly. Re-derive it if needed; the logic is six lines and the invariant is
+what matters.
 
 Keep to the standing ground rules: no build step / no deps, bump `sw.js` CACHE
 on any `app.js`/`styles.css`/`index.html` change, never reproduce copyrighted
