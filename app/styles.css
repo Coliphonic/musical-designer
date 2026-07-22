@@ -103,9 +103,8 @@ html, body {
 
 .seg { display: inline-flex; background: var(--btn); border-radius: 9px; padding: 3px; gap: 2px; }
 .seg button {
-  border: 0; background: transparent; color: var(--muted); font-size: 10px;
-  padding: 6px 13px; border-radius: 7px; cursor: pointer; font-weight: 650;
-  letter-spacing: 0.12em; text-transform: uppercase;
+  border: 0; background: transparent; color: var(--muted); font-size: 13px;
+  padding: 6px 13px; border-radius: 7px; cursor: pointer; font-weight: 500;
   transition: background .12s, color .12s; font-family: inherit;
 }
 .seg button:hover { color: var(--ink); }
@@ -128,7 +127,7 @@ body.dark .seg button.active { background: #4a453e; color: #f3eee3; box-shadow: 
 .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; min-width: 58px; }
 .stat.stat-editable { cursor: pointer; }
 .stat.stat-editable:hover { border-color: var(--energy); }
-.stat .k { font-size: 10px; color: var(--faint); text-transform: uppercase; font-weight: 650; letter-spacing: 0.14em; }
+.stat .k { font-size: 10px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.05em; }
 .stat .v { font-size: 17px; font-weight: 600; margin-top: 1px; font-variant-numeric: tabular-nums; }
 
 
@@ -1732,11 +1731,10 @@ body.dark .ms-mode-seg, body.dark .ribbon .seg { background: #2a2640; }
 .ms-mode-seg button:hover, .ribbon .seg button:hover { color: var(--ink); }
 .ms-mode-seg button.active, .ribbon .seg button.active { background: var(--energy); color: #fff; box-shadow: none; }
 body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { background: var(--energy); color: #fff; }
-/* Small-caps label treatment: pin these segments to match the base .seg button
-   chrome-label size/weight (letter-spacing + uppercase cascade from .seg button).
-   The lyric-window Edit|Sheet seg is excluded: those are navigation names, which
-   stay mixed case at 12px/500 to match the Manuscript button beside them. */
-.ms-mode-seg:not(.lw-mode-seg) button, .ribbon .seg button { font-size: 10px; font-weight: 650; }
+/* Small caps mark taxonomy and structure (pills, scene titles, zone headers) —
+   never controls, so segs and toggles stay mixed case. The lyric-window header
+   controls run compact and slightly bolder than the base seg. */
+.lw-mode-seg button, .lwpush { font-size: 11px; font-weight: 600; }
 /* Outer manuscript container: a non-scrolling flex column so .ms-wrap fills it
    and only the inner sheet body scrolls — keeps the side drawer pinned. */
 #ms-body { display: flex; flex-direction: column; overflow: hidden; }
