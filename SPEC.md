@@ -345,7 +345,7 @@ Reference shows are read-only, so their export buttons are disabled.
 Each reference show renders read-only with the same card + manuscript surfaces as a draft, and
 carries a **`teaches`** hook surfaced on its Library card and as a board banner.
 
-### Digitized shows (10, enriched)
+### Digitized shows (12, enriched)
 
 Each is a full scaffold: `characters` (voice type + description), `titlePage`, and ordered
 `cards` (scenes / songs / beats with function, voicing, runtime ballpark, and per-card notes).
@@ -364,14 +364,16 @@ are left unset ("needs score") rather than fabricated.
 | Dear Evan Hansen | 2015 | Contemporary intimate pop; the Act 1 finale as engine |
 | Hamilton | 2015 | Through-composition + motif density; delayed payoff |
 | The Hunchback of Notre Dame | 2015 | Choral storytelling + a true villain soliloquy |
+| Frozen | 2018 | Transformation Act 1 finale ("Let It Go"); an "I Want" split across two characters |
+| The 25th Annual Putnam County Spelling Bee | 2005 | The one-act form — elimination as structure; the "Goodbye" ritual in place of an act break |
 
 The shipped **demo project** (a fully-worked original with scenes, songs, lyrics, and book
 dialogue) is **Circuits & Sycamores**, seeded from `app/seed-shows/circuits.json` into a new
 user's data dir on first boot, never overwriting live edits.
 
-*Future study adds:* a pure **soliloquy** exemplar (Carousel / Sweeney Todd), and the **one-act /
-90-minute** form (Spelling Bee, Urinetown, tick…tick…BOOM!) once that form earns distinct
-diagnostics.
+*Future study adds:* a pure **soliloquy** exemplar (Carousel / Sweeney Todd). The **one-act /
+90-minute** form is now on the shelf (Spelling Bee, `form: 'one-act-90'` → midpoint marker, no
+intermission); distinct one-act diagnostics remain future work.
 
 ---
 

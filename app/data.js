@@ -975,6 +975,81 @@ const SHOWS = {
       { lane: '3', type: 'song', title: 'Finale / Let It Go', fn: 'finaleultimo', voicing: 'Company', min: 3 },
     ],
   },
+  spellingbee: {
+    title: 'The 25th Annual Putnam County Spelling Bee', year: 2005, form: 'one-act-90',
+    teaches: 'The one-act form — elimination as structure: a recurring "Goodbye" ritual instead of an act break, one defining number per speller, and the gut-punch landing at 80% with no intermission to reset the room',
+    // ENRICHED reference (2026-07-22): the shelf's one-act exemplar. No lyrics
+    // reproduced. One continuous location (the gym), so scene cards mark ROUNDS
+    // of the bee instead of places — in a one-act, the rounds are the geography.
+    // The 4-lane spine maps the unbroken ~100 minutes as phases; `form:
+    // 'one-act-90'` renders the 2A/2B divider as MIDPOINT, not intermission.
+    characters: {
+      'RONA LISA PERETTI': { voiceType: 'Mezzo-Soprano', desc: "The hostess — Putnam's top realtor and champion of the 3rd Annual Bee (her word: \"syzygy\"). Introduces every speller with a realtor's warmth; her recurring Favorite Moments thread the whole evening together." },
+      'VICE PRINCIPAL DOUGLAS PANCH': { voiceType: 'Speaking', desc: 'Judge and word-pronouncer, back after a five-year absence and an unexplained "incident." His deadpan definitions and use-it-in-a-sentence gags are the comic engine — until the incident threatens a comeback.' },
+      'MITCH MAHONEY': { voiceType: 'Baritone', desc: 'The comfort counselor, working off community-service hours one hug and juice box at a time. Sings each loser out — the "Goodbye" ritual is his — and gets the gospel send-off when the last volunteer falls.' },
+      'OLIVE OSTROVSKY': { voiceType: 'Soprano', desc: "The heart of the show. New in town, mother at an ashram in India, father working late, the $25 entry fee still unpaid. Her best friend is the dictionary, and the word \"chimerical\" summons the show's one uncushioned emotional blow." },
+      'WILLIAM BARFÉE': { voiceType: 'Tenor', desc: 'It\'s pronounced bar-FAY. Allergic to peanuts (which eliminated him last year), brusque, and unbeatable once the Magic Foot writes each word on the floor. Wins the bee — and, harder for him, a first friend.' },
+      'CHIP TOLENTINO': { voiceType: 'Tenor', desc: 'Defending champion and boy scout — first of the real spellers eliminated, when puberty ambushes him mid-round. Returns selling candy in the aisles and explains himself to the entire audience.' },
+      'LEAF CONEYBEAR': { voiceType: 'Tenor', desc: 'Makes his own clothes (and cape); only qualified because the two finishers ahead of him had a bar mitzvah. Spells in a trance he does not understand. Convinced he\'s not that smart — the bee suggests otherwise.' },
+      'LOGAINNE SCHWARTZANDGRUBENIERRE': { voiceType: 'Soprano', desc: "\"Schwarzy\" — the youngest contestant: lisping, politically engaged, and coached to the edge by two dads who want the trophy more than she does." },
+      'MARCY PARK': { voiceType: 'Mezzo-Soprano', desc: 'The overachiever, transferred in from Our Lady of Intermittent Sorrows — six languages, all-state hurdler, perfect at everything and sick of all of it. The only speller who chooses her own exit.' },
+      'THE AUDIENCE VOLUNTEERS': { voiceType: '', kind: 'group', desc: 'Four real audience members, sworn in as guest spellers every night — the show\'s built-in randomness. The script keeps their rounds elastic: easy words while the plot needs them, impossible ones the moment it doesn\'t.' },
+    },
+    titlePage: {
+      subtitle: 'A One-Act Musical',
+      authors: 'Music & Lyrics by William Finn · Book by Rachel Sheinkin · Conceived by Rebecca Feldman · Based on "C-R-E-P-U-S-C-U-L-E" by The Farm',
+      settings: ['The gymnasium of Putnam Valley Middle School', 'The present — one afternoon, the bee run in something close to real time', 'Adults playing children, plus four real audience volunteers spelling live'],
+      productionNotes: 'Reference study object — structural scaffold only; no lyric text is reproduced. Study the one-act engine: elimination IS the structure — the recurring "Goodbye" ritual does the pacing work act breaks would do; the defending champ falls first; every speller gets one defining number and then an exit; the audience volunteers keep each night\'s running order elastic; and the sincere showstopper ("The I Love You Song") lands at roughly 80% with no intermission to reset the room.',
+    },
+    cards: [
+      // ===== LANE 1 — the bee assembles (~25 min) =====
+      { lane: '1', type: 'scene', title: 'The Gymnasium — Sign-In' },
+      { lane: '1', type: 'beat', title: 'Rona remembers her syzygy', note: 'Rona Lisa Peretti opens the gym she once conquered — champion of the 3rd Annual Bee — and relives the win as the 25th assembles around her.', min: 1 },
+      { lane: '1', type: 'song', title: 'The 25th Annual Putnam County Spelling Bee', fn: 'opening', voicing: 'Rona + Company', min: 4.5 },
+      { lane: '1', type: 'beat', title: 'The officials', note: 'Vice Principal Panch returns to judging after five years and an unexplained "incident"; Mitch Mahoney, comfort counselor on community-service hours, readies the juice boxes.', min: 1 },
+      { lane: '1', type: 'beat', title: 'The volunteers', note: 'Four audience members are sworn in as guest spellers — real civilians, different every night, the structural wild card the whole first half plays against.', min: 1 },
+      { lane: '1', type: 'song', title: 'The Rules / My Favorite Moment of the Bee', fn: 'motif', voicing: 'Panch, Rona, Spellers', min: 2.5 },
+      { lane: '1', type: 'song', title: 'My Friend, the Dictionary', fn: 'iwant', voicing: 'Olive', min: 3 },
+      { lane: '1', type: 'beat', title: 'Olive, unaccompanied', note: 'Mother at an ashram in India, father working late, entry fee unpaid — Olive keeps a seat saved anyway. The show\'s emotional debt is planted here and paid at "chimerical."', min: 1 },
+      { lane: '1', type: 'beat', title: 'The first guest falls', note: 'A volunteer misspells and the ritual is revealed: a hug from Mitch, a juice box, and the company singing them out. This ritual, repeated, is the one-act\'s pacing engine.', min: 1 },
+      { lane: '1', type: 'song', title: 'The First Goodbye', fn: 'motif', voicing: 'Mitch + Company', min: 1.5 },
+
+      // ===== LANE 2A — build to the midpoint shock (~25 min) =====
+      { lane: '2A', type: 'scene', title: 'Early Rounds' },
+      { lane: '2A', type: 'song', title: 'Pandemonium', fn: 'production', voicing: 'Company', min: 3.5 },
+      { lane: '2A', type: 'beat', title: 'The word lottery', note: 'One speller draws "cow," the next draws a nightmare — the company erupts at the injustice of the draw. Chaos as a full-company production number.', min: 1 },
+      { lane: '2A', type: 'song', title: "I'm Not That Smart", fn: 'charm', voicing: 'Leaf', min: 3 },
+      { lane: '2A', type: 'beat', title: 'Leaf spells in a trance', note: 'Leaf — homemade cape, third in his district only because of a bar mitzvah — goes rigid, spells the word perfectly, and comes to with no idea how.', min: 1 },
+      { lane: '2A', type: 'song', title: 'Magic Foot', fn: 'production', voicing: 'Barfée + Company', min: 3.5 },
+      { lane: '2A', type: 'beat', title: "Chip's distraction", note: "Defending champ Chip spots Leaf's sister Marigold in the bleachers, and puberty ambushes him at the microphone.", min: 1 },
+      { lane: '2A', type: 'beat', title: 'The champ falls first', note: 'Chip misspells "tittup" and is out — the presumed winner eliminated before anyone else. The reversal that would end Act 1 lands here as the midpoint shock instead.', min: 1 },
+      { lane: '2A', type: 'song', title: 'Pandemonium (Reprise) / My Favorite Moment of the Bee 2', fn: 'reprise', voicing: 'Company, Rona', min: 1.5 },
+
+      // ===== LANE 2B — the field narrows (~25 min) =====
+      { lane: '2B', type: 'scene', title: 'Middle Rounds' },
+      { lane: '2B', type: 'beat', title: 'The last volunteer', note: 'The guest spellers are finally dispatched — the words turn abruptly impossible when the plot needs its stage back.', min: 1 },
+      { lane: '2B', type: 'song', title: 'Prayer of the Comfort Counselor', fn: 'anthem', voicing: 'Mitch + Company', min: 3 },
+      { lane: '2B', type: 'song', title: "Chip's Lament", fn: 'comedy', voicing: 'Chip', min: 3 },
+      { lane: '2B', type: 'beat', title: 'Candy in the aisles', note: 'Demoted to concessions, Chip works the audience and explains, in detail, exactly what eliminated him — the loser rejoining the show as its own commentary.', min: 1 },
+      { lane: '2B', type: 'song', title: 'Woe Is Me', fn: 'comedy', voicing: 'Schwarzy, her dads, Co.', min: 3.5 },
+      { lane: '2B', type: 'beat', title: 'Two dads, one trophy', note: "Schwarzy's fathers coach, hover, and quietly sabotage a rival — the youngest speller carrying the heaviest expectations on stage.", min: 1 },
+      { lane: '2B', type: 'song', title: "I'm Not That Smart (Reprise)", fn: 'reprise', voicing: 'Leaf', min: 1.5 },
+      { lane: '2B', type: 'beat', title: 'Leaf out, mid-revelation', note: 'Leaf misspells "chinchilla" and leaves realizing the trance was him all along — maybe he is that smart. His exit completes his number: one spotlight turn per speller, then goodbye.', min: 1 },
+      { lane: '2B', type: 'song', title: 'I Speak Six Languages', fn: 'charm', voicing: 'Marcy + Company', min: 3 },
+      { lane: '2B', type: 'beat', title: 'Jesus takes a meeting', note: 'Marcy — perfect at everything, sick of all of it — prays, and Jesus appears to tell her winning matters to no one but her. Freed, she deliberately misspells "camel" and exits delighted: the only speller who chooses.', min: 1.5 },
+
+      // ===== LANE 3 — endgame (~25 min) =====
+      { lane: '3', type: 'scene', title: 'The Final Three' },
+      { lane: '3', type: 'beat', title: 'An empty seat', note: "Olive, Barfée, and Schwarzy remain. Olive's father still hasn't come, and her word is \"chimerical.\"", min: 0.5 },
+      { lane: '3', type: 'song', title: 'The I Love You Song', fn: 'eleven', voicing: 'Olive, Rona & Mitch as Mom and Dad', min: 4.5 },
+      { lane: '3', type: 'beat', title: 'The 11 o\'clock at 80%', note: 'Olive conjures the parents she needs from the hosts she has — then spells the word correctly. A one-act cannot save its showstopper for 11 o\'clock; it lands here, and the comedy absorbs it without a seam.', min: 1 },
+      { lane: '3', type: 'beat', title: 'Schwarzy out', note: 'Panch, hurrying the endgame, serves Schwarzy a stinker. She goes down swinging — and walks off prouder of losing honestly than her dads are of anything.', min: 1 },
+      { lane: '3', type: 'song', title: 'Second', fn: 'drive', voicing: 'Olive, Barfée', min: 2.5 },
+      { lane: '3', type: 'beat', title: 'Weltanschauung', note: 'Head to head, Olive and Barfée each discover they\'d rather not beat the other. Barfée spells "Weltanschauung" — Magic Foot at full stretch — and wins the 25th Annual; Olive, second, is genuinely glad.', min: 1 },
+      { lane: '3', type: 'song', title: 'Finale / The Last Goodbye', fn: 'finaleultimo', voicing: 'Company', min: 3 },
+      { lane: '3', type: 'beat', title: 'Epilogues', note: "Where-they-ended-up postscripts for every speller; Olive's father finally arrives, too late and still welcome; Rona files away her new favorite moment of the bee.", min: 1 },
+    ],
+  },
 };
 
 // ---- Reference Novels (Prose Plot only) ----

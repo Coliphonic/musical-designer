@@ -489,7 +489,7 @@ function libRefCard(key) {
   top.appendChild(el('span', { class: 'lib-card-title', text: r.title }));
   card.appendChild(top);
   const meta = el('div', { class: 'lib-card-meta' });
-  meta.appendChild(el('span', { class: 'lib-fmt', text: r.form === 'two-act' ? 'Two-act' : (r.form ? r.form.replace(/-/g, ' ') : 'Reference') }));
+  meta.appendChild(el('span', { class: 'lib-fmt', text: r.form === 'two-act' ? 'Two-act' : r.form === 'one-act-90' ? 'One-act' : (r.form ? r.form.replace(/-/g, ' ') : 'Reference') }));
   if (r.year) { meta.appendChild(el('span', { class: 'lib-dot', text: '·' })); meta.appendChild(el('span', { text: String(r.year) })); }
   card.appendChild(meta);
   if (r.teaches) card.appendChild(el('div', { class: 'lib-teaches', text: r.teaches }));
