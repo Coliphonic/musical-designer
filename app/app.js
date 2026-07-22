@@ -477,7 +477,12 @@ function buildLibraryPage() {
   // Reference library — read-only study examples, always in their own
   // section. Song Plot studies musicals (SHOWS); Prose Plot studies novels
   // (NOVELS) — fully separate shelves, per the partitioned-library rule.
-  const refKeys = Object.keys(state.currentApp === 'song' ? SHOWS : NOVELS);
+  // Chronological, so the shelf reads as a history of the form rather than as
+  // whatever order the entries happened to be authored in. Same-year entries
+  // fall back to title.
+  const refs = state.currentApp === 'song' ? SHOWS : NOVELS;
+  const refKeys = Object.keys(refs).sort((a, b) =>
+    (refs[a].year || 0) - (refs[b].year || 0) || refs[a].title.localeCompare(refs[b].title));
   if (refKeys.length) host.appendChild(libSection('Reference', refKeys.map((k) => () => libRefCard(k))));
 }
 
