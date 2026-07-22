@@ -345,7 +345,7 @@ Reference shows are read-only, so their export buttons are disabled.
 Each reference show renders read-only with the same card + manuscript surfaces as a draft, and
 carries a **`teaches`** hook surfaced on its Library card and as a board banner.
 
-### Digitized shows (12, enriched)
+### Digitized shows (13, enriched)
 
 Each is a full scaffold: `characters` (voice type + description), `titlePage`, and ordered
 `cards` (scenes / songs / beats with function, voicing, runtime ballpark, and per-card notes).
@@ -366,6 +366,7 @@ are left unset ("needs score") rather than fabricated.
 | The Hunchback of Notre Dame | 2015 | Choral storytelling + a true villain soliloquy |
 | Frozen | 2018 | Transformation Act 1 finale ("Let It Go"); an "I Want" split across two characters |
 | The 25th Annual Putnam County Spelling Bee | 2005 | The one-act form — elimination as structure; the "Goodbye" ritual in place of an act break |
+| Kimberly Akimbo | 2022 | Mortality as the clock — caper comedy and grief braided without seams; Best Musical at nine actors |
 
 The shipped **demo project** (a fully-worked original with scenes, songs, lyrics, and book
 dialogue) is **Circuits & Sycamores**, seeded from `app/seed-shows/circuits.json` into a new

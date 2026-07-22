@@ -1050,6 +1050,85 @@ const SHOWS = {
       { lane: '3', type: 'beat', title: 'Epilogues', note: "Where-they-ended-up postscripts for every speller; Olive's father finally arrives, too late and still welcome; Rona files away her new favorite moment of the bee.", min: 1 },
     ],
   },
+  kimberlyakimbo: {
+    title: 'Kimberly Akimbo', year: 2022, form: 'two-act',
+    teaches: 'Mortality as the ticking clock — the antagonist is the heroine\'s own life expectancy, struck at her birthday mid-Act 1; a caper comedy and a grief play run through the same scenes without seams; Best Musical with a cast of nine',
+    // ENRICHED reference (2026-07-22): full scene/beat/character scaffold. No
+    // lyrics reproduced (2022, in copyright) — structure only. Study hooks: the
+    // clock planted in scene one and struck mid-Act 1 (not at the crisis); the
+    // withheld "I Want" (wished wrong in "Make a Wish," rewritten in "Before I
+    // Go," spent in the finale); and the "Hello" video-diary motif relayed
+    // Pattie → Buddy → Kimberly across both acts.
+    characters: {
+      'KIMBERLY LEVACO': { voiceType: 'Soprano', desc: 'The protagonist — a New Jersey teenager turning sixteen with a rapid-aging condition; sixteen is the average life expectancy. Written to be played by an actress in her sixties (Victoria Clark\'s Tony). Wry, practical, and out of the time everyone around her is free to waste.' },
+      'SETH WEETIS': { voiceType: 'Tenor', desc: 'Her biology partner — a tuba-playing, anagram-obsessed misfit working the rink concession stand. Sees Kim, not the condition; his anagrams are the show\'s love language, so the love song never has to say love.' },
+      'BUDDY LEVACO': { voiceType: 'Baritone', desc: 'Kim\'s father — warm, drunk, and always one errand away from actually showing up. His camcorder confessional to the unborn baby ("Hello, Baby") is the parent\'s-eye mirror of his daughter\'s clock.' },
+      'PATTIE LEVACO': { voiceType: 'Soprano', desc: 'Kim\'s mother — pregnant, both arms in casts, hypochondriac and self-mythologizing, taping video messages for the new baby she\'s sure will finally love her properly. Starts the "Hello" motif the whole family inherits.' },
+      'AUNT DEBRA': { voiceType: 'Mezzo-Soprano', desc: 'The felon in the family — arrives with a check-washing scheme, a mail-theft plan, and no shame whatsoever. Engine of the caper plot and half the comedy (Bonnie Milligan\'s Tony).' },
+      'MARTIN DOATY': { voiceType: 'Tenor', desc: 'Show-choir kid, hopelessly in love with Aaron. One quarter of the crush-ring the teen ensemble runs in the background of the whole show.' },
+      'AARON PUCKETT': { voiceType: 'Baritone', desc: 'Show-choir kid, hopelessly in love with Delia — while Martin pines for him. The ring never resolves; adolescence just keeps orbiting.' },
+      'DELIA MCDANIELS': { voiceType: 'Mezzo-Soprano', desc: 'Show-choir kid, hopelessly in love with Teresa — while Aaron pines for her. Recruited into Debra\'s scheme with the rest of the choir.' },
+      'TERESA BENTON': { voiceType: 'Soprano', desc: 'Show-choir kid, hopelessly in love with Martin — closing the ring where it started. The fourth voice of the teen quartet that does the work of a full ensemble.' },
+    },
+    titlePage: {
+      subtitle: 'A Musical',
+      authors: 'Music by Jeanine Tesori · Book & Lyrics by David Lindsay-Abaire · Based on his play "Kimberly Akimbo"',
+      settings: ['Bergen County, New Jersey — a skating rink, a high school, the Levaco house', '1999, the winter Kimberly turns sixteen', 'Kimberly ages four and a half times faster than everyone around her'],
+      productionNotes: 'Reference study object — structural scaffold only; no lyric text is reproduced. Study the braid: a check-fraud farce, a family grotesque, and a terminal clock run through the same scenes with no tonal seams. The memento mori lands mid-Act 1 — her birthday IS the life expectancy — not at the crisis. The "I Want" is withheld: "Make a Wish" asks for the wrong wish, "Before I Go" rewrites it, and the finale is the wish being spent. Nine actors won Best Musical — intimacy as scale.',
+    },
+    cards: [
+      // ===== ACT ONE (lanes 1 + 2A) =====
+      { lane: '1', type: 'scene', title: 'Skater Planet — An Ice Rink, Bergen County' },
+      { lane: '1', type: 'song', title: 'Skater Planet', fn: 'opening', voicing: 'Teens + Kimberly', min: 4 },
+      { lane: '1', type: 'beat', title: 'Six teenagers, one rink', note: 'Four show-choir kids — each nursing an unrequited crush on the next in the ring — plus Seth at the concession stand, plus Kimberly: new in town, and visibly decades older than her classmates.', min: 1 },
+      { lane: '1', type: 'beat', title: 'The clock, planted', note: 'Kim\'s condition laid out in scene one: she ages four and a half times faster than everyone else, and sixteen — her next birthday — is the average life expectancy. The audience does the math immediately; the antagonist is time.', min: 1 },
+      { lane: '1', type: 'scene', title: 'The Levaco House' },
+      { lane: '1', type: 'song', title: 'Hello, Darling', fn: 'motif', voicing: 'Pattie', min: 2.5 },
+      { lane: '1', type: 'beat', title: 'The camcorder', note: 'Pattie — pregnant, both arms in casts — tapes video messages to the unborn baby. The video-diary device is planted here; Buddy and finally Kim will each inherit the camera.', min: 1 },
+      { lane: '1', type: 'song', title: 'Make a Wish', fn: 'iwant', voicing: 'Kimberly', min: 3 },
+      { lane: '1', type: 'beat', title: 'The wrong-sized wish', note: 'Kim drafts her letter to the wish foundation and asks for a treehouse — the childhood she skipped. The want is deliberately the wrong size; the show spends two acts correcting it.', min: 1 },
+      { lane: '1', type: 'scene', title: 'Vandecamp High' },
+      { lane: '1', type: 'song', title: 'Skater Planet (Reprise #1)', fn: 'reprise', voicing: 'The Show-Choir Four', min: 1.5 },
+      { lane: '1', type: 'song', title: 'Anagram', fn: 'love', voicing: 'Seth, Kimberly, Co.', min: 3.5 },
+      { lane: '1', type: 'beat', title: 'Wordplay as courtship', note: 'Assigned as biology partners, Seth rearranges "Kimberly Levaco" into something kinder. The love song that never has to say love — the show\'s tenderness always arrives sideways.', min: 1 },
+
+      { lane: '2A', type: 'beat', title: 'Enter Aunt Debra', note: 'Fresh off something unprosecuted, Debra moves in with a check-washing scheme and starts recruiting. The caper plot and the grief plot will now share every scene.', min: 1 },
+      { lane: '2A', type: 'song', title: 'Better', fn: 'comedy', voicing: 'Debra, Kimberly, Co.', min: 4 },
+      { lane: '2A', type: 'song', title: 'Hello, Darling (Reprise) / Father Time', fn: 'ballad', voicing: 'Pattie', min: 3 },
+      { lane: '2A', type: 'beat', title: 'Sixteen', note: 'Midnight makes Kim sixteen — the age her doctors call average. The memento mori is struck mid-Act 1, in the mother\'s reprise, not saved for the crisis: from here every scene is borrowed time.', min: 1 },
+      { lane: '2A', type: 'song', title: 'Happy for Her', fn: 'comedy', voicing: 'Buddy', min: 3 },
+      { lane: '2A', type: 'beat', title: 'The loving sabotage', note: 'Buddy drives Kim and Seth to school, overshares, embarrasses, means well — the drunk dad\'s affection always one degree off target.', min: 0.5 },
+      { lane: '2A', type: 'song', title: 'Anagram (Reprise)', fn: 'reprise', voicing: 'Kimberly', min: 1.5 },
+      { lane: '2A', type: 'beat', title: 'A birthday at the rink', note: 'Seth throws Kim the party her family forgot; her parents arrive late, promising to do better. The vows are sincere. The audience already knows which ones the clock will collect.', min: 1 },
+      { lane: '2A', type: 'song', title: 'This Time', fn: 'finale', voicing: 'Company', min: 4 },
+
+      // ===== ACT TWO (lanes 2B + 3) =====
+      { lane: '2B', type: 'scene', title: 'The Levaco Basement' },
+      { lane: '2B', type: 'song', title: 'How to Wash a Check', fn: 'production', voicing: 'Debra + the teens', min: 3.5 },
+      { lane: '2B', type: 'beat', title: 'Felony masterclass', note: 'Stolen mail, nail-polish remover, a hairdryer: Debra teaches check-washing to a show choir. The caper is now the act-2 engine — the comedy carries the grief play on its back.', min: 1 },
+      { lane: '2B', type: 'song', title: 'Good Kid', fn: 'soliloquy', voicing: 'Seth', min: 3 },
+      { lane: '2B', type: 'song', title: 'Hello, Baby', fn: 'ballad', voicing: 'Buddy', min: 3 },
+      { lane: '2B', type: 'beat', title: 'The camcorder passes', note: 'Buddy\'s turn at the video diary — apologizing in advance to the unborn baby for the father he already knows he\'ll be. The "Hello" motif relays from mother to father; the daughter\'s turn is coming.', min: 1 },
+      { lane: '2B', type: 'song', title: 'Skater Planet (Reprise #2)', fn: 'reprise', voicing: 'The teens', min: 1.5 },
+      { lane: '2B', type: 'song', title: 'Our Disease', fn: 'ballad', voicing: 'Kimberly, Seth, teens', min: 3.5 },
+      { lane: '2B', type: 'beat', title: 'The biology presentation', note: 'Kim presents her own condition as the class project: while every other teenager is being cured of adolescence, she is aging out of her life. The comedy stops cold and nobody changes the subject.', min: 1 },
+      { lane: '2B', type: 'song', title: 'The Inevitable Turn', fn: 'drive', voicing: 'Pattie, Buddy, Debra, teens', min: 3 },
+      { lane: '2B', type: 'beat', title: 'Dinner detonates', note: 'Every secret at once — the baby\'s paternity, the neighbor, what Buddy hired Debra to do — and mid-chaos, Kim collapses. The clock stops being subtext and becomes plot.', min: 1 },
+
+      { lane: '3', type: 'scene', title: 'The Hospital, Then the Getaway' },
+      { lane: '3', type: 'song', title: 'Now', fn: 'drive', voicing: 'Seth, Kimberly', min: 3 },
+      { lane: '3', type: 'beat', title: 'Opting in', note: 'Out of the hospital and out of patience, Kim joins the scam — not for the money, for the going. Seth comes with her.', min: 1 },
+      { lane: '3', type: 'song', title: 'How to Wash a Check (Reprise)', fn: 'reprise', voicing: 'Debra + teens', min: 1.5 },
+      { lane: '3', type: 'beat', title: 'The perfect disguise', note: 'Kim works the banks dressed as somebody\'s grandmother — the disease deployed as the caper\'s flawless cover. The show\'s cruelest joke and its warmest, in the same beat.', min: 1 },
+      { lane: '3', type: 'beat', title: 'A crib where her bed was', note: 'Home with the takings, Kim finds the nursery already moved into her room — replaced before she\'s gone. The quietest cut in the show.', min: 1 },
+      { lane: '3', type: 'song', title: 'Before I Go', fn: 'eleven', voicing: 'Kimberly, Buddy, Pattie', min: 4 },
+      { lane: '3', type: 'beat', title: 'The wish, rewritten', note: 'The letter again — not a treehouse now: the world, immediately. The withheld "I Want" finally lands at its right size, sung at the exit. This is the 11 o\'clock as a revised first-act song.', min: 1 },
+      { lane: '3', type: 'scene', title: 'Six Flags Great Adventure' },
+      { lane: '3', type: 'song', title: 'Hello, Sister', fn: 'motif', voicing: 'Kimberly, Seth', min: 2 },
+      { lane: '3', type: 'beat', title: 'The camcorder, inherited', note: 'Kim films a message for the sister she won\'t meet — the "Hello" relay completes: Pattie, Buddy, Kimberly. Then her first kiss, with Seth, on her own clock.', min: 1 },
+      { lane: '3', type: 'song', title: 'Great Adventure', fn: 'finaleultimo', voicing: 'Company', min: 4 },
+    ],
+  },
 };
 
 // ---- Reference Novels (Prose Plot only) ----
