@@ -276,7 +276,10 @@ body.dark .pill[data-fam="gray"]   { color: #a09888; }
 .pct { font-size: 11px; font-weight: 650; color: var(--muted); font-variant-numeric: tabular-nums; margin-left: auto; }
 .pct.pct-hit { background: transparent; color: var(--energy); font-weight: 700; }
 .bcard .title { font-size: 13px; font-weight: 600; line-height: 1.25; outline: none; }
-.bcard .sub { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 13px; color: var(--muted); line-height: 1.22; outline: none; }
+/* 1.23 rather than a rounder number: at 13/1.22 the gap between lines came
+   out at 2.86px, and holding that same absolute gap at 12.5px is what keeps
+   the density while the type gets smaller. Leading is the gap, not the ratio. */
+.bcard .sub { font-family: 'Atkinson Hyperlegible', sans-serif; font-size: 12.5px; color: var(--muted); line-height: 1.23; outline: none; }
 .bcard .sub.note { color: var(--note); }
 /* editable title/sub sit flush until hovered/focused, so cards stay clean at rest */
 .title.cardedit, .sub.cardedit { border-radius: 4px; padding: 0 3px; margin: 0 -3px; }
