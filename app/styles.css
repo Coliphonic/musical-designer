@@ -150,6 +150,7 @@ body.dark .seg button.active { background: #4a453e; color: #f3eee3; box-shadow: 
   flex: 0 0 32px; border-radius: 9px; background: var(--btn); color: var(--muted);
   display: flex; align-items: center; justify-content: center; padding: 12px 0;
   writing-mode: vertical-rl; transform: rotate(180deg); font-size: 12px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .actcards {
   flex: 1 1 auto; display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start;
