@@ -1253,9 +1253,6 @@ body.dark.app-prose .pill.beat-fn:focus { background: #3a2620; color: #f3d3c5; }
 body.app-prose .ms-mode-seg, body.app-prose .ribbon .seg { background: #f2ded4; }
 body.dark.app-prose .ms-mode-seg, body.dark.app-prose .ribbon .seg { background: #33221d; }
 
-/* Characters — character/group toggle (dark active) */
-body.dark.app-prose .ch-kind-btn.active { background: var(--energy); }
-
 /* Toolbar / ribbon backgrounds (Board ribbon, Manuscript toolbar, Characters bar) */
 body.app-prose .ribbon, body.app-prose .ms-toolbar { background: #fbeee9; }
 body.dark.app-prose .ribbon, body.dark.app-prose .ms-toolbar { background: #221a17; }
@@ -2213,8 +2210,8 @@ body.dark .ms-style-hint { color: #8b83a8; }
 
 .ch-card {
   --ch-accent: hsl(var(--ch-hue, 250), 55%, 55%);
-  background: var(--panel);
-  border: 1px solid var(--line);
+  background: var(--card);
+  box-shadow: var(--card-shadow);
   border-radius: 7px;
   padding: 0 16px 16px;
   display: flex;
@@ -2222,12 +2219,6 @@ body.dark .ms-style-hint { color: #8b83a8; }
   gap: 12px;
   position: relative;
   overflow: hidden;
-  transition: border-color 0.14s, box-shadow 0.14s, transform 0.14s;
-}
-.ch-card:hover {
-  border-color: var(--ch-accent);
-  box-shadow: 0 6px 20px #00000014;
-  transform: translateY(-1px);
 }
 .ch-card.ch-manual::before { opacity: 0.45; }
 
@@ -2248,14 +2239,15 @@ body.dark .ms-style-hint { color: #8b83a8; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Bare small caps in the character's accent — the board's function-pill
+   treatment: ink carries the metadata, no filled chip. */
 .ch-count {
   align-self: flex-start;
-  font-size: 10.5px;
-  font-weight: 600;
+  font-size: 9.5px;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--ch-accent);
-  background: hsl(var(--ch-hue, 250), 55%, 55%, 0.12);
-  padding: 2px 8px;
-  border-radius: 20px;
   white-space: nowrap;
 }
 .ch-tag { font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 20px; align-self: flex-start; }
@@ -2263,26 +2255,29 @@ body.dark .ms-style-hint { color: #8b83a8; }
 
 .ch-field { display: flex; flex-direction: column; gap: 4px; }
 .ch-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; color: var(--faint); font-weight: 600; }
-.ch-select { font-size: 13px; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-family: inherit; }
-.ch-note { font-size: 12.5px; line-height: 1.5; padding: 7px 9px; border-radius: 7px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font-family: inherit; resize: vertical; min-height: 58px; }
-.ch-note:focus, .ch-select:focus { outline: none; border-color: var(--energy); }
+/* On the desk a surface rises; on paper a field sinks. These sit on a card, so
+   they're recessed wells — desk tone showing through a hairline impression. */
+.ch-select { font-size: 13px; padding: 5px 8px; border-radius: 7px; border: none; box-shadow: inset 0 0 0 1px var(--line); background: var(--bg); color: var(--ink); font-family: inherit; }
+.ch-note { font-size: 12.5px; line-height: 1.5; padding: 7px 9px; border-radius: 7px; border: none; box-shadow: inset 0 0 0 1px var(--line); background: var(--bg); color: var(--ink); font-family: inherit; resize: vertical; min-height: 58px; }
+.ch-note:focus, .ch-select:focus { outline: none; box-shadow: inset 0 0 0 1px var(--ch-accent); }
 
-.ch-apps { display: flex; flex-direction: column; gap: 4px; }
+.ch-apps { display: flex; flex-direction: column; gap: 0; }
+/* An index of appearances, not a stack of boxes: hairline-ruled rows. */
 .ch-app-chip {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 5px 9px;
-  border-radius: 7px;
-  border: 1px solid var(--line);
-  background: var(--bg);
+  padding: 6px 2px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s;
 }
-.ch-app-chip:hover { background: var(--hover); border-color: var(--muted); }
-.ch-app-act { font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: var(--muted); min-width: 46px; }
+.ch-app-chip:hover { background: var(--hover); }
+.ch-app-act { font-size: 9px; font-weight: 650; letter-spacing: 0.14em; text-transform: uppercase; color: var(--faint); min-width: 46px; }
 .ch-app-title { font-size: 12px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ch-remove {
@@ -2309,12 +2304,14 @@ body.dark .ms-style-hint { color: #8b83a8; }
 .ch-remove:hover { background: var(--tension); color: #fff; }
 
 /* Character vs. group toggle */
-.ch-kind { display: inline-flex; align-self: flex-start; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; margin: -2px 0 2px; }
-.ch-kind-btn { font-family: inherit; font-size: 10.5px; font-weight: 600; letter-spacing: 0.02em; padding: 3px 10px; border: none; background: transparent; color: var(--muted); cursor: pointer; transition: background 0.12s, color 0.12s; }
+/* Same pattern as the lyric bench's tab pairs: hairline box, both halves on the
+   same ground, and the accent-coloured label alone marks the selection — a
+   filled thumb reads as one half being raised rather than chosen. */
+.ch-kind { display: inline-flex; align-self: flex-start; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin: -2px 0 2px; }
+.ch-kind-btn { font-family: inherit; font-size: 9.5px; font-weight: 650; letter-spacing: 0.12em; text-transform: uppercase; padding: 4px 11px; border: none; background: transparent; color: var(--faint); cursor: pointer; transition: color 0.12s; }
 .ch-kind-btn + .ch-kind-btn { border-left: 1px solid var(--line); }
-.ch-kind-btn.active { background: var(--energy); color: #fff; }
-body.dark .ch-kind-btn.active { background: #6a61d0; }
-.ch-kind-btn:not(.active):hover { background: var(--hover); color: var(--ink); }
+.ch-kind-btn.active { background: transparent; color: var(--ch-accent); }
+.ch-kind-btn:not(.active):hover { background: transparent; color: var(--muted); }
 .ch-kind-btn:disabled { cursor: default; }
 .ch-card.ch-group { opacity: 0.82; }
 .ch-card.ch-group .ch-avatar { filter: grayscale(0.55); }
