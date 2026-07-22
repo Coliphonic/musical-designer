@@ -180,6 +180,34 @@ The plumbing shipped 2026-07-10 (with `NOVELS.carol` as the first entry):
 following §2 and the §4 density rule, `node --check data.js`, bump `sw.js`
 CACHE, verify in preview.
 
+### Shelf progress
+
+| Entry | Cards | Scene grain | Notes |
+|---|---|---|---|
+| `carol` (2026-07-10) | 64 = 5 + 59 | stave | ~28.5k words |
+| `gatsby` | 90 = 9 + 81 | chapter | ~47k words |
+| `pride` (2026-07-22) | 106 = 15 + 91 | **movement** | ~120.5k words |
+
+Two invariants worth keeping, both verified by script rather than eye:
+
+- **Beat `min` values must sum to the book's word count in thousands**, and to
+  the sum of the scene cards' `words`. That is what makes the board's %
+  markers land where the beat actually sits in the book. Carol 28.2 = 28,200;
+  Gatsby 47.0 = 47,000; P&P 120.5 = 120,500.
+- **Grain scales with length, not the other way round.** Gatsby cards at ~580
+  words/beat; P&P at ~1,350, because at Gatsby's density a 120k novel would
+  need 210 beats. Forcing every book to one number would turn a novella's
+  beats into paragraphs and a long novel's into summaries.
+
+**Scene-card grain is per-book, and P&P set the precedent for long novels.**
+Carol used staves and Gatsby used chapters because both have few, large units.
+P&P's 61 chapters would mean 61 spine cards — crowding the board and pushing
+beats below the discrete-unit grain — so its scene cards group by **movement**
+with explicit chapter ranges (`Chapters 28–33 · Hunsford and Rosings`), which
+is how the novel actually travels, house by house. Every beat names its own
+chapter in the note. Expect the same for *Jane Eyre* (38 ch.), *Dracula* and
+*Middlemarch*-scale books; keep chapter grain only where chapters are few.
+
 Keep to the standing ground rules: no build step / no deps, bump `sw.js` CACHE
 on any `app.js`/`styles.css`/`index.html` change, never reproduce copyrighted
 text (PD quotes only), and don't touch Song Plot's reference library.
