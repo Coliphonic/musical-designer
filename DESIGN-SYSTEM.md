@@ -215,15 +215,21 @@ at a block boundary, never inside content. Doubled markers are excluded by a
 never misfire, and `~` is a no-op in Prose Plot (no songs). See the Enter
 handler in `buildRichEditor` (search `Typed card creation`).
 
-**Typed planning notes (`//`, same pass):** on a blank line, `//text` + Enter
-sets the *current* card's planning note rather than spawning anything — a beat's
-Beatline (`c.note`) or a song's "why does this sing" purpose (`c.purpose`),
+**Typed planning notes (`//`, same pass):** typing `//text` + Enter on any
+line sets the *current* card's planning note rather than spawning anything — a
+beat's Beatline (`c.note`) or a song's "why does this sing" purpose
+(`c.purpose`),
 routed by `planningNoteField(c)`. Both now render as an editable green logline
 above the body in the manuscript (extended from the old beat-only Beatline);
 scenes return `null` there (a scene's `.note` *is* its body), so `//` stays
 plain text in a scene. It rides an `onNote` callback parallel to `onSpawnCard`.
 Song purposes surface in the editor/Focus view only — they are **not** added to
 the printed script or EPUB (that path still emits beat Beatlines alone).
+
+A brand-new empty card opens on a neutral, **left-justified** first line
+(Lyrics for a song, Action otherwise) rather than a centered Character line —
+typing an all-caps name still live-infers it up to a cue when it genuinely is
+one, but a fresh card reads as plain text instead of opening mid-screen.
 
 Two Focus-only interactions besides the toggle itself: the exit pill now wakes
 on `touchstart` as well as `mousemove` (no hover on iPad), and pinch-to-zoom

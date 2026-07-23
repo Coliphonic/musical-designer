@@ -2683,7 +2683,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
         else node.remove();
       }
     });
-    if (!lineEd.querySelector('.ms-el')) lineEd.appendChild(mkLine('cue', ''));
+    if (!lineEd.querySelector('.ms-el')) lineEd.appendChild(mkLine(isSong ? 'sung' : 'action', ''));
     if (preserve) restoreBookmark(bm);
   };
   const needsNormalize = () => {
@@ -3013,9 +3013,11 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     const mark = e.target.closest && e.target.closest('mark.note-mark');
     if (mark) openNoteEdit(mark);
   });
-  // A brand-new empty document seeds one line of the cycle's first type — cue
-  // (Character) in the screenplay set, Body in Prose Plot's (there is no cue).
-  if (!seed.some((t) => t.type !== 'blank')) lineEd.appendChild(mkLine(elCycle[0], ''));
+  // A brand-new empty document seeds one neutral, left-justified line — Lyrics
+  // for a song, Action otherwise (Prose has only Action). NOT Character/cue:
+  // a fresh card should open reading like plain text, and typing an all-caps
+  // name still live-infers it up to a cue when it actually is one.
+  if (!seed.some((t) => t.type !== 'blank')) lineEd.appendChild(mkLine(isSong ? 'sung' : 'action', ''));
   else seed.forEach((l) => lineEd.appendChild(mkLine(l.type, l.text, l.dual, l.id, l.subtype)));
 
   // ---- FD-style character-name autocomplete (cue lines only) ----
@@ -3247,16 +3249,16 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
           return;
         }
       }
-      // Typed note: "//text" on a BLANK line sets THIS card's planning note
-      // (beat Beatline / song purpose) instead of adding a body line. Same
-      // blank-line guard as the creation markers; onNote is null for scenes
-      // (their .note is the body) so "//" falls through to plain text there.
-      // A leading "//" already "waits for commit" in live inference (the
-      // reserved-marker set includes "/"), so the text survives intact to here.
+      // Typed note: a line of "//text" sets THIS card's planning note (beat
+      // Beatline / song purpose) instead of adding a body line, then removes
+      // the line. Unlike the creation markers it needs NO blank-line guard —
+      // "//" is unambiguous (never valid body content, and already "waits for
+      // commit" in live inference since the reserved set includes "/"), so it
+      // fires anywhere, including a card's very first line. onNote is null for
+      // scenes (their .note is the body), so "//" stays plain text there.
       if (onNote && !e.shiftKey) {
         const nm = (line.textContent || '').trim().match(/^\/\/\s*(\S.*)$/);
-        const prevN = line.previousElementSibling;
-        if (nm && prevN && !(prevN.textContent || '').trim()) {
+        if (nm) {
           e.preventDefault();
           delete line.dataset.dirty;
           if (line === lastActiveLine) lastActiveLine = null;
