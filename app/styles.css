@@ -1672,8 +1672,11 @@ body.ms-focus .ms-edit-doc .ms-card-section:hover {
 }
 .ms-focus-exit-pill {
   position: absolute;
-  top: 14px;
-  right: 18px;
+  /* Focus mode hides the topbar, so .ms-wrap reaches the very top of the screen.
+     In an installed iPad PWA the status bar (clock/battery) is painted over that
+     strip, so add the safe-area inset to clear it. env() is 0 everywhere else. */
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  right: calc(18px + env(safe-area-inset-right, 0px));
   z-index: 20;
   padding: 6px 12px;
   border: 1px solid var(--line);
