@@ -1919,7 +1919,15 @@ function classifyLyricLine(ln, ctx, defaultSung) {
     const { name, sung } = splitCueMode(body.slice(1).trim(), defaultSung);
     return { tok: { type: 'cue', text: name, dual }, ctx: { inCharBlock: true, blockSung: sung } };
   }
-  if (/^~/.test(t)) return { tok: { type: 'sung', text: t.slice(1).trim() }, ctx: { inCharBlock: true, blockSung } }; // ~ forces this line only
+  if (/^~/.test(t)) {
+    const body = t.slice(1).trim();
+    // A bare "~" is an in-block GAP (stanza break): a blank that keeps the
+    // current character block open in its current mode, so the verse/speech
+    // after it stays Lyrics/Dialogue instead of falling to Action the way a
+    // plain blank would. "~text" is still a forced sung line (legacy marker).
+    if (!body) return { tok: { type: 'blank', text: '', stanza: true }, ctx: { inCharBlock, blockSung } };
+    return { tok: { type: 'sung', text: body }, ctx: { inCharBlock: true, blockSung } };
+  }
   if (/^!/.test(t)) return { tok: { type: 'action', text: t.slice(1).trim() }, ctx: { inCharBlock: false, blockSung } }; // ! forces action (Fountain), closing the block
   if (/^\(.*\)$/.test(t)) return { tok: { type: 'paren', text: t }, ctx: { inCharBlock, blockSung } };
   // Implicit cue: an ALL-CAPS line that opens a block (Fountain convention —
@@ -1983,6 +1991,10 @@ function serializeRows(rows, isSong) {
   rows.forEach((row, i) => {
     const type = row.type, text = (row.text || '').trim();
     if (type === 'scenebreak') { parts.push('***'); blockSung = !!isSong; inBlock = false; return; }
+    // In-block gap (stanza break): a "~" that keeps the block open, so the next
+    // verse/speech stays Lyrics/Dialogue. Emitted BEFORE the empty-row rule
+    // (which would otherwise flatten it to a block-closing blank).
+    if (row.stanza) { parts.push('~'); return; }
     if (!text) { parts.push(''); blockSung = !!isSong; inBlock = false; return; }
     if (type === 'cue') {
       inBlock = true;
@@ -2017,7 +2029,7 @@ function serializeRows(rows, isSong) {
 
 function seamlessToLines(text, defaultSung) {
   return parseLyricLines(text || '', defaultSung).map((tok) => ({
-    id: lid(), type: tok.type, text: tok.text || '', subtype: tok.subtype, dual: tok.dual,
+    id: lid(), type: tok.type, text: tok.text || '', subtype: tok.subtype, dual: tok.dual, stanza: tok.stanza,
   }));
 }
 function linesToSeamless(lines, isSong) { return serializeRows(lines || [], isSong); }
@@ -2026,7 +2038,7 @@ function linesToSeamless(lines, isSong) { return serializeRows(lines || [], isSo
 // carries lastRev for revision marks) when present, else parsed from the blob.
 function cardBodyTokens(c) {
   const toks = (Array.isArray(c.lines) && c.lines.length)
-    ? c.lines.map((l) => ({ type: l.type, text: l.text, subtype: l.subtype, dual: l.dual, lastRev: l.lastRev, key: l.id ? 'l:' + l.id : undefined }))
+    ? c.lines.map((l) => ({ type: l.type, text: l.text, subtype: l.subtype, dual: l.dual, stanza: l.stanza, lastRev: l.lastRev, key: l.id ? 'l:' + l.id : undefined }))
     : parseLyricLines(c[cardBodyField(c)] || '', c.type === 'song');
   // Consecutive blank lines the writer typed are intentional vertical padding —
   // e.g. dropping a dual-dialogue column so its lines stagger below the next
@@ -2332,7 +2344,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const tabNext   = (type) => { const i = elCycle.indexOf(type); return elCycle[(i + 1) % elCycle.length]; };
   // Each row carries data-id so an edited line keeps its identity across saves
   // (the line-identity model). New rows mint a fresh id.
-  const mkLine = (type, t, dual, id, subtype) => {
+  const mkLine = (type, t, dual, id, subtype, stanza) => {
     // No per-row contentEditable: the container is the single editable host, so
     // selection and Backspace can cross line boundaries like a real editor.
     // Blank rows take the lw-blank class so the print-view spacing-collapse rules
@@ -2341,6 +2353,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     div.dataset.id = id || lid();
     if (dual && type === 'cue') div.dataset.dual = '1';
     if (subtype) div.dataset.subtype = subtype;
+    if (stanza) div.dataset.stanza = '1'; // in-block gap (a blank that keeps the block open)
     let display = (t || '');
     if (type === 'paren')   display = display.replace(/^\(/, '').replace(/\)$/, '');
     if (type === 'section') display = display.replace(/^\[/, '').replace(/\]$/, '');
@@ -2351,6 +2364,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const setLineType = (div, type) => {
     div.dataset.type = type;
     delete div.dataset.neutral; // a retype IS identification — justify to the element's real position
+    delete div.dataset.stanza;  // …and it's no longer an in-block gap once it's given a real element
     div.className = 'ms-el ' + (RICH_EL_CLASS[type] || 'lw-blank ms-el-blank');
     if (type !== 'cue') { delete div.dataset.dual; delete div.dataset.mode; } // dual/mode only apply to cues
     // Scene break is a divider, not text — converting a line into one discards
@@ -2382,7 +2396,10 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       // (possibly just-predicted) type says — an empty predicted-Character row
       // must not open a block, and Enter-Enter must genuinely close one.
       // (Scene breaks are never empty — they display the ⁂ glyph.)
-      if (!(p.textContent || '').trim()) { inCharBlock = false; continue; }
+      // A stanza gap (data-stanza) is a blank that stays INSIDE the block — it
+      // holds inCharBlock/blockSung so the next line keeps its Lyrics/Dialogue
+      // identity. Every other empty row closes the block like a Fountain blank.
+      if (!(p.textContent || '').trim()) { if (p.dataset.stanza !== '1') inCharBlock = false; continue; }
       const type = p.dataset.type;
       if (type === 'cue') { inCharBlock = true; blockSung = p.dataset.mode ? p.dataset.mode === 'sung' : !!isSong; }
       else if (type === 'sung') { if (inCharBlock) blockSung = true; }
@@ -2529,6 +2546,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     if (type === 'paren' && txt) txt = '(' + txt.replace(/^\(/, '').replace(/\)$/, '') + ')';
     const row = { id: div.dataset.id || lid(), type, text: txt, dual: div.dataset.dual === '1' };
     if (div.dataset.subtype) row.subtype = div.dataset.subtype;
+    if (div.dataset.stanza === '1') row.stanza = true; // in-block gap
     return row;
   });
   const serializeLines = (lineEd) => serializeRows(rowsFrom(lineEd), isSong);
@@ -3022,8 +3040,8 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   // Seed from persisted identified lines when available (ids survive the edit);
   // otherwise parse the text blob (and mint ids — lazy migration on first edit).
   const seed = (lines && lines.length)
-    ? lines.map((l) => ({ type: l.type, text: l.text, dual: l.dual, id: l.id, subtype: l.subtype }))
-    : parseLyricLines(text || '', isSong).map((tok) => ({ type: tok.type, text: tok.text, dual: tok.dual, id: null, subtype: tok.subtype }));
+    ? lines.map((l) => ({ type: l.type, text: l.text, dual: l.dual, id: l.id, subtype: l.subtype, stanza: l.stanza }))
+    : parseLyricLines(text || '', isSong).map((tok) => ({ type: tok.type, text: tok.text, dual: tok.dual, id: null, subtype: tok.subtype, stanza: tok.stanza }));
   // Existing note phrase clicked while its card is being edited: open the same
   // popup for editing (a click outside the editor is handled by the read-only
   // popover wired in initControls instead).
@@ -3037,7 +3055,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   // name still live-infers it up to a cue when it actually is one.
   if (!seed.some((t) => t.type !== 'blank')) { const first = mkLine(isSong ? 'sung' : 'action', ''); if (!isProse) first.dataset.neutral = '1'; lineEd.appendChild(first); }
   else seed.forEach((l) => {
-    const r = mkLine(l.type, l.text, l.dual, l.id, l.subtype);
+    const r = mkLine(l.type, l.text, l.dual, l.id, l.subtype, l.stanza);
     // A SAVED empty row is just as unidentified as a fresh one — without the
     // stamp, a card whose body ends in an empty action row parks the caret at
     // the action indent the moment the editor opens. Empty is empty: it shows
@@ -3322,6 +3340,31 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       const whole = cur.textContent || '';
       cur.textContent = whole.slice(0, off);
       const carried = whole.slice(off);
+      // Shift+Enter at the end of a line = an in-block GAP (stanza / speech
+      // break): drop a spacer that keeps the current character block OPEN, then
+      // continue on a fresh line of the same element. So the next verse stays
+      // Lyrics (or the next beat of a speech stays Dialogue) instead of falling
+      // to Action the way plain Enter+Enter (a block-closing blank) would. In a
+      // song the gap survives as "~"; in a spoken block the block-open-ness
+      // rides the stored line structure. Outside a character block (Action)
+      // there's no block to hold, so it's just a paragraph blank.
+      if (e.shiftKey && !carried.trim()) {
+        const curT = cur.dataset.type;
+        const inBlock = !isProse && (blockCtxBefore(cur).inCharBlock || curT === 'sung' || curT === 'dialogue' || curT === 'cue');
+        const contType = !inBlock ? 'action'
+          : curT === 'dialogue' ? 'dialogue'
+          : curT === 'sung' ? 'sung'
+          : (isSong ? 'sung' : 'dialogue'); // cue/other in-block row → the block's default mode
+        const gap = mkLine('blank', '', false, null, null, inBlock); // stanza gap inside a block; a plain paragraph blank in Action
+        cur.after(gap);
+        const cont = mkLine(contType, '');
+        cont.dataset.dirty = '1'; cont.dataset.fresh = '1'; if (!isProse) cont.dataset.neutral = '1';
+        gap.after(cont);
+        placeCursorAt(cont, false);
+        syncPicker();
+        pushHistory();
+        return;
+      }
       // A mid-line split keeps the same element on both halves (it's the same
       // content, just wrapped); a clean end-of-line Enter births a PREDICTED
       // row — styled at the likely next element's indent but uncommitted, and
@@ -3561,7 +3604,7 @@ function buildBlocks(toksRaw) {
   // and survive — only an untagged blank following another blank is dropped.
   const toks = [];
   for (const t of toksRaw) {
-    if (t.type === 'blank' && !t.pad && toks.length && toks[toks.length - 1].type === 'blank') continue;
+    if (t.type === 'blank' && !t.pad && !t.stanza && toks.length && toks[toks.length - 1].type === 'blank') continue;
     toks.push(t);
   }
   const blocks = [];

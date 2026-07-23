@@ -251,6 +251,31 @@ at once). Musical-only: Prose's element set has no such state (its **Body** is
 already the flush-left catch-all), so neutral is never stamped there and the
 picker keeps showing "Body."
 
+**Enter vs. Shift+Enter — continue, gap, exit.** Three gestures, from the
+Fountain fact that a plain blank line *closes* a character block:
+
+- **Enter** on a filled line → the next line, same element (verse continues,
+  dialogue continues). Enter on an *empty* line → **exit**: the empty row is a
+  plain block-closing blank, so the fresh line below it lands on **General** and
+  the next thing typed is Action (or a CAPS name → new Character). "Enter, Enter"
+  = end the song, start what follows.
+- **Shift+Enter** → an **in-block gap** (stanza / speech break): a spacer that
+  keeps the block *open*, then a fresh line of the same element — so verse 2
+  stays Lyrics (and a spoken block's next beat stays Dialogue) instead of falling
+  to Action. Outside a character block (Action) there's no block to hold, so it's
+  just a paragraph blank.
+
+The gap is a blank row carrying `stanza` (`data-stanza="1"` in the editor). Three
+places know it: `blockCtxBefore` does **not** close the block on it (so live
+inference keeps verse 2 in-mode); `serializeRows` emits it as `~` — an empty
+Fountain lyric marker that `classifyLyricLine` reads back as an in-block gap
+keeping the current mode (not forced sung) — so it round-trips through the text
+blob, not just canonical `c.lines`; and `buildBlocks` never collapses it, while
+the paginator (which already prefers to split at a `blank`) uses it as the
+stanza boundary. A plain blank (no `stanza`) still serializes to `""` and closes
+the block, so the two blanks never get confused. Note the asymmetry: a bare `~`
+is a mode-neutral gap; `~text` is still the legacy forced-sung line.
+
 Two Focus-only interactions besides the toggle itself: the exit pill now wakes
 on `touchstart` as well as `mousemove` (no hover on iPad), and pinch-to-zoom
 works inside Focus — WebKit's `gesturestart`/`gesturechange`/`gestureend`

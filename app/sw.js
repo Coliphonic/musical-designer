@@ -11,7 +11,7 @@
 // CACHE no longer needs bumping every deploy for correctness. Bump it only to
 //   (a) force an immediate reload-to-latest THIS launch rather than the next, or
 //   (b) hard-invalidate every cached asset at once.
-const CACHE = 'songplot-v247';
+const CACHE = 'songplot-v248';
 
 // Precached on install so the very first (offline) launch works. cmudict.txt
 // (2MB) and thesaurus.txt (9MB) are cached lazily at runtime instead.
