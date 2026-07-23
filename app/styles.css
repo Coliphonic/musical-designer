@@ -131,6 +131,13 @@ html, body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
+  /* iOS Safari auto-inflates body text and recomputes when a container's width
+     changes — which fights our CSS `zoom` (manuscript zoom buttons, board
+     large-screen scaling): the sheet grows but iOS pulls the text back to its
+     "readable" size, so text appears not to zoom. Opt out so zoom scales text
+     too. 100% (not `none`) keeps text selectable-zoomable elsewhere. */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   font-family: var(--ui-font);
   /* Variable opsz axis: let the browser pick the optical size per font-size, so
      10px caps labels get the wider, sturdier cut and headings get the tighter
