@@ -2350,6 +2350,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   };
   const setLineType = (div, type) => {
     div.dataset.type = type;
+    delete div.dataset.neutral; // a retype IS identification — justify to the element's real position
     div.className = 'ms-el ' + (RICH_EL_CLASS[type] || 'lw-blank ms-el-blank');
     if (type !== 'cue') { delete div.dataset.dual; delete div.dataset.mode; } // dual/mode only apply to cues
     // Scene break is a divider, not text — converting a line into one discards
@@ -2455,7 +2456,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       : newType === 'paren' ? (tok.text || '').replace(/^\(/, '').replace(/\)$/, '')
       : (tok.text || '');
     const textSame = display.trim() === rowMarkup.trim();
-    if (newType === type && sameSubtype && sameDual && textSame) { delete row.dataset.dirty; delete row.dataset.fresh; return; }
+    if (newType === type && sameSubtype && sameDual && textSame) { delete row.dataset.dirty; delete row.dataset.fresh; delete row.dataset.neutral; return; }
     const focused = getFocusedLine(lineEd) === row;
     const caretOff = focused ? caretOffsetIn(row) : 0;
     setLineType(row, newType);
@@ -2483,7 +2484,18 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     const type = row.dataset.type;
     if (!LIVE_TYPES.includes(type) && type !== 'blank') return; // paren/section/scenebreak rows: commit-only
     const t = emphFromNode(row).trim();
-    if (!t || /^[@~!([/]/.test(t) || /^\*/.test(t)) return; // empty keeps its predicted style; markers (and a /command being typed) wait for commit
+    // A neutral-born row (data-neutral — stamped on Enter-made and seed rows)
+    // renders flush-left plain until its text identifies itself, so the caret
+    // always STARTS at the left margin no matter what element is predicted.
+    // It stays neutral while the text could still be anything: empty, a marker
+    // prefix waiting for commit (including the . = card-creation markers, so
+    // "//note" / ".Scene" never sit at the action indent and jump back), or a
+    // lone caps letter ("S" may yet be "SINGER" or "She…"). The moment the
+    // text reads as something, the stamp drops and the row justifies to its
+    // element's real position — one jump per line, always from the left.
+    if (row.dataset.neutral === '1' && t && !/^[@~!([/.=#*]/.test(t) && !/^[A-Z]$/.test(t)) delete row.dataset.neutral;
+    if (!t) { row.dataset.neutral = '1'; return; } // emptied by editing — unidentified again, caret returns to the left margin
+    if (/^[@~!([/.=#]/.test(t) || /^\*/.test(t)) return; // markers wait for commit — including a /command or a . = # card-creation marker being typed, which would otherwise live-retype to action and lose the neutral stamp
     let newType;
     const letters = (t.replace(/\s*\([^)]*\)\s*$/, '').match(/[A-Za-z]/g) || []).length;
     if (row.dataset.fresh === '1' && letters >= 2 && looksLikeCue(t)) newType = 'cue'; // a name is a name, even mid-block
@@ -2683,7 +2695,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
         else node.remove();
       }
     });
-    if (!lineEd.querySelector('.ms-el')) lineEd.appendChild(mkLine(isSong ? 'sung' : 'action', ''));
+    if (!lineEd.querySelector('.ms-el')) { const first = mkLine(isSong ? 'sung' : 'action', ''); first.dataset.neutral = '1'; lineEd.appendChild(first); }
     if (preserve) restoreBookmark(bm);
   };
   const needsNormalize = () => {
@@ -3017,8 +3029,16 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   // for a song, Action otherwise (Prose has only Action). NOT Character/cue:
   // a fresh card should open reading like plain text, and typing an all-caps
   // name still live-infers it up to a cue when it actually is one.
-  if (!seed.some((t) => t.type !== 'blank')) lineEd.appendChild(mkLine(isSong ? 'sung' : 'action', ''));
-  else seed.forEach((l) => lineEd.appendChild(mkLine(l.type, l.text, l.dual, l.id, l.subtype)));
+  if (!seed.some((t) => t.type !== 'blank')) { const first = mkLine(isSong ? 'sung' : 'action', ''); first.dataset.neutral = '1'; lineEd.appendChild(first); }
+  else seed.forEach((l) => {
+    const r = mkLine(l.type, l.text, l.dual, l.id, l.subtype);
+    // A SAVED empty row is just as unidentified as a fresh one — without the
+    // stamp, a card whose body ends in an empty action row parks the caret at
+    // the action indent the moment the editor opens. Empty is empty: it shows
+    // nothing either way, so neutral only moves the caret to the left margin.
+    if (!(l.text || '').trim()) r.dataset.neutral = '1';
+    lineEd.appendChild(r);
+  });
 
   // ---- FD-style character-name autocomplete (cue lines only) ----
   const acBox = el('div', { class: 'rich-ac', style: 'display:none' });
@@ -3042,6 +3062,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       const newType = predictNext(line);
       const newLine = mkLine(newType, '');
       newLine.dataset.fresh = '1'; // predicted, not committed — typing decides
+      newLine.dataset.neutral = '1'; // and flush-left until it does
       line.after(newLine);
       placeCursorAt(newLine, false);
       styleSel.value = newType;
@@ -3289,7 +3310,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       const newType = (e.shiftKey || carried.trim()) ? curType : predictNext(cur);
       const newLine = mkLine(newType, carried);
       newLine.dataset.dirty = '1'; // carries user text into a new row this session
-      if (!carried.trim()) newLine.dataset.fresh = '1'; // born empty — full inference freedom, caps → Character
+      if (!carried.trim()) { newLine.dataset.fresh = '1'; newLine.dataset.neutral = '1'; } // born empty — full inference freedom, caps → Character; renders flush-left until the text identifies
       cur.after(newLine);
       placeCursorAt(newLine, false);
       styleSel.value = newType;

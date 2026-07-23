@@ -667,6 +667,17 @@ body.dark .lyricwin .ms-sheet { box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
 .ms-sheet-content .lw-paren        { margin-left: 168px; margin-right: 24px; padding-left: 0; color: #555; text-align: left; }
 /* FD Action: LeftIndent="4.00" (4.00-1.25=2.75"=264px), RightIndent to edge, SpaceBefore="12" */
 .ms-sheet-content .lw-action       { margin-top: 12pt; margin-left: 264px; margin-right: 0; padding-left: 0; text-align: left; }
+/* Neutral start: a row born by Enter (or the empty-card seed) hasn't identified
+   itself yet — data-neutral (stamped in the editor, dropped by inference the
+   moment the text reads as something) renders it flush-left plain, whatever
+   element it's PREDICTED to be. The caret always starts at the left margin and
+   the line justifies once — to wherever its content actually lands — instead
+   of starting at the action indent and jumping around. The attribute selector
+   outranks every per-element indent rule above. */
+.ms-sheet-content .ms-el[data-neutral="1"] {
+  margin-left: 0; padding-left: 0; text-align: left;
+  font-weight: normal; text-transform: none; letter-spacing: normal;
+}
 /* Beat logline / outline note — a reference annotation, not script. Sage, italic,
    and gated behind the Section-tags toggle (hidden when off, via buildContentTokens). */
 .ms-sheet-content .lw-note-ms      { margin-top: 12pt; color: #5f7d57; font-style: italic; text-align: left; }

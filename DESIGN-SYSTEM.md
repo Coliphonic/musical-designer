@@ -226,10 +226,20 @@ plain text in a scene. It rides an `onNote` callback parallel to `onSpawnCard`.
 Song purposes surface in the editor/Focus view only — they are **not** added to
 the printed script or EPUB (that path still emits beat Beatlines alone).
 
-A brand-new empty card opens on a neutral, **left-justified** first line
-(Lyrics for a song, Action otherwise) rather than a centered Character line —
-typing an all-caps name still live-infers it up to a cue when it genuinely is
-one, but a fresh card reads as plain text instead of opening mid-screen.
+**Neutral start.** Every unwritten line renders flush-left plain, whatever
+element the engine *predicts* it will be — the empty-card seed, every Enter-born
+row, saved empty rows, and a row backspaced empty again. The mechanism is a
+`data-neutral="1"` stamp (editor-only, never persisted) with one CSS override
+that outranks all the per-element indents. The caret therefore always starts at
+the left margin — the typewriter feel — and a line justifies **once**, to
+wherever its content actually lands: plain text jumps to the Action indent on
+its 2nd character (the 1st could still be a name), a 2nd caps letter jumps to
+the centered Character cue, and marker-prefixed lines (`//` `.` `=` `~` `/cmd`
+`(` `[` etc., including the card-creation markers, which the live pass now also
+leaves alone) *stay* left until Enter resolves them — so a typed `//note` or
+`.Scene` never sits at half-page and snaps back. Inference itself is untouched;
+the stamp is dropped by the same live/commit passes the moment the text
+identifies (`liveInferRow` / `setLineType` / `inferRow`).
 
 Two Focus-only interactions besides the toggle itself: the exit pill now wakes
 on `touchstart` as well as `mousemove` (no hover on iPad), and pinch-to-zoom
