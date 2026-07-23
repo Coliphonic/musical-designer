@@ -3199,21 +3199,41 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       return;
     }
     if (e.key === 'Enter') {
-      // Slash command: committing a line of the form "/song Title" (or /beat,
-      // /scene, /chapter) spawns a NEW card right after the one being edited.
-      // The command line is removed before commit so it never lands as content;
-      // anything that doesn't match falls through and commits as a normal line.
+      // Typed card creation — two spellings, both spawning a NEW card right
+      // after the one being edited. The trigger line is removed before commit so
+      // it never lands as content; anything that doesn't match falls through and
+      // commits as a normal line.
+      //   (a) Slash command: "/song Title" (or /beat, /scene, /chapter) — works
+      //       anywhere, since "/" is unambiguous.
+      //   (b) Fountain marker (Focus mode's visible grammar, phase 2): a line of
+      //       ".Scene", "~Song" or "=Beat" typed ON A BLANK LINE — the deliberate
+      //       "start something new" position. The blank-line guard is what keeps
+      //       "~" a sung-line marker mid-song: only at a block boundary does it
+      //       mean "new song card". A doubled marker (==highlight==, ~~strike~~)
+      //       is excluded by the (?![.~=]); "~" is a no-op in prose (no songs).
       if (onSpawnCard && !e.shiftKey) {
-        const cmd = (line.textContent || '').trim().match(/^\/(song|beat|scene|chapter)(?:\s+(.*))?$/i);
-        if (cmd) {
+        const raw = (line.textContent || '').trim();
+        const slash = raw.match(/^\/(song|beat|scene|chapter)(?:\s+(.*))?$/i);
+        let spawn = null;
+        if (slash) {
+          const kind = slash[1].toLowerCase();
+          spawn = { type: kind === 'chapter' ? 'scene' : kind, title: (slash[2] || '').trim() };
+        } else {
+          const mk = raw.match(/^([.~=])(?![.~=])\s*(\S.*)$/);
+          const prev = line.previousElementSibling;
+          const onBlankLine = !!prev && !(prev.textContent || '').trim();
+          if (mk && onBlankLine) {
+            const type = mk[1] === '.' ? 'scene' : mk[1] === '~' ? 'song' : 'beat';
+            if (!(isProse && type === 'song')) spawn = { type, title: mk[2].trim() };
+          }
+        }
+        if (spawn) {
           e.preventDefault();
-          const kind = cmd[1].toLowerCase();
-          const type = kind === 'chapter' ? 'scene' : kind;
-          delete line.dataset.dirty; // never commit-infer the removed command line
+          delete line.dataset.dirty; // never commit-infer the removed trigger line
           if (line === lastActiveLine) lastActiveLine = null;
           line.remove();
-          commit(); // save this card as it stands (minus the slash line)
-          onSpawnCard(type, (cmd[2] || '').trim());
+          commit(); // save this card as it stands (minus the trigger line)
+          onSpawnCard(spawn.type, spawn.title);
           return;
         }
       }

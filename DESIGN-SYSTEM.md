@@ -200,9 +200,20 @@ shorthand a screenwriter would type inline: `.` scene heading, `~` song,
 `::before` glyph painted over the real title text (`dv-scene`/`dv-song`/
 `dv-beat` classes on the divider, an `.ms-act-marker` chrome div at act
 boundaries) — never parsed text, so click-to-rename on a card's title still
-works exactly as it did before. **Phase 2** — typing one of these markers to
-*create* a card, not just decorate an existing one — is not built; this pass
-is read-only decoration.
+works exactly as it did before.
+
+**Typed card creation (phase 2, built):** the same three markers can also
+*birth* a card. On a **blank line** in the editor, typing `.Title`, `~Title`
+or `=Title` and pressing Enter spawns a scene / song / beat right after the
+current card (the trigger line is removed, the current card commits, the caret
+drops into the new one) — it rides the pre-existing `onSpawnCard` path that the
+hidden `/song`·`/beat`·`/scene`·`/chapter` slash commands already used (those
+still work, anywhere). The **blank-line guard** is load-bearing: it is the only
+thing that keeps `~` meaning "sung line" mid-song — a marker only creates a card
+at a block boundary, never inside content. Doubled markers are excluded by a
+`(?![.~=])` lookahead so the `==highlight==` and `~~strike~~` inline markup
+never misfire, and `~` is a no-op in Prose Plot (no songs). See the Enter
+handler in `buildRichEditor` (search `Typed card creation`).
 
 Two Focus-only interactions besides the toggle itself: the exit pill now wakes
 on `touchstart` as well as `mousemove` (no hover on iPad), and pinch-to-zoom
