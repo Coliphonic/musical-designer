@@ -6833,6 +6833,26 @@ function buildManuscriptPage(sceneId) {
 
   const msWrap = el('div', { class: 'ms-wrap' });
 
+  // Zoom the manuscript with transform:scale, not CSS `zoom`. The sheets are
+  // typeset in points (pt) for print fidelity, and iOS Safari's `zoom` scales
+  // px box dimensions but leaves pt-based type at its original size — so the
+  // page grew while the text stood still. transform:scale is a compositor-level
+  // geometric scale that can't leave the type behind, on any browser. It doesn't
+  // touch layout, so the scroll parent still reserves the un-scaled height; we
+  // add the difference back as margin, measured once the node is laid out
+  // (offsetHeight excludes margin and ignores transform, so it stays the true
+  // content height regardless of the scale currently applied).
+  const applyMsZoom = (elm) => {
+    if (!elm) return;
+    elm.style.zoom = ''; // clear any legacy value
+    elm.style.transformOrigin = 'top center';
+    elm.style.transform = zoom === 1 ? '' : 'scale(' + zoom + ')';
+    requestAnimationFrame(() => {
+      if (!elm.isConnected) return;
+      elm.style.marginBottom = zoom === 1 ? '' : (elm.offsetHeight * (zoom - 1)) + 'px';
+    });
+  };
+
   // ── Layout mode (paginated) ──────────────────────────────────────
   const rebuildSheets = () => {
     const oldBody = msWrap.querySelector('.ms-body');
@@ -6842,7 +6862,7 @@ function buildManuscriptPage(sceneId) {
     const toks = buildContentTokens(sceneId);
     const pages = paginateTokens(toks, sceneId ? null : undefined);
     const viewport = el('div', { class: 'ms-viewport' });
-    viewport.style.zoom = zoom;
+    applyMsZoom(viewport);
     pages.forEach((pageToks, pi) => {
       const sheet = el('div', { class: 'ms-sheet' });
       sheet.appendChild(renderSheetHeader(pages[pi].label || (pi + 1), pages.length, pi === 0));
@@ -6868,7 +6888,7 @@ function buildManuscriptPage(sceneId) {
     if (oldBody) oldBody.remove();
     const newBody = el('div', { class: 'ms-body' });
     const viewport = el('div', { class: 'ms-viewport book-viewport' });
-    viewport.style.zoom = zoom;
+    applyMsZoom(viewport);
     buildBookSheets().forEach((sheet) => viewport.appendChild(sheet));
     newBody.appendChild(viewport);
     msWrap.insertBefore(newBody, msWrap.querySelector('.ms-hd-drawer'));
@@ -6890,7 +6910,7 @@ function buildManuscriptPage(sceneId) {
     const renderVp = () => {
       if (vp) vp.remove();
       vp = buildTitlePages();
-      vp.style.zoom = zoom;
+      applyMsZoom(vp);
       newBody.appendChild(vp);
     };
     const groups = [
@@ -7761,10 +7781,8 @@ function buildManuscriptPage(sceneId) {
   }
 
   const applyZoom = () => {
-    const vp = msWrap.querySelector('.ms-viewport');
-    if (vp) vp.style.zoom = zoom;
-    const ed = msWrap.querySelector('.ms-edit-doc');
-    if (ed) ed.style.zoom = zoom;
+    applyMsZoom(msWrap.querySelector('.ms-viewport'));
+    applyMsZoom(msWrap.querySelector('.ms-edit-doc'));
     zoomLbl.textContent = Math.round(zoom * 100) + '%';
     zoomOut.disabled = zoom <= ZOOM_MIN;
     zoomIn.disabled  = zoom >= ZOOM_MAX;
