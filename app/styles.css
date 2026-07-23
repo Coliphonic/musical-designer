@@ -561,7 +561,7 @@ body.dark .ms-body { background: var(--bg); }
      export roots (sheetOpts.font); the Manuscript never sets it, so it falls
      back to Courier and stays a typewriter script. */
   font-family: var(--sheet-font, 'Courier Prime', 'Courier New', Courier, monospace);
-  font-size: 12pt;
+  font-size: 16px; /* 12pt exactly; px so iOS Safari's `zoom` scales the type, not just the box */
   line-height: 1.0; /* FD Spacing="1" Leading="Regular" — 6 lines/inch typewriter standard */
   flex-shrink: 0;
 }
@@ -569,7 +569,7 @@ body.dark .ms-body { background: var(--bg); }
   display: flex;
   justify-content: space-between;
   padding: 48px 48px 0; /* 0.5" from top edge; 0.5" side margins */
-  font-size: 12pt; /* FD: Size=12 */
+  font-size: 16px; /* 12pt (FD Size=12) */
   color: #333;
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   min-height: 24px;
@@ -578,7 +578,7 @@ body.dark .ms-body { background: var(--bg); }
   flex: 1;
   padding: 12px 120px 72px; /* top: hdr(72px)+12px = 84px = 0.875" from top; bottom: 0.75" = 72px */
   font-family: var(--sheet-font, 'Courier Prime', 'Courier New', Courier, monospace);
-  font-size: 12pt;
+  font-size: 16px; /* 12pt */
   line-height: 1.0;
   color: #111;
 }
@@ -627,7 +627,7 @@ body.dark .lyricwin .ms-sheet { box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
 .ms-edit-doc .ms-sheet-content { font-family: var(--edit-font, 'Courier Prime', 'Courier New', Courier, monospace); }
 .ms-sheet-show-title {
   text-align: center;
-  font-size: 14pt;
+  font-size: 18.667px; /* 14pt */
   font-weight: 700;
   letter-spacing: 0.08em;
   text-decoration: underline;
@@ -1027,7 +1027,7 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .tp-contact-label { }
 .tp-contact-line { padding-left: 48px; }
 .tp-contact-or { padding-left: 48px; margin-top: 12pt; }
-.tp-section-heading { text-align: center; font-weight: normal; font-size: 12pt; text-decoration: underline; text-transform: uppercase; margin: 24pt 0 0; }
+.tp-section-heading { text-align: center; font-weight: normal; font-size: 16px; text-decoration: underline; text-transform: uppercase; margin: 24pt 0 0; }
 .tp-cast-heading { }
 .tp-songs-heading { }
 .tp-song-row { text-align: center; line-height: 2; }
@@ -1981,7 +1981,7 @@ body.dark .ms-card-section { box-shadow: 0 2px 12px #0003; }
 .ms-card-placeholder {
   color: var(--faint);
   font-style: italic;
-  font-size: 12pt;
+  font-size: 16px; /* 12pt */
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   padding: 0 120px;
   user-select: none;

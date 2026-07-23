@@ -6833,24 +6833,13 @@ function buildManuscriptPage(sceneId) {
 
   const msWrap = el('div', { class: 'ms-wrap' });
 
-  // Zoom the manuscript with transform:scale, not CSS `zoom`. The sheets are
-  // typeset in points (pt) for print fidelity, and iOS Safari's `zoom` scales
-  // px box dimensions but leaves pt-based type at its original size — so the
-  // page grew while the text stood still. transform:scale is a compositor-level
-  // geometric scale that can't leave the type behind, on any browser. It doesn't
-  // touch layout, so the scroll parent still reserves the un-scaled height; we
-  // add the difference back as margin, measured once the node is laid out
-  // (offsetHeight excludes margin and ignores transform, so it stays the true
-  // content height regardless of the scale currently applied).
+  // Zoom uses CSS `zoom` (scales layout + text together, so the sheet shrinks to
+  // fit on zoom-out and the ribbon stays pinned — transform:scale leaves layout
+  // full-width and pans the page on narrow screens). iOS Safari's `zoom` scales
+  // px box metrics but not pt-based font sizes, so the manuscript's on-screen
+  // type is in px (see .ms-sheet in styles.css) to scale with it.
   const applyMsZoom = (elm) => {
-    if (!elm) return;
-    elm.style.zoom = ''; // clear any legacy value
-    elm.style.transformOrigin = 'top center';
-    elm.style.transform = zoom === 1 ? '' : 'scale(' + zoom + ')';
-    requestAnimationFrame(() => {
-      if (!elm.isConnected) return;
-      elm.style.marginBottom = zoom === 1 ? '' : (elm.offsetHeight * (zoom - 1)) + 'px';
-    });
+    if (elm) elm.style.zoom = zoom;
   };
 
   // ── Layout mode (paginated) ──────────────────────────────────────
