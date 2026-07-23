@@ -3218,11 +3218,14 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       //   (a) Slash command: "/song Title" (or /beat, /scene, /chapter) — works
       //       anywhere, since "/" is unambiguous.
       //   (b) Fountain marker (Focus mode's visible grammar, phase 2): a line of
-      //       ".Scene", "~Song" or "=Beat" typed ON A BLANK LINE — the deliberate
-      //       "start something new" position. The blank-line guard is what keeps
-      //       "~" a sung-line marker mid-song: only at a block boundary does it
-      //       mean "new song card". A doubled marker (==highlight==, ~~strike~~)
-      //       is excluded by the (?![.~=]); "~" is a no-op in prose (no songs).
+      //       ".Scene", "~Song" or "=Beat" creates a card. Guarded on block
+      //       context, NOT "previous line blank" — it fires wherever you're at
+      //       top level (a new card's first line, or a single Enter after an
+      //       action line, both of which the old blank-line guard wrongly
+      //       missed), yet still keeps "~" a sung-line marker inside a song's
+      //       verse: there you're in a character block, so it stays content. A
+      //       doubled marker (==highlight==, ~~strike~~) is excluded by the
+      //       (?![.~=]); "~" is a no-op in prose (no songs).
       if (onSpawnCard && !e.shiftKey) {
         const raw = (line.textContent || '').trim();
         const slash = raw.match(/^\/(song|beat|scene|chapter)(?:\s+(.*))?$/i);
@@ -3232,9 +3235,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
           spawn = { type: kind === 'chapter' ? 'scene' : kind, title: (slash[2] || '').trim() };
         } else {
           const mk = raw.match(/^([.~=])(?![.~=])\s*(\S.*)$/);
-          const prev = line.previousElementSibling;
-          const onBlankLine = !!prev && !(prev.textContent || '').trim();
-          if (mk && onBlankLine) {
+          if (mk && !blockCtxBefore(line).inCharBlock) {
             const type = mk[1] === '.' ? 'scene' : mk[1] === '~' ? 'song' : 'beat';
             if (!(isProse && type === 'song')) spawn = { type, title: mk[2].trim() };
           }
