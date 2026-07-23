@@ -7394,11 +7394,28 @@ function buildManuscriptPage(sceneId) {
       + (state.msOptions.showBeatlines === false ? ' hide-beatlines' : '') });
     if (state.format === 'prose') doc.style.setProperty('--edit-font', editFontFamily(state.msOptions.editFont));
 
+    let curAct = null; // tracks act boundaries as we walk editOrder(), below
     editOrder().forEach((idx) => {
       const c = state.cards[idx];
       if (!c) return;
+      // Act markers ("#ACT 1") are Focus-only chrome — hidden everywhere else by
+      // .ms-act-marker's base rule in styles.css — built from the same act-label
+      // source (LANE_LABELS) the Navigator uses for its own 'ms-nav-act' rows,
+      // so the two can never disagree. A plain sibling <div>, not a divider
+      // variant: nothing walks .ms-edit-doc's children by position/alternation
+      // (every consumer selects by class or data-card-id — checked openCardEditor,
+      // deleteCardFromNav, the IntersectionObserver setup, and captureAnchor), so
+      // an extra node between dividers is harmless.
+      if (c.act !== curAct) {
+        curAct = c.act;
+        doc.appendChild(el('div', { class: 'ms-act-marker', text: '#' + (LANE_LABELS[c.act] || c.act).toUpperCase() }));
+      }
       const isEmpty = !(c[cardField(c)] || '').trim();
-      const div = el('div', { class: 'ms-card-divider' + (isEmpty ? ' ms-card-divider-empty' : ''), 'data-card-id': c.id, 'data-anchor': 'card:' + c.id });
+      // dv-scene/dv-song/dv-beat — same type branch as the icon below, so Focus
+      // mode's CSS (styles.css) can paint a typed-Fountain marker (./~/=) per
+      // divider without re-deriving card type from anything else.
+      const dvType = c.type === 'song' ? 'dv-song' : c.type === 'scene' ? 'dv-scene' : 'dv-beat';
+      const div = el('div', { class: 'ms-card-divider ' + dvType + (isEmpty ? ' ms-card-divider-empty' : ''), 'data-card-id': c.id, 'data-anchor': 'card:' + c.id });
       const icon = c.type === 'song' ? '♪' : c.type === 'scene' ? '◆' : '◦';
       const label = el('span', { class: 'ms-card-divider-label' }, [
         el('span', { class: 'ms-card-divider-icon', text: icon }),
@@ -7869,8 +7886,11 @@ function buildManuscriptPage(sceneId) {
 
   // ── Focus mode — Edit-only, never persisted (always a deliberate, one-session
   // choice, unlike zoom/nav which remember themselves). Hides the topbar, the
-  // manuscript toolbar, and the outline via a body class (pure CSS), and dims
-  // every card section except the one the caret is currently in.
+  // manuscript toolbar, and the outline via a body class (pure CSS). Redesigned
+  // from an opacity-dimmed card stack into a seamless single-sheet feed — see
+  // the big comment in styles.css above the body.ms-focus rules — so this
+  // block no longer tracks or dims anything; it just toggles the body class,
+  // runs the exit pill, and (below) typewriter scroll + pinch/wheel zoom.
   const exitPill = el('button', { class: 'ms-focus-exit-pill', title: 'Exit focus mode (Esc)', text: '✕ Exit focus' });
   msWrap.appendChild(exitPill);
   let focusMode = false;
@@ -7892,21 +7912,48 @@ function buildManuscriptPage(sceneId) {
   focusBtn.addEventListener('click', () => { focusMode = !focusMode; applyFocus(); });
   exitPill.addEventListener('click', exitFocus);
   msWrap.addEventListener('mousemove', showExitPill);
-  // Track which card section currently has the caret so CSS can dim the rest —
-  // works for every path into a card editor (click, keyboard nav, Tab) since
-  // they all end in a real DOM focus on the contenteditable.
-  msWrap.addEventListener('focusin', (e) => {
+  // Touch has no hover/mousemove, so an iPad tap would otherwise never wake the
+  // pill — passive: true since this listener never blocks scrolling/gestures.
+  msWrap.addEventListener('touchstart', showExitPill, { passive: true });
+  // ── Pinch-to-zoom in Focus (iPad) — WebKit fires gesturestart/gesturechange/
+  // gestureend for a two-finger pinch (touchmove alone only reports two
+  // independent points, not a scale). Reuses the exact `zoom` variable and
+  // applyZoom() the toolbar's zoomIn/zoomOut buttons use (defined above) —
+  // same clamp, same localStorage persistence, same --msz application — so
+  // pinch and the buttons can never disagree about zoom state. Guarded to
+  // focusMode: the toolbar already covers zooming everywhere else, and in
+  // Focus specifically there's nothing else on the page for a pinch to mean.
+  let gestureBaseZoom = 1;
+  msWrap.addEventListener('gesturestart', (e) => {
     if (!focusMode) return;
-    const sec = e.target.closest && e.target.closest('.ms-card-section');
-    if (!sec) return;
-    msWrap.querySelectorAll('.ms-card-section.ms-card-focused').forEach((s) => { if (s !== sec) s.classList.remove('ms-card-focused'); });
-    sec.classList.add('ms-card-focused');
-  });
+    gestureBaseZoom = zoom;
+    e.preventDefault();
+  }, { passive: false });
+  msWrap.addEventListener('gesturechange', (e) => {
+    if (!focusMode) return;
+    e.preventDefault();
+    zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(gestureBaseZoom * e.scale).toFixed(2)));
+    applyZoom();
+  }, { passive: false });
+  msWrap.addEventListener('gestureend', (e) => {
+    if (!focusMode) return;
+    e.preventDefault();
+  }, { passive: false });
+  // Desktop trackpad pinch arrives as ctrl+wheel — the browser convention for
+  // synthesizing pinch-to-zoom from a trackpad gesture — so the same guard and
+  // setter cover it. Note: we don't preventDefault plain touchmove anywhere —
+  // scrolling in Focus must keep working; the gesture events above are enough
+  // to stop the page from also zooming itself while we're handling the pinch.
+  msWrap.addEventListener('wheel', (e) => {
+    if (!focusMode || !e.ctrlKey) return;
+    e.preventDefault();
+    zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, +(zoom * (1 - e.deltaY * 0.01)).toFixed(2)));
+    applyZoom();
+  }, { passive: false });
   // Typewriter scrolling — a blank page with a cursor keeps the cursor still and
   // moves the page instead. rAF-coalesced so a burst of keystrokes only scrolls
   // once per frame; 'auto' (not 'smooth') so it reads as the page moving under a
-  // fixed cursor rather than a lagging animated scroll. Focus-only; independent
-  // of the .ms-card-focused dimming tracked above.
+  // fixed cursor rather than a lagging animated scroll. Focus-only.
   let twRaf = null;
   const typewriterScroll = () => {
     if (twRaf) return;

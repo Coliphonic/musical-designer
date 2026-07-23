@@ -1655,20 +1655,78 @@ body.dark .modal-box .seg button.active { background: transparent; color: var(--
    min-height/min-width:0 stops the flex item from growing to its content
    height — otherwise the whole wrap (and the side drawer) balloons to the
    full manuscript height and the drawer scrolls off-screen. */
-/* Focus mode — hide the chrome and dim everything but the section being
-   edited. Pure CSS on body.ms-focus + a per-section .ms-card-focused class;
-   see buildManuscriptPage's "Focus mode" block in app.js for the toggle. */
+/* Focus mode — hide the chrome; see buildManuscriptPage's "Focus mode" block
+   in app.js for the toggle. Redesigned from an opacity-dimmed card stack (the
+   original take — every section but the one the caret was in faded to 0.35)
+   to a seamless single-sheet feed: dimming tested as "reading through fog," so
+   it's gone for good, and every section is full-strength all the time now. */
 body.ms-focus #topnav,
 body.ms-focus .ms-toolbar,
 body.ms-focus .ms-nav,
 body.ms-focus .ms-format-bar { display: none !important; }
-body.ms-focus .ms-edit-doc .ms-card-section {
-  opacity: 0.35;
-  transition: opacity 0.2s ease;
+
+/* The seamless feed: .ms-edit-doc itself becomes the one 816px sheet of paper
+   (was: each .ms-card-section its own bordered page inside a plain wrapper),
+   so card boundaries dissolve into a continuous document — no seam, no
+   dimming, nothing to tell you where one card ends and the next begins except
+   the divider line. Those dividers stop being little icon+rule chrome and
+   start reading as typed Fountain markup: `.` scene heading, `~` song,
+   `=` beat, `#` act, `//` beat/logline note — the same shorthand a
+   screenwriter would type inline. Every marker here is a CSS ::before glyph
+   painted over real content (dv-scene/dv-song/dv-beat classes added in app.js
+   alongside the existing icon), never parsed text, so click-to-rename on the
+   title still works exactly as before. Phase 2 (typing `. INT. KITCHEN` to
+   *create* a card) is not built — these are read-only decoration for now. */
+body.ms-focus .ms-edit-doc {
+  width: 816px;
+  margin: 0 auto;
+  padding: 64px 0 45vh; /* long tail so typewriter scroll can center the last line */
+  background: var(--panel);
+  box-shadow: 0 2px 12px #0003;
 }
-body.ms-focus .ms-edit-doc .ms-card-section.ms-card-focused,
-body.ms-focus .ms-edit-doc .ms-card-section:hover {
-  opacity: 1;
+/* .ms-edit-doc in the selector isn't decoration: body.dark .ms-card-section
+   (further down) re-adds a shadow at equal specificity and would win by order,
+   leaving faint card-edge banding in dark-mode Focus. */
+body.ms-focus .ms-edit-doc .ms-card-section { background: transparent; box-shadow: none; width: auto; }
+body.ms-focus .ms-card-divider {
+  width: 816px;
+  margin: 36px auto 10px;
+  box-sizing: border-box;
+  padding: 0 120px;
+  justify-content: flex-start;
+}
+body.ms-focus .ms-card-divider::before,
+body.ms-focus .ms-card-divider::after { display: none; } /* the hairline rule either side of the label */
+body.ms-focus .ms-card-divider-icon { display: none; } /* ♪/◆/◦ — replaced by the ::before markers below */
+body.ms-focus .ms-card-divider-label {
+  font-family: var(--edit-font, 'Courier Prime', 'Courier New', Courier, monospace);
+  font-size: calc(16px * var(--msz, 1));
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+body.ms-focus .dv-scene .ms-card-divider-label { text-transform: uppercase; } /* INT./EXT. reads as a real slugline */
+body.ms-focus .dv-scene .ms-card-divider-title::before { content: '.'; }
+body.ms-focus .dv-song .ms-card-divider-title::before { content: '~'; }
+body.ms-focus .dv-beat .ms-card-divider-title::before { content: '='; }
+/* Scoped to .ms-edit-doc (not bare .lw-note-ms) even though Focus is Edit-only
+   and body.ms-focus is stripped before Print View renders (applyMode, app.js) —
+   .lw-note-ms is also used inside .ms-viewport and #pdf-print-root, and this
+   keeps the "//" marker impossible to leak into those views regardless. */
+body.ms-focus .ms-edit-doc .lw-note-ms::before { content: '//'; }
+body.ms-focus .ms-card-placeholder { display: none; } /* "(scene heading — click to write)" — the typed marker already says it */
+/* Act markers: see .ms-act-marker's base (hidden) rule near the divider CSS
+   below — this just paints it once Focus is on. */
+body.ms-focus .ms-act-marker {
+  display: block;
+  width: 816px;
+  margin: 48px auto 10px;
+  box-sizing: border-box;
+  padding: 0 120px;
+  font-family: var(--edit-font, 'Courier Prime', 'Courier New', Courier, monospace);
+  font-size: calc(16px * var(--msz, 1));
+  color: var(--muted);
+  user-select: none;
 }
 .ms-focus-exit-pill {
   position: absolute;
@@ -1998,6 +2056,11 @@ body.dark .ms-card-section { box-shadow: 0 2px 12px #0003; }
   user-select: none;
   width: 100%;
 }
+/* Act markers ("#ACT 1") — chrome inserted into the edit doc at each act
+   boundary alongside the card dividers (see rebuildEdit in app.js). Present
+   in the DOM at all times so Focus mode can reveal them with a class instead
+   of rebuilding the document; everywhere outside Focus they stay hidden. */
+.ms-act-marker { display: none; }
 
 /* Rich line editor */
 .ms-card-rich-editor { display: flex; flex-direction: column; position: relative; }

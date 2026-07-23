@@ -181,6 +181,36 @@ the `.ms-body` scroller as `position: sticky` — sticky pins vertically only,
 so horizontally scrolling a zoomed-in doc dragged the bar sideways. It now
 sits in `.ms-edit-col`, a column above the scroller, and can't pan.
 
+### Focus mode: the seamless Fountain feed
+
+Focus mode (Manuscript → Edit, the ribbon's Focus toggle) hides the topbar,
+manuscript toolbar, and outline via one `body.ms-focus` class. The first version
+dimmed every card section to 0.35 opacity except the one the caret was in; that
+tested as "reading through fog" and is gone for good — nothing in Focus dims,
+ever, ever again.
+
+In its place: the whole manuscript becomes **one continuous sheet**.
+`.ms-edit-doc` itself becomes the 816px page (background, shadow); each
+`.ms-card-section` goes transparent and borderless inside it, so card
+boundaries dissolve instead of stacking as separate pages. The only seams left
+are the dividers between cards, and in Focus they stop looking like chrome
+(icon + hairline rule) and start reading as **typed Fountain markup** — the
+shorthand a screenwriter would type inline: `.` scene heading, `~` song,
+`=` beat, `#` act, `//` beat/logline note. Every one of these is a CSS
+`::before` glyph painted over the real title text (`dv-scene`/`dv-song`/
+`dv-beat` classes on the divider, an `.ms-act-marker` chrome div at act
+boundaries) — never parsed text, so click-to-rename on a card's title still
+works exactly as it did before. **Phase 2** — typing one of these markers to
+*create* a card, not just decorate an existing one — is not built; this pass
+is read-only decoration.
+
+Two Focus-only interactions besides the toggle itself: the exit pill now wakes
+on `touchstart` as well as `mousemove` (no hover on iPad), and pinch-to-zoom
+works inside Focus — WebKit's `gesturestart`/`gesturechange`/`gestureend`
+events on iPad, `ctrl`+`wheel` for a trackpad — both driving the *exact same*
+`zoom` variable, clamp, `localStorage` persistence, and `applyZoom()` the
+toolbar's zoom buttons use, so pinch and the buttons never disagree.
+
 ## 4. Fields and controls
 
 > **On the desk a surface rises; on paper a field sinks.**
