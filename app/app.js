@@ -198,6 +198,16 @@ function cardBodyField(c) {
   return c.type === 'scene' ? 'note' : 'lyrics';
 }
 
+// Which field holds a card's *planning note* — the short "what is this for"
+// line shown above the body in the manuscript (the "//" marker in Focus) and
+// set by typing "//text". A beat's is its Beatline (note); a song's is its
+// "why does this sing" purpose. A scene has none: its .note IS the body, so
+// there's nothing to annotate separately — callers treat null as "no note
+// here" and let "//" fall through to plain text.
+function planningNoteField(c) {
+  return c.type === 'beat' ? 'note' : c.type === 'song' ? 'purpose' : null;
+}
+
 // Word count on the manuscript body — strips emphasis markup (see emphToHtml)
 // so **bold**/_underline_/~~strike~~/==highlight== symbols, and inline-note
 // markers, aren't counted as their own words.
@@ -2295,7 +2305,7 @@ function bodyLineEl(type, text, key) {
 // `detachBar`: don't mount the style ribbon inside the editor — the caller mounts
 // it elsewhere (the manuscript hoists it into one persistent bar). `onClose`: run
 // once when the editor commits (so the caller can release that shared bar).
-function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, onClose, onSpawnCard }) {
+function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, onClose, onSpawnCard, onNote }) {
   // Typing model: content decides, live. Enter creates a PREDICTED row — styled
   // at the likely next element's indent but not committed to it; what the
   // writer types re-classifies it as the text identifies itself (liveInferRow),
@@ -3234,6 +3244,25 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
           line.remove();
           commit(); // save this card as it stands (minus the trigger line)
           onSpawnCard(spawn.type, spawn.title);
+          return;
+        }
+      }
+      // Typed note: "//text" on a BLANK line sets THIS card's planning note
+      // (beat Beatline / song purpose) instead of adding a body line. Same
+      // blank-line guard as the creation markers; onNote is null for scenes
+      // (their .note is the body) so "//" falls through to plain text there.
+      // A leading "//" already "waits for commit" in live inference (the
+      // reserved-marker set includes "/"), so the text survives intact to here.
+      if (onNote && !e.shiftKey) {
+        const nm = (line.textContent || '').trim().match(/^\/\/\s*(\S.*)$/);
+        const prevN = line.previousElementSibling;
+        if (nm && prevN && !(prevN.textContent || '').trim()) {
+          e.preventDefault();
+          delete line.dataset.dirty;
+          if (line === lastActiveLine) lastActiveLine = null;
+          line.remove();
+          commit();
+          onNote(nm[1].trim());
           return;
         }
       }
@@ -7153,6 +7182,7 @@ function buildManuscriptPage(sceneId) {
   // tear this element out of the DOM before its click ever fires.
   const makeBeatlineEditable = (elm, c) => {
     if (state.readonly) return elm;
+    const nf = planningNoteField(c) || 'note'; // beat→note, song→purpose
     elm.classList.add('lw-note-ms-edit');
     elm.setAttribute('spellcheck', 'false');
     elm.addEventListener('mousedown', (e) => e.stopPropagation());
@@ -7162,14 +7192,14 @@ function buildManuscriptPage(sceneId) {
     });
     elm.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); elm.blur(); }
-      else if (e.key === 'Escape') { e.preventDefault(); elm.textContent = c.note || ''; elm.blur(); }
+      else if (e.key === 'Escape') { e.preventDefault(); elm.textContent = c[nf] || ''; elm.blur(); }
     });
     elm.addEventListener('blur', () => {
       if (state.loading) return;
       const v = elm.textContent.replace(/\s+/g, ' ').trim();
       elm.textContent = v;
       elm.removeAttribute('contenteditable');
-      if (v !== (c.note || '')) { setCardBody(c, 'note', v); doSave(); if (refreshNav) refreshNav(); }
+      if (v !== (c[nf] || '')) { setCardBody(c, nf, v); doSave(); if (refreshNav) refreshNav(); }
     });
     return elm;
   };
@@ -7220,9 +7250,10 @@ function buildManuscriptPage(sceneId) {
     // Beatline shown as a sage outline reference — consistent with Print view.
     // Read-only here (edited via the card / Details); hidden with its own
     // Beatlines toggle (CSS, under .hide-beatlines) so it round-trips cleanly.
-    const hasBeatline = c.type === 'beat' && (c.note || '').trim();
+    const noteField = planningNoteField(c); // beat→note, song→purpose, scene→null
+    const hasBeatline = !!noteField && (c[noteField] || '').trim();
     const inner = el('div', { class: 'ms-card-content ms-sheet-content' + (isEmpty && !hasBeatline ? ' ms-card-section-empty' : '') });
-    if (hasBeatline) inner.appendChild(makeBeatlineEditable(el('div', { class: 'lw-note-ms', text: c.note }), c));
+    if (hasBeatline) inner.appendChild(makeBeatlineEditable(el('div', { class: 'lw-note-ms', text: c[noteField] }), c));
     if (isEmpty) {
       const sceneWord = state.format === 'prose' ? 'chapter heading' : 'scene heading';
       const phText = state.readonly
@@ -7255,10 +7286,11 @@ function buildManuscriptPage(sceneId) {
     // Keep the sage Beatline pinned above the editor while editing (it's edited via
     // the card/Details, not here) so it doesn't vanish when you click in. Wrapped in
     // .ms-sheet-content so it inherits the script column width and wraps like static.
-    const hasBeatline = c.type === 'beat' && (c.note || '').trim() && state.msOptions.showBeatlines !== false;
+    const noteField = planningNoteField(c); // beat→note, song→purpose, scene→null
+    const hasBeatline = !!noteField && (c[noteField] || '').trim() && state.msOptions.showBeatlines !== false;
     sec.classList.toggle('ms-has-logline', !!hasBeatline);
     if (hasBeatline) {
-      sec.appendChild(el('div', { class: 'ms-sheet-content ms-edit-logline' }, [makeBeatlineEditable(el('div', { class: 'lw-note-ms', text: c.note }), c)]));
+      sec.appendChild(el('div', { class: 'ms-sheet-content ms-edit-logline' }, [makeBeatlineEditable(el('div', { class: 'lw-note-ms', text: c[noteField] }), c)]));
     }
     const rich = buildRichEditor({
       text: c[cardField(c)] || '',
@@ -7280,6 +7312,19 @@ function buildManuscriptPage(sceneId) {
         const at = state.cards.indexOf(c);
         spawnCardAt(type, at < 0 ? state.cards.length - 1 : at, 'after', title);
       },
+      // "//text" + Enter sets THIS card's planning note (beat Beatline / song
+      // "why does this sing") and removes the line. Only wired where the card
+      // has such a note — scenes (whose .note is the body) get null, so "//"
+      // stays plain text there. The body just committed (minus the // line);
+      // set the note, then re-open the editor so its logline shows above.
+      onNote: planningNoteField(c) ? (txt) => {
+        const nf = planningNoteField(c);
+        const cur = (c[nf] || '').trim();
+        setCardBody(c, nf, cur ? cur + ' ' + txt : txt); // beatline is single-line; append with a space
+        doSave();
+        if (refreshNav) refreshNav();
+        enterCardEditRich(sec, c); // static now (commit re-rendered it) → re-open with the logline
+      } : null,
     });
     sec.appendChild(rich);
     // Hoist this editor's ribbon into the single sticky bar (it controls whichever
