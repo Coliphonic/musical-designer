@@ -241,6 +241,16 @@ leaves alone) *stay* left until Enter resolves them — so a typed `//note` or
 the stamp is dropped by the same live/commit passes the moment the text
 identifies (`liveInferRow` / `setLineType` / `inferRow`).
 
+The element picker names this state **General** (Highland's term for the
+unclassified line) rather than the element it's *predicted* to be — so hitting
+Enter shows "General," not "Action," until the text picks a lane. It's the
+first option in the dropdown; selecting it is the inverse gesture — it *un-forces*
+a line you'd manually Tab/dropdown-locked, dropping the `data-man` lock and
+handing the line back to inference (empty → stays General; has text → re-resolves
+at once). Musical-only: Prose's element set has no such state (its **Body** is
+already the flush-left catch-all), so neutral is never stamped there and the
+picker keeps showing "Body."
+
 Two Focus-only interactions besides the toggle itself: the exit pill now wakes
 on `touchstart` as well as `mousemove` (no hover on iPad), and pinch-to-zoom
 works inside Focus — WebKit's `gesturestart`/`gesturechange`/`gestureend`

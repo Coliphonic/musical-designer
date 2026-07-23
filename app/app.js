@@ -2695,7 +2695,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
         else node.remove();
       }
     });
-    if (!lineEd.querySelector('.ms-el')) { const first = mkLine(isSong ? 'sung' : 'action', ''); first.dataset.neutral = '1'; lineEd.appendChild(first); }
+    if (!lineEd.querySelector('.ms-el')) { const first = mkLine(isSong ? 'sung' : 'action', ''); if (!isProse) first.dataset.neutral = '1'; lineEd.appendChild(first); }
     if (preserve) restoreBookmark(bm);
   };
   const needsNormalize = () => {
@@ -2915,6 +2915,12 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   const styleBar = el('div', { class: 'ms-style-bar' });
   const styleSel = el('select', { class: 'ms-style-sel' });
   const modKey = navigator.platform.toUpperCase().includes('MAC') ? '⌘' : 'Ctrl+';
+  // Highland's "General": the neutral, not-yet-classified line. It's what a fresh
+  // line reads as while it's empty (flush-left, undecided, before its text picks
+  // an element). Listed first as the default state; selecting it hands a line
+  // back to inference (un-forces a Tab/dropdown lock). Prose has no such state —
+  // its Body IS the flush-left catch-all — so the option is musical-only.
+  if (!isProse) styleSel.appendChild(el('option', { value: 'general', text: 'General' }));
   Object.entries(elLabels).forEach(([val, label]) => {
     const n = val === 'blank' ? 7 : elCycle.indexOf(val) + 1;
     styleSel.appendChild(el('option', { value: val, text: n ? label + '  (' + modKey + n + ')' : label }));
@@ -3029,14 +3035,14 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   // for a song, Action otherwise (Prose has only Action). NOT Character/cue:
   // a fresh card should open reading like plain text, and typing an all-caps
   // name still live-infers it up to a cue when it actually is one.
-  if (!seed.some((t) => t.type !== 'blank')) { const first = mkLine(isSong ? 'sung' : 'action', ''); first.dataset.neutral = '1'; lineEd.appendChild(first); }
+  if (!seed.some((t) => t.type !== 'blank')) { const first = mkLine(isSong ? 'sung' : 'action', ''); if (!isProse) first.dataset.neutral = '1'; lineEd.appendChild(first); }
   else seed.forEach((l) => {
     const r = mkLine(l.type, l.text, l.dual, l.id, l.subtype);
     // A SAVED empty row is just as unidentified as a fresh one — without the
     // stamp, a card whose body ends in an empty action row parks the caret at
     // the action indent the moment the editor opens. Empty is empty: it shows
     // nothing either way, so neutral only moves the caret to the left margin.
-    if (!(l.text || '').trim()) r.dataset.neutral = '1';
+    if (!isProse && !(l.text || '').trim()) r.dataset.neutral = '1';
     lineEd.appendChild(r);
   });
 
@@ -3065,7 +3071,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       newLine.dataset.neutral = '1'; // and flush-left until it does
       line.after(newLine);
       placeCursorAt(newLine, false);
-      styleSel.value = newType;
+      styleSel.value = 'general'; // undecided line reads as General
     } else {
       placeCursorAt(line, true);
     }
@@ -3096,7 +3102,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       if (lastActiveLine && lineEd.contains(lastActiveLine)) inferRow(lastActiveLine);
       lastActiveLine = line;
     }
-    if (line) styleSel.value = line.dataset.type;
+    if (line) styleSel.value = line.dataset.neutral === '1' ? 'general' : line.dataset.type; // a neutral (undecided) line reads as General, not its predicted element
     dualBtn.disabled = !(line && line.dataset.type === 'cue');
     dualBtn.classList.toggle('active', !!(line && line.dataset.dual === '1'));
     // Reflect emphasis at the caret on the B/I/U buttons.
@@ -3163,6 +3169,19 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   // text reverts on normalize). Stack several to stagger dual-dialogue columns;
   // Enter on a blank adds another. Shared by the element dropdown and ⌘1–7.
   const setOrInsertType = (line, type) => {
+    if (type === 'general') {
+      // Un-force: drop any manual lock and re-mark the line neutral, then let
+      // inference re-decide. An empty line stays General (flush-left); a line
+      // that already has text resolves immediately to whatever it reads as.
+      delete line.dataset.man;
+      setLineType(line, isSong ? 'sung' : 'action'); // base predicted type (setLineType clears neutral)…
+      line.dataset.neutral = '1';                    // …then mark it undecided again
+      line.dataset.dirty = '1';
+      placeCursorAt(line, true);
+      liveInferRow(line);
+      styleSel.value = line.dataset.neutral === '1' ? 'general' : line.dataset.type;
+      return;
+    }
     if (type === 'blank' && (line.textContent || '').trim()) {
       const nl = mkLine('blank', '');
       nl.dataset.man = '1'; // explicitly chosen — inference never touches it
@@ -3310,7 +3329,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       const newType = (e.shiftKey || carried.trim()) ? curType : predictNext(cur);
       const newLine = mkLine(newType, carried);
       newLine.dataset.dirty = '1'; // carries user text into a new row this session
-      if (!carried.trim()) { newLine.dataset.fresh = '1'; newLine.dataset.neutral = '1'; } // born empty — full inference freedom, caps → Character; renders flush-left until the text identifies
+      if (!carried.trim()) { newLine.dataset.fresh = '1'; if (!isProse) newLine.dataset.neutral = '1'; } // born empty — full inference freedom, caps → Character; renders flush-left until the text identifies (musical only; prose Body is already flush-left)
       cur.after(newLine);
       placeCursorAt(newLine, false);
       styleSel.value = newType;
@@ -3402,7 +3421,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   richWrap._lineEd = lineEd; // host element, so callers can re-anchor scroll to it
   richWrap._focusFirst = () => {
     const first = lineEd.querySelector('.ms-el');
-    if (first) { placeCursorAt(first, false); styleSel.value = first.dataset.type || 'cue'; }
+    if (first) { placeCursorAt(first, false); styleSel.value = first.dataset.neutral === '1' ? 'general' : (first.dataset.type || 'cue'); }
   };
   // Open with the caret exactly where the user clicked (one click → ready to
   // type at that spot), falling back to the first line if the point misses.
