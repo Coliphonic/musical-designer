@@ -137,6 +137,32 @@ function el(tag, attrs, kids) {
 }
 function cardById(id) { return state.cards.find((c) => c.id === id); }
 
+// CSS `zoom` scales boxes in every engine, but iOS WebKit renders text at its
+// UNzoomed size (computed font-size comes back divided by the zoom factor —
+// confirmed on iPadOS 26.5, even on a bare page). Detected once at runtime;
+// where text doesn't scale, zoomed surfaces set --msz to the zoom factor and
+// their absolute font-sizes (calc(Npx * var(--msz, 1)) in styles.css) carry
+// the scaling themselves. Engines that do scale text keep --msz at 1.
+let _cssZoomScalesText = null;
+function cssZoomScalesText() {
+  if (_cssZoomScalesText === null) {
+    const d = document.createElement('div');
+    d.style.cssText = 'position:absolute;visibility:hidden;zoom:2;font-size:10px;line-height:1;';
+    d.textContent = 'x';
+    document.body.appendChild(d);
+    _cssZoomScalesText = d.getBoundingClientRect().height > 15; // scaled ≈20, unscaled ≈10
+    d.remove();
+  }
+  return _cssZoomScalesText;
+}
+// One zoom application for every zoomable document surface (manuscript
+// viewports, edit doc, notes doc): CSS zoom + the --msz text compensation.
+function applyDocZoom(elm, zoom) {
+  if (!elm) return;
+  elm.style.zoom = zoom;
+  elm.style.setProperty('--msz', cssZoomScalesText() ? 1 : zoom);
+}
+
 // ---- model ----
 function cardFromTuple(t) {
   const [act, title, fn, voicing, min] = t;
@@ -4961,7 +4987,7 @@ function buildNotesPage() {
 
   let docEl, editorEl;
   const applyZoom = () => {
-    if (docEl) docEl.style.zoom = zoom;
+    if (docEl) applyDocZoom(docEl, zoom);
     zoomLbl.textContent = Math.round(zoom * 100) + '%';
     zoomOut.disabled = zoom <= ZOOM_MIN;
     zoomIn.disabled = zoom >= ZOOM_MAX;
@@ -6833,20 +6859,20 @@ function buildManuscriptPage(sceneId) {
 
   const msWrap = el('div', { class: 'ms-wrap' });
 
-  // Zoom uses CSS `zoom` (scales layout + text together, so the sheet shrinks to
-  // fit on zoom-out and the ribbon stays pinned — transform:scale leaves layout
-  // full-width and pans the page on narrow screens). iOS Safari's `zoom` scales
-  // px box metrics but not pt-based font sizes, so the manuscript's on-screen
-  // type is in px (see .ms-sheet in styles.css) to scale with it.
-  const applyMsZoom = (elm) => {
-    if (elm) elm.style.zoom = zoom;
-  };
+  // Zoom uses CSS `zoom` (scales layout, so the sheet shrinks to fit on
+  // zoom-out and overflow stays real layout overflow — transform:scale leaves
+  // layout full-width and pans the page on narrow screens). Text is scaled by
+  // --msz where the engine needs it — see applyDocZoom/cssZoomScalesText.
+  const applyMsZoom = (elm) => applyDocZoom(elm, zoom);
 
   // ── Layout mode (paginated) ──────────────────────────────────────
   const rebuildSheets = () => {
     const oldBody = msWrap.querySelector('.ms-body');
     const scrollTop = oldBody ? oldBody.scrollTop : 0;
-    if (oldBody) oldBody.remove();
+    // Edit mode wraps its .ms-body in a .ms-edit-col (format bar above the
+    // scroller) — remove the whole column, not just the nested body.
+    const oldRoot = msWrap.querySelector('.ms-edit-col') || oldBody;
+    if (oldRoot) oldRoot.remove();
     const newBody = el('div', { class: 'ms-body' });
     const toks = buildContentTokens(sceneId);
     const pages = paginateTokens(toks, sceneId ? null : undefined);
@@ -6874,7 +6900,10 @@ function buildManuscriptPage(sceneId) {
   const rebuildBook = () => {
     const oldBody = msWrap.querySelector('.ms-body');
     const scrollTop = oldBody ? oldBody.scrollTop : 0;
-    if (oldBody) oldBody.remove();
+    // Edit mode wraps its .ms-body in a .ms-edit-col (format bar above the
+    // scroller) — remove the whole column, not just the nested body.
+    const oldRoot = msWrap.querySelector('.ms-edit-col') || oldBody;
+    if (oldRoot) oldRoot.remove();
     const newBody = el('div', { class: 'ms-body' });
     const viewport = el('div', { class: 'ms-viewport book-viewport' });
     applyMsZoom(viewport);
@@ -6891,7 +6920,10 @@ function buildManuscriptPage(sceneId) {
   const rebuildTitle = () => {
     const oldBody = msWrap.querySelector('.ms-body');
     const scrollTop = oldBody ? oldBody.scrollTop : 0;
-    if (oldBody) oldBody.remove();
+    // Edit mode wraps its .ms-body in a .ms-edit-col (format bar above the
+    // scroller) — remove the whole column, not just the nested body.
+    const oldRoot = msWrap.querySelector('.ms-edit-col') || oldBody;
+    if (oldRoot) oldRoot.remove();
     const newBody = el('div', { class: 'ms-body' });
 
     const checks = el('div', { class: 'tp-checks' });
@@ -6945,7 +6977,10 @@ function buildManuscriptPage(sceneId) {
   const rebuildBookMatter = () => {
     const oldBody = msWrap.querySelector('.ms-body');
     const scrollTop = oldBody ? oldBody.scrollTop : 0;
-    if (oldBody) oldBody.remove();
+    // Edit mode wraps its .ms-body in a .ms-edit-col (format bar above the
+    // scroller) — remove the whole column, not just the nested body.
+    const oldRoot = msWrap.querySelector('.ms-edit-col') || oldBody;
+    if (oldRoot) oldRoot.remove();
     const newBody = el('div', { class: 'ms-body bm-body' });
     const book = state.book;
 
@@ -7304,7 +7339,10 @@ function buildManuscriptPage(sceneId) {
   const rebuildEdit = () => {
     const oldBody = msWrap.querySelector('.ms-body');
     const scrollTop = oldBody ? oldBody.scrollTop : 0;
-    if (oldBody) oldBody.remove();
+    // Edit mode wraps its .ms-body in a .ms-edit-col (format bar above the
+    // scroller) — remove the whole column, not just the nested body.
+    const oldRoot = msWrap.querySelector('.ms-edit-col') || oldBody;
+    if (oldRoot) oldRoot.remove();
     const newBody = el('div', { class: 'ms-body' });
     // One persistent formatting bar, sticky at the top of the editing surface. It
     // always occupies its slot (so opening/closing a card editor never shifts the
@@ -7341,7 +7379,12 @@ function buildManuscriptPage(sceneId) {
       formatBar.classList.toggle('active', !!styleBarEl);
       formatBar.appendChild(styleBarEl || idleBar);
     };
-    if (!state.readonly) { setActiveFormatBar(null); newBody.appendChild(formatBar); }
+    // The format bar sits in a column ABOVE the scroller, not inside it: as a
+    // sticky child of .ms-body it pinned vertically but panned horizontally
+    // with the content when the zoomed doc forced sideways scrolling (the
+    // "ribbon drifts" iPad bug). Outside the scroller it can't pan at all.
+    const editCol = el('div', { class: 'ms-edit-col' });
+    if (!state.readonly) { setActiveFormatBar(null); editCol.appendChild(formatBar); }
     // Mirror the Print view's "Section tags" and "Beatlines" toggles here: hide
     // section pills / Beatlines in both the static render and the rich editor
     // when their option is off. CSS hides them (lines stay in the DOM, so they
@@ -7377,7 +7420,8 @@ function buildManuscriptPage(sceneId) {
       doc.appendChild(sec);
     });
     newBody.appendChild(doc);
-    msWrap.insertBefore(newBody, msWrap.querySelector('.ms-hd-drawer'));
+    editCol.appendChild(newBody);
+    msWrap.insertBefore(editCol, msWrap.querySelector('.ms-hd-drawer'));
     newBody.scrollTop = scrollTop;
     if (refreshNav) refreshNav();
   };

@@ -561,7 +561,10 @@ body.dark .ms-body { background: var(--bg); }
      export roots (sheetOpts.font); the Manuscript never sets it, so it falls
      back to Courier and stays a typewriter script. */
   font-family: var(--sheet-font, 'Courier Prime', 'Courier New', Courier, monospace);
-  font-size: 16px; /* 12pt exactly; px so iOS Safari's `zoom` scales the type, not just the box */
+  /* 12pt. --msz carries the zoom factor on engines whose CSS `zoom` scales
+     boxes but not text (iOS WebKit) — see applyDocZoom in app.js. Everywhere
+     else --msz is 1 and this is exactly 16px. */
+  font-size: calc(16px * var(--msz, 1));
   line-height: 1.0; /* FD Spacing="1" Leading="Regular" — 6 lines/inch typewriter standard */
   flex-shrink: 0;
 }
@@ -569,7 +572,7 @@ body.dark .ms-body { background: var(--bg); }
   display: flex;
   justify-content: space-between;
   padding: 48px 48px 0; /* 0.5" from top edge; 0.5" side margins */
-  font-size: 16px; /* 12pt (FD Size=12) */
+  font-size: calc(16px * var(--msz, 1)); /* 12pt (FD Size=12) */
   color: #333;
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   min-height: 24px;
@@ -578,7 +581,7 @@ body.dark .ms-body { background: var(--bg); }
   flex: 1;
   padding: 12px 120px 72px; /* top: hdr(72px)+12px = 84px = 0.875" from top; bottom: 0.75" = 72px */
   font-family: var(--sheet-font, 'Courier Prime', 'Courier New', Courier, monospace);
-  font-size: 16px; /* 12pt */
+  font-size: calc(16px * var(--msz, 1)); /* 12pt */
   line-height: 1.0;
   color: #111;
 }
@@ -627,7 +630,7 @@ body.dark .lyricwin .ms-sheet { box-shadow: 0 4px 20px rgba(0,0,0,0.5); }
 .ms-edit-doc .ms-sheet-content { font-family: var(--edit-font, 'Courier Prime', 'Courier New', Courier, monospace); }
 .ms-sheet-show-title {
   text-align: center;
-  font-size: 18.667px; /* 14pt */
+  font-size: calc(18.667px * var(--msz, 1)); /* 14pt */
   font-weight: 700;
   letter-spacing: 0.08em;
   text-decoration: underline;
@@ -725,7 +728,7 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
   /* When PDF export root is present, show only that */
   body:has(#pdf-print-root) > *:not(#pdf-print-root) { display: none !important; }
   #pdf-print-root { display: block !important; }
-  #pdf-print-root .ms-viewport { zoom: 1 !important; gap: 0 !important; padding: 0 !important; display: block !important; }
+  #pdf-print-root .ms-viewport { zoom: 1 !important; --msz: 1 !important; gap: 0 !important; padding: 0 !important; display: block !important; }
   /* Exact letter sizing in inches avoids px→page rounding (blank pages / right-edge clipping) */
   #pdf-print-root .ms-sheet {
     width: 8.5in;
@@ -804,7 +807,7 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
      --book-pad-side is the pre-3b uniform fallback for un-stamped/probe sheets. */
   padding: var(--book-pad-top, 96px) var(--book-pad-outer, var(--book-pad-side, 108px)) var(--book-pad-bottom, 96px) var(--book-pad-inner, var(--book-pad-side, 108px));
   font-family: var(--book-font, Georgia, 'Times New Roman', serif);
-  font-size: 16px;
+  font-size: calc(16px * var(--msz, 1));
   line-height: 1.5;
   color: #111;
 }
@@ -822,7 +825,7 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
   transform: translateY(-50%);
   text-align: center;
   font-family: var(--book-font, Georgia, 'Times New Roman', serif);
-  font-size: 10px;
+  font-size: calc(10px * var(--msz, 1));
   letter-spacing: 0.14em;
   text-transform: uppercase;
   color: #6a6a6a;
@@ -837,7 +840,7 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
   bottom: calc(var(--book-pad-bottom, 96px) / 2);
   transform: translateY(50%);
   font-family: var(--book-font, Georgia, 'Times New Roman', serif);
-  font-size: 11px;
+  font-size: calc(11px * var(--msz, 1));
   color: #555;
 }
 .book-sheet.recto .book-folio { right: var(--book-pad-outer, var(--book-pad-side, 108px)); }
@@ -853,7 +856,7 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .book-chapter-title {
   margin: 30% 0 2em;
   text-align: center;
-  font-size: 22px;
+  font-size: calc(22px * var(--msz, 1));
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -871,25 +874,25 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
   text-align: center;
 }
 .book-halftitle-text, .book-titlepage-title {
-  font-size: 26px;
+  font-size: calc(26px * var(--msz, 1));
   letter-spacing: 0.03em;
   text-transform: uppercase;
 }
 .book-titlepage-author {
   margin-top: 1.5em;
-  font-size: 16px;
+  font-size: calc(16px * var(--msz, 1));
   color: #333;
 }
 .book-copyright {
   margin-top: auto;
-  font-size: 12px;
+  font-size: calc(12px * var(--msz, 1));
   line-height: 1.6;
   color: #333;
 }
 .book-copyright-line { margin: 0 0 0.4em; }
 .book-toc-heading {
   text-align: center;
-  font-size: 20px;
+  font-size: calc(20px * var(--msz, 1));
   letter-spacing: 0.04em;
   text-transform: uppercase;
   margin-bottom: 2em;
@@ -912,13 +915,13 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .book-ch-name {
   display: block;
   margin-top: 0.55em;
-  font-size: 15px;
+  font-size: calc(15px * var(--msz, 1));
   font-style: italic;
   letter-spacing: 0.02em;
   text-transform: none;
 }
-.bk-label-bare .book-ch-label { font-size: 52px; letter-spacing: 0; line-height: 1; }
-.bk-label-roman .book-ch-label { font-size: 30px; letter-spacing: 0.08em; }
+.bk-label-bare .book-ch-label { font-size: calc(52px * var(--msz, 1)); letter-spacing: 0; line-height: 1; }
+.bk-label-roman .book-ch-label { font-size: calc(30px * var(--msz, 1)); letter-spacing: 0.08em; }
 .bk-label-roman .book-ch-label::after {
   content: ''; display: block; width: 42px; height: 1px;
   background: currentColor; opacity: 0.5; margin: 0.4em auto 0;
@@ -1027,7 +1030,7 @@ body.dark .ms-sheet-content .lw-note-ms { color: #9cc28d; }
 .tp-contact-label { }
 .tp-contact-line { padding-left: 48px; }
 .tp-contact-or { padding-left: 48px; margin-top: 12pt; }
-.tp-section-heading { text-align: center; font-weight: normal; font-size: 16px; text-decoration: underline; text-transform: uppercase; margin: 24pt 0 0; }
+.tp-section-heading { text-align: center; font-weight: normal; font-size: calc(16px * var(--msz, 1)); text-decoration: underline; text-transform: uppercase; margin: 24pt 0 0; }
 .tp-cast-heading { }
 .tp-songs-heading { }
 .tp-song-row { text-align: center; line-height: 2; }
@@ -1891,7 +1894,7 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 }
 .notes-title-head {
   display: block; width: 100%; border: none; background: transparent; color: var(--ink);
-  font-family: inherit; font-size: 26px; font-weight: 800; letter-spacing: -0.02em;
+  font-family: inherit; font-size: calc(26px * var(--msz, 1)); font-weight: 800; letter-spacing: -0.02em;
   padding: 0 0 12px; margin: 0; border-bottom: 1px solid var(--line);
 }
 .notes-title-head:focus { outline: none; }
@@ -1899,10 +1902,10 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 .notes-editor {
   min-height: 55vh; padding-top: 16px;
   font-family: 'iA Writer Duo', 'Courier Prime Sans', monospace;
-  font-size: 13.5px; line-height: 1.6; color: var(--ink);
+  font-size: calc(13.5px * var(--msz, 1)); line-height: 1.6; color: var(--ink);
 }
 .notes-editor:focus { outline: none; background: transparent; }
-.notes-editor h2 { font-size: 19px; font-weight: 800; letter-spacing: -0.01em; margin: 0 0 10px; }
+.notes-editor h2 { font-size: calc(19px * var(--msz, 1)); font-weight: 800; letter-spacing: -0.01em; margin: 0 0 10px; }
 .notes-editor p { margin: 0 0 12px; }
 .notes-editor blockquote {
   margin: 0 0 12px; padding: 4px 0 4px 14px; border-left: 3px solid var(--line);
@@ -1922,6 +1925,11 @@ body.dark .ms-mode-seg button.active, body.dark .ribbon .seg button.active { bac
 .notes-empty { flex: 1; display: flex; align-items: center; justify-content: center; color: var(--faint); font-size: 13px; }
 
 /* Edit mode ─────────────────────────────────── */
+/* Column holding the format bar above the .ms-body scroller. The bar used to
+   live inside .ms-body as position:sticky — sticky pins vertically only, so
+   horizontal scrolling (a zoomed-in doc on a narrow screen) dragged the bar
+   sideways. Out here it's simply never part of the scroll. */
+.ms-edit-col { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
 .ms-edit-doc {
   padding: 32px 40px 80px;
   min-height: 100%;
@@ -1949,7 +1957,7 @@ body.dark .ms-card-divider::after { background: #b0aca6; }
   align-items: baseline;
   gap: 6px;
   font-family: var(--ui-font);
-  font-size: 12px;
+  font-size: calc(12px * var(--msz, 1));
   color: #f0ede8;
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -1981,7 +1989,7 @@ body.dark .ms-card-section { box-shadow: 0 2px 12px #0003; }
 .ms-card-placeholder {
   color: var(--faint);
   font-style: italic;
-  font-size: 16px; /* 12pt */
+  font-size: calc(16px * var(--msz, 1)); /* 12pt */
   font-family: 'Courier Prime', 'Courier New', Courier, monospace;
   padding: 0 120px;
   user-select: none;

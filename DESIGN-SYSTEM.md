@@ -161,6 +161,26 @@ more readable board. `#board` zooms in two tiers — 1.1× past 1700px, 1.2× pa
 kids' app at 1440p. Chrome (nav, ribbon, card editor) stays at UI scale — the
 content wall grows, the furniture doesn't.
 
+### CSS `zoom` and iOS text (the --msz mechanism)
+
+iOS WebKit's `zoom` scales boxes but **not text** — glyphs render at the
+author-specified size and computed font-size comes back divided by the zoom
+factor (confirmed on iPadOS 26.5 with a bare test page; `-webkit-text-size-adjust`
+in any value does not change it). Every zoomable document surface (manuscript
+viewports, edit doc, notes doc) therefore goes through `applyDocZoom()` in
+app.js: it sets `zoom` and a `--msz` custom property — 1 where the engine
+scales text itself (detected once at runtime), the zoom factor where it
+doesn't. The absolute font-sizes inside those subtrees are written as
+`calc(Npx * var(--msz, 1))` in styles.css, so on iOS the type carries its own
+scaling. Adding a new font-size inside a zoomed subtree? Wrap it in that calc.
+(The board's 1.1×/1.2× tiers don't need it — they trigger at ≥1700px, wider
+than any iPad viewport.)
+
+Related iPad fix, same incident: the Edit-mode format bar used to live inside
+the `.ms-body` scroller as `position: sticky` — sticky pins vertically only,
+so horizontally scrolling a zoomed-in doc dragged the bar sideways. It now
+sits in `.ms-edit-col`, a column above the scroller, and can't pan.
+
 ## 4. Fields and controls
 
 > **On the desk a surface rises; on paper a field sinks.**
