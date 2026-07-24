@@ -32,6 +32,8 @@ const NAMES = {
 const out = [];
 // per-show Act-1 song-minute accumulator → ATLAS_SHOWS
 const shareMap = new Map(); // name -> {a1, tot}
+const yearMap = new Map();  // name -> year from an explicit `year:` field (authoritative)
+const yearComment = new Map(); // name -> year from the show's `// YYYY` header comment (fallback)
 const addShare = (name, a1, tot) => {
   const r = shareMap.get(name) || { a1: 0, tot: 0 };
   r.a1 += a1; r.tot += tot; shareMap.set(name, r);
@@ -57,7 +59,16 @@ for (const f of readdirSync(DIR + '/corpus').filter(f => f.startsWith('corpus-')
   };
   for (const ln of lines) {
     const m0 = ln.match(showRe);
-    if (m0) { flush(); show = m0[1]; continue; }
+    if (m0) {
+      flush(); show = m0[1];
+      const nm = NAMES[show] || show;
+      // year lives inconsistently: inline `year:` (batch4), on the `form:` line
+      // (classics), or only in the `// YYYY` header comment (winners/extras).
+      const yf = ln.match(/\byear:\s*(\d{4})/); if (yf) yearMap.set(nm, +yf[1]);
+      const yc = ln.match(/\/\/\s*(\d{4})/);    if (yc) yearComment.set(nm, +yc[1]);
+      continue;
+    }
+    if (show) { const yf = ln.match(/\byear:\s*(\d{4})/); if (yf) yearMap.set(NAMES[show] || show, +yf[1]); }
     const m = ln.trim().match(tupleRe);
     if (m && show) {
       let t = (m[5] || '').trim()
@@ -87,6 +98,7 @@ for (const show of Object.values(SHOWS)) {
   const songTot = songCards.reduce((s, c) => s + (c.min || 0), 0);
   const a1song = songCards.reduce((s, c) => s + (['1', '2A'].includes(c.lane || c.act) ? (c.min || 0) : 0), 0);
   addShare(show.title, a1song, songTot);
+  if (show.year) yearMap.set(show.title, show.year);
   let cum = 0;
   for (const c of cards) {
     if (c.type === 'song' && c.fn) {
@@ -99,7 +111,11 @@ for (const show of Object.values(SHOWS)) {
   }
 }
 
-const shows = [...shareMap.entries()].map(([show, r]) => ({ show, a1share: +(r.a1 / r.tot).toFixed(3) }));
+const cnt = {};
+out.forEach((s) => { cnt[s.show] = (cnt[s.show] || 0) + 1; });
+const shows = [...shareMap.entries()].map(([show, r]) =>
+  ({ show, a1share: +(r.a1 / r.tot).toFixed(3),
+     year: yearMap.get(show) ?? yearComment.get(show) ?? null, n: cnt[show] || 0 }));
 
 writeFileSync(
   DIR + '/app/atlas-data.js',
@@ -109,3 +125,5 @@ writeFileSync(
 console.log(out.length, 'songs from', new Set(out.map(s => s.show)).size, 'shows;', shows.length, 'ATLAS_SHOWS');
 console.log('sample:', JSON.stringify(out.find(s => s.fn === 'villain' && Math.abs(s.pos - .38) < .04)));
 console.log('share sample:', JSON.stringify(shows.find(s => s.show === 'Fiddler on the Roof')), JSON.stringify(shows.find(s => s.show === 'Gypsy')));
+const noYear = shows.filter(s => !s.year).map(s => s.show);
+console.log('shows missing year:', noYear.length ? noYear.join(', ') : 'none');

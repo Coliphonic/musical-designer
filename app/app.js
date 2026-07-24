@@ -5626,27 +5626,50 @@ function buildDnaAtlas(host) {
 
   sec.appendChild(el('div', { class: 'atlas-foot', text: 'the dial is the night — 8:00 curtain at the left foot, eleven o’clock where it belongs · chords are the chiasmus: reprise → source, I Want → eleven, the bookend.' }));
 
-  // ── zone glow + filter ──
+  // ── two filter axes: function (active) and single show (activeShow) ──
   const zoneG = sv(svg, 'g', {});
+  const spineG = sv(svg, 'g', {});                            // an isolated show's connected songs
   const showsCount = (typeof ATLAS_SHOWS !== 'undefined' ? ATLAS_SHOWS.length : new Set(ATLAS_DATA.map((s) => s.show)).size);
   const statDefault = `All functions · ${ATLAS_DATA.length.toLocaleString()} songs · ${showsCount} shows, 1943–2026`;
   statEl.textContent = statDefault;
-  let active = null;
-  function setFilter(fn) {
-    active = fn;
-    if (curMineG) curMineG.classList.remove('ring');
-    curStar = null; curMineG = null; pinned = false; setPinnedCue(false);
-    [...chipsEl.children].forEach((c) => {
-      const on = (fn === null && c.dataset.fn === '') || c.dataset.fn === fn;
-      c.classList.toggle('on', on);
-    });
+  let active = null, activeShow = null;
+  function clearPin() { if (curMineG) curMineG.classList.remove('ring'); curStar = null; curMineG = null; pinned = false; setPinnedCue(false); }
+  // a star is "lit" when it passes whichever axis is engaged (show wins if both)
+  function litStar(i) { return activeShow ? ATLAS_DATA[i].show === activeShow : active ? atlasCanon(ATLAS_DATA[i].fn) === active : true; }
+  function applyStars() {
+    const filtering = !!(active || activeShow);
     starEls.forEach((e, i) => {
-      const s = ATLAS_DATA[i];
-      if (!fn) { e.setAttribute('opacity', starBase[i].op); e.setAttribute('r', starBase[i].r); e.removeAttribute('stroke'); }
-      else if (atlasCanon(s.fn) === fn) { e.setAttribute('opacity', .9); e.setAttribute('r', 2.4); }
+      if (!filtering) { e.setAttribute('opacity', starBase[i].op); e.setAttribute('r', starBase[i].r); }
+      else if (litStar(i)) { e.setAttribute('opacity', .9); e.setAttribute('r', activeShow ? 2.8 : 2.4); }
       else { e.setAttribute('opacity', dark ? .03 : .05); e.setAttribute('r', 1); }
+      e.removeAttribute('stroke');
     });
-    mineEls.forEach(({ g, m }) => g.setAttribute('opacity', !fn || m.fn === fn ? 1 : .15));
+    // your own songs stay lit under a show isolation (compare spines); dim off-function under a chip
+    mineEls.forEach(({ g, m }) => g.setAttribute('opacity', active ? (m.fn === active ? 1 : .15) : 1));
+  }
+  // connect an isolated show's songs, in stage order, into a spine over the arc
+  function drawSpine(name) {
+    spineG.innerHTML = '';
+    const idxs = ATLAS_DATA.map((s, i) => i).filter((i) => ATLAS_DATA[i].show === name)
+      .sort((a, b) => ATLAS_DATA[a].pos - ATLAS_DATA[b].pos);
+    if (idxs.length > 1) {
+      let dd = 'M';
+      idxs.forEach((i, k) => { dd += (k ? 'L' : '') + starPos[i].x.toFixed(1) + ' ' + starPos[i].y.toFixed(1) + ' '; });
+      sv(spineG, 'path', { d: dd, fill: 'none', stroke: 'var(--sage)', 'stroke-width': 1.2, opacity: .5, 'stroke-linejoin': 'round' });
+    }
+  }
+  function chipHighlight() {
+    [...chipsEl.children].forEach((c) => {
+      c.classList.toggle('on', !activeShow && ((active === null && c.dataset.fn === '') || c.dataset.fn === active));
+    });
+  }
+  function setFilter(fn) {
+    active = fn; activeShow = null;
+    clearPin();
+    pickInput.value = ''; pickWrap.classList.remove('picked', 'open');
+    spineG.innerHTML = '';
+    chipHighlight();
+    applyStars();
     zoneG.innerHTML = '';
     if (fn) {
       const rows = ATLAS_DATA.filter((s) => atlasCanon(s.fn) === fn);
@@ -5665,6 +5688,28 @@ function buildDnaAtlas(host) {
       }
     } else statEl.textContent = statDefault;
   }
+  function chooseShow(name) {
+    activeShow = name; active = null;
+    clearPin();
+    zoneG.innerHTML = '';
+    chipHighlight();
+    applyStars();
+    drawSpine(name);
+    pickInput.value = name; pickWrap.classList.add('picked'); pickWrap.classList.remove('open');
+    const info = (typeof ATLAS_SHOWS !== 'undefined') ? ATLAS_SHOWS.find((s) => s.show === name) : null;
+    const n = info ? info.n : ATLAS_DATA.filter((s) => s.show === name).length;
+    const brk = info && info.a1share != null ? pct(info.a1share) : '—';
+    statEl.innerHTML = `<b>${name}</b>${info && info.year ? ' · ' + info.year : ''} · ${n} songs · Act 1 break <b>${brk}</b>`;
+  }
+  function clearShow() {
+    activeShow = null;
+    pickInput.value = ''; pickWrap.classList.remove('picked', 'open');
+    spineG.innerHTML = '';
+    clearPin();
+    chipHighlight();
+    applyStars();
+    statEl.textContent = statDefault;
+  }
   // chips
   const mkChip = (fn, label) => {
     const b = el('button', { class: 'atlas-chip', text: label });
@@ -5678,13 +5723,58 @@ function buildDnaAtlas(host) {
   mkChip(null, 'All');
   ATLAS_CHIPS.forEach(([fn, label]) => mkChip(fn, label));
 
+  // ── show picker: type-ahead + year-sorted browse; isolates one show's spine ──
+  const pickWrap = el('div', { class: 'atlas-pick' });
+  const pickInput = el('input', { class: 'atlas-pick-input', type: 'text', placeholder: 'Isolate one show — type a title or year, or browse ▾' });
+  pickInput.setAttribute('autocomplete', 'off'); pickInput.setAttribute('autocapitalize', 'off');
+  pickInput.setAttribute('autocorrect', 'off'); pickInput.spellcheck = false;
+  const pickClear = el('button', { class: 'atlas-pick-clear', text: '×', title: 'Show all again' });
+  const pickList = el('div', { class: 'atlas-pick-list' });
+  pickWrap.appendChild(pickInput); pickWrap.appendChild(pickClear); pickWrap.appendChild(pickList);
+  sec.insertBefore(pickWrap, statEl);
+
+  const SHOWS_BY_YEAR = (typeof ATLAS_SHOWS !== 'undefined' ? ATLAS_SHOWS.slice() : [])
+    .sort((a, b) => (a.year || 0) - (b.year || 0) || a.show.localeCompare(b.show));
+  let rowsNow = [], hiIdx = -1;
+  function renderList(q) {
+    const query = (q || '').trim().toLowerCase();
+    rowsNow = SHOWS_BY_YEAR.filter((s) => !query || s.show.toLowerCase().includes(query) || String(s.year || '').includes(query));
+    pickList.innerHTML = ''; hiIdx = -1;
+    if (!rowsNow.length) { pickList.appendChild(el('div', { class: 'atlas-pick-empty', text: 'no show by that title or year' })); return; }
+    rowsNow.forEach((s) => {
+      const row = el('div', { class: 'atlas-pick-row' });
+      row.appendChild(el('span', { class: 'nm', text: s.show }));
+      row.appendChild(el('span', { class: 'yr', text: String(s.year || '') }));
+      row.addEventListener('mousedown', (e) => { e.preventDefault(); chooseShow(s.show); });
+      pickList.appendChild(row);
+    });
+  }
+  function openList() { renderList(activeShow && pickInput.value === activeShow ? '' : pickInput.value); pickWrap.classList.add('open'); }
+  function moveHi(d) {
+    const rowEls = [...pickList.querySelectorAll('.atlas-pick-row')];
+    if (!rowEls.length) return;
+    if (hiIdx >= 0) rowEls[hiIdx].classList.remove('hi');
+    hiIdx = (hiIdx + d + rowEls.length) % rowEls.length;
+    rowEls[hiIdx].classList.add('hi');
+    rowEls[hiIdx].scrollIntoView({ block: 'nearest' });
+  }
+  pickInput.addEventListener('focus', () => { if (activeShow) pickInput.select(); openList(); });
+  pickInput.addEventListener('input', () => { renderList(pickInput.value); pickWrap.classList.add('open'); });
+  pickInput.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); moveHi(1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); moveHi(-1); }
+    else if (e.key === 'Enter') { e.preventDefault(); const p = hiIdx >= 0 ? rowsNow[hiIdx] : rowsNow[0]; if (p) chooseShow(p.show); }
+    else if (e.key === 'Escape') { if (activeShow) clearShow(); else { pickWrap.classList.remove('open'); pickInput.blur(); } }
+  });
+  pickInput.addEventListener('blur', () => setTimeout(() => pickWrap.classList.remove('open'), 140));
+  pickClear.addEventListener('mousedown', (e) => { e.preventDefault(); clearShow(); });
+
   // ── sweep to identify: hover (mouse) or drag (touch) names the nearest star,
   //    so you can rapidly scan the whole corpus without clicking each one ──
   function restoreStar(i) {
-    const s = ATLAS_DATA[i];
     starEls[i].removeAttribute('stroke');
-    if (!active) { starEls[i].setAttribute('opacity', starBase[i].op); starEls[i].setAttribute('r', starBase[i].r); }
-    else if (atlasCanon(s.fn) === active) { starEls[i].setAttribute('opacity', .9); starEls[i].setAttribute('r', 2.4); }
+    if (!active && !activeShow) { starEls[i].setAttribute('opacity', starBase[i].op); starEls[i].setAttribute('r', starBase[i].r); }
+    else if (litStar(i)) { starEls[i].setAttribute('opacity', .9); starEls[i].setAttribute('r', activeShow ? 2.8 : 2.4); }
     else { starEls[i].setAttribute('opacity', dark ? .03 : .05); starEls[i].setAttribute('r', 1); }
   }
   function selectStar(i) {
@@ -5725,9 +5815,9 @@ function buildDnaAtlas(host) {
     const rp = Math.hypot(l.x - cx, l.y - cy);
     if (rp < R - 55 || rp > R + 95) return -1;                // only within the star band
     let bi = -1, bd = Infinity;
-    const cap = active ? 130 * 130 : 30 * 30;                 // snap wider when a filter thins the field
+    const cap = (active || activeShow) ? 130 * 130 : 30 * 30; // snap wider when a filter thins the field
     for (let i = 0; i < starPos.length; i++) {
-      if (active && atlasCanon(ATLAS_DATA[i].fn) !== active) continue;
+      if (!litStar(i)) continue;
       const dx = starPos[i].x - l.x, dy = starPos[i].y - l.y, d2 = dx * dx + dy * dy;
       if (d2 < bd) { bd = d2; bi = i; }
     }

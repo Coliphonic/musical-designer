@@ -2585,6 +2585,39 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
 .atlas-chip.on { background: var(--_fam); border-color: var(--_fam); color: var(--panel); font-weight: 600; }
 .atlas-stat { color: var(--muted); font-size: 12.5px; min-height: 20px; margin-bottom: 10px; }
 .atlas-stat b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* Show picker — type-ahead + year-sorted browse; isolates one show */
+.atlas-pick { position: relative; margin: 0 0 10px; }
+.atlas-pick-input {
+  width: 100%; box-sizing: border-box; padding: 7px 30px 7px 11px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink); font-size: 13px; font-family: inherit;
+}
+.atlas-pick-input::placeholder { color: var(--faint); }
+.atlas-pick-input:focus { outline: none; border-color: var(--sage); }
+.atlas-pick-clear {
+  position: absolute; right: 5px; top: 50%; transform: translateY(-50%); display: none;
+  border: none; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 17px; line-height: 1; padding: 4px 7px;
+}
+.atlas-pick-clear:hover { color: var(--ink); }
+.atlas-pick.picked .atlas-pick-clear { display: block; }
+.atlas-pick.picked .atlas-pick-input { border-color: var(--sage); font-weight: 600; }
+.atlas-pick-list {
+  position: absolute; z-index: 6; left: 0; right: 0; top: calc(100% + 3px);
+  max-height: 240px; overflow-y: auto; display: none;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+  box-shadow: var(--shadow-pop);
+}
+.atlas-pick.open .atlas-pick-list { display: block; }
+.atlas-pick-row {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  padding: 6px 11px; cursor: pointer;
+}
+.atlas-pick-row:hover, .atlas-pick-row.hi { background: rgba(127, 159, 143, .16); }
+.atlas-pick-row .nm { color: var(--ink); font-size: 13px; }
+.atlas-pick-row .yr { color: var(--faint); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.atlas-pick-empty { padding: 8px 11px; color: var(--faint); font-size: 12px; }
 .atlas-stage {
   position: relative; background: var(--atlas-sky);
   border: 1px solid var(--line); border-radius: 12px; padding: 6px; overflow: hidden;
