@@ -80,6 +80,14 @@
   --rose: #b5446e; --rose-bg: #fbeaf0; --rose-line: #f0ccda;
   --azure: #2f6db0; --azure-bg: #e6f1fb; --azure-line: #c4dcf2;
   --hl: #f4ecd4; --hl-ink: #4a4330; /* editorial highlight — muted, not a bright marker */
+  /* Story DNA · Atlas — the song-tag family colors promoted to tokens so the
+     dial's stars can read them from the cascade and flip with the theme. Light
+     values are the deep board-pill inks (ink-on-paper star map); the night-sky
+     chrome stays warm paper here, not a dark hack. */
+  --fam-blue: #0C447C; --fam-teal: #0F6E56; --fam-amber: #854F0B; --fam-pink: #993556;
+  --fam-coral: #993C1D; --fam-purple: #3C3489; --fam-red: #A32D2D; --fam-green: #27500A; --fam-gray: #444441;
+  --atlas-sky: radial-gradient(ellipse at 50% 78%, #fbf7ee 0%, var(--panel) 74%);
+  --atlas-arc: #d8d2c6; --atlas-tick: #a89e8c; --atlas-chord: #c9c2b4; --atlas-ring: #23201b;
 }
 
 body.dark {
@@ -107,6 +115,12 @@ body.dark {
   --rose: #e07898; --rose-bg: #2a0f1c; --rose-line: #5a2540;
   --azure: #82b8ec; --azure-bg: #0d1f35; --azure-line: #2a4a6e;
   --hl: #5c5536; --hl-ink: #ece5d2; /* editorial highlight — muted olive, light ink */
+  /* Atlas — dark theme is the night sky: fam colors are the lighter board-pill
+     inks, the sky a deep radial. */
+  --fam-blue: #82b8ec; --fam-teal: #58c490; --fam-amber: #e8a84a; --fam-pink: #e07898;
+  --fam-coral: #e07858; --fam-purple: #9e90f0; --fam-red: #e06868; --fam-green: #70c050; --fam-gray: #a09888;
+  --atlas-sky: radial-gradient(ellipse at 50% 78%, #14171f 0%, #0d0f14 72%);
+  --atlas-arc: #2c3340; --atlas-tick: #565b66; --atlas-chord: #3e4a56; --atlas-ring: #ffffff;
 }
 
 /* Prose Plot skin — same substrate, coral accent instead of Song Plot's purple.
@@ -2554,6 +2568,69 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
   .dna-stake-lbl { border-right: none; border-bottom: 1px solid var(--line); }
   .dna-pole-truth { border-right: none; border-bottom: 1px solid var(--line); }
   .dna-vs { display: none; }
+}
+
+/* ---- Story DNA · Atlas ("the Astrolabe") — read-only corpus dial ---- */
+.atlas { max-width: 1060px; margin: 4px auto 64px; padding: 28px 16px 0; border-top: 1px solid var(--line); }
+.atlas .dna-sec-head { margin-bottom: 10px; }
+.atlas-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.atlas-chip {
+  border: 1px solid var(--line); background: var(--panel); color: var(--muted);
+  border-radius: 999px; padding: 4px 11px; font-size: 12px; cursor: pointer;
+  font-family: inherit; line-height: 1.3; transition: color .12s, background .12s, border-color .12s;
+}
+.atlas-chip:hover { color: var(--ink); }
+/* Active chip fills with its family color; text flips to the panel color, which
+   is always the opposite lightness of the fam ink — legible in both themes. */
+.atlas-chip.on { background: var(--_fam); border-color: var(--_fam); color: var(--panel); font-weight: 600; }
+.atlas-stat { color: var(--muted); font-size: 12.5px; min-height: 20px; margin-bottom: 10px; }
+.atlas-stat b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.atlas-stage {
+  position: relative; background: var(--atlas-sky);
+  border: 1px solid var(--line); border-radius: 12px; padding: 6px; overflow: hidden;
+}
+.atlas-svg { display: block; width: 100%; height: auto; }
+.atlas-star { cursor: pointer; }
+.atlas-mine.ring circle:last-child { stroke: var(--atlas-ring); stroke-width: 2; }
+.atlas-card {
+  position: absolute; top: 16px; right: 16px; max-width: 250px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+  padding: 11px 15px; box-shadow: var(--shadow-pop); display: none;
+}
+.atlas-card.show { display: block; }
+.atlas-card-t { font-weight: 600; font-size: 14px; color: var(--ink); }
+.atlas-card-s { color: var(--sage); font-size: 12.5px; margin: 1px 0 6px; }
+.atlas-card-m { color: var(--muted); font-size: 12px; }
+.atlas-foot { margin-top: 10px; color: var(--faint); font-size: 11.5px; text-align: center; line-height: 1.5; }
+
+/* Field Notes — off by default; a quiet toggle, precedent-first observations */
+.atlas-fieldnotes { margin-top: 22px; }
+.atlas-toggle {
+  font-family: inherit; font-size: 11px; font-weight: 650; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--muted); background: var(--btn);
+  border: 1px solid var(--line); border-radius: 999px; padding: 5px 13px; cursor: pointer;
+}
+.atlas-toggle:hover { color: var(--ink); }
+.atlas-toggle.on { color: var(--sage); border-color: var(--sage-line); background: var(--sage-bg); }
+.atlas-notes { margin-top: 12px; display: flex; flex-direction: column; gap: 9px; }
+.atlas-note {
+  font-size: 13px; line-height: 1.55; color: var(--note); padding-left: 14px; position: relative;
+}
+.atlas-note::before { content: '·'; position: absolute; left: 2px; color: var(--sage); font-weight: 700; }
+
+/* Structural Neighbors — three rows, each with a tiny arc glyph */
+.atlas-neighbors { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 16px; }
+.atlas-nb-head { margin-bottom: 12px; }
+.atlas-nb-row { display: flex; align-items: center; gap: 13px; padding: 7px 0; }
+.atlas-nb-row:not(:last-child) { border-bottom: 1px solid var(--line); }
+.atlas-nb-glyph { width: 52px; height: 32px; flex: 0 0 auto; }
+.atlas-nb-name { font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.atlas-nb-fact { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; margin-top: 1px; }
+
+@media (max-width: 640px) {
+  .atlas { padding: 22px 10px 0; }
+  .atlas-card { max-width: 190px; top: 8px; right: 8px; padding: 8px 11px; }
+  .atlas-card-t { font-size: 12.5px; }
 }
 
 /* ---- Library / file management ---- */

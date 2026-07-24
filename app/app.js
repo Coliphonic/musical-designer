@@ -5430,6 +5430,406 @@ function buildStoryDnaPage() {
   webHead.appendChild(el('h3', { class: 'dna-sec-title', text: 'Character web' }));
   wrap.appendChild(webHead);
   buildDnaWeb(wrap, dna, ro);
+
+  // 5 — the Atlas ("Astrolabe"): the whole corpus as a dial, the user's songs
+  // laid on it. Full-width, read-only — it reads the board, never writes.
+  buildDnaAtlas(host);
+}
+
+// ── Story DNA · Atlas ("the Astrolabe") ─────────────────────────────────────
+// A read-only instrument: the whole 81-show corpus (ATLAS_DATA) rendered as a
+// dial of stars, with the user's own songs laid on it. It reads the board and
+// never writes to it. Ported from the approved astrolabe.html mock.
+// ATLAS_DATA uses display-style fn keys ('i want','act finale','finale ultimo')
+// AND compact ones ('iwant','finale','finaleultimo') across corpus batches;
+// atlasCanon() folds both onto the app's card fn keys so colors + chips line up.
+const ATLAS_FN_CANON = {
+  'i want': 'iwant', 'act finale': 'finale', 'finale ultimo': 'finaleultimo',
+};
+const atlasCanon = (fn) => ATLAS_FN_CANON[fn] || fn;
+const atlasFam = (fn) => (FN[atlasCanon(fn)] || {}).fam || 'gray';
+const atlasFamVar = (fn) => 'var(--fam-' + atlasFam(fn) + ')';
+// Chip row: app fn key → display label (mirrors the mock's function set).
+const ATLAS_CHIPS = [
+  ['opening', 'Opening'], ['iwant', 'I Want'], ['charm', 'Charm'], ['comedy', 'Comedy'],
+  ['villain', 'Villain'], ['love', 'Love'], ['production', 'Production'], ['finale', 'Act Finale'],
+  ['ballad', 'Ballad'], ['drive', 'Drive'], ['reprise', 'Reprise'], ['soliloquy', 'Soliloquy'],
+  ['anthem', 'Anthem'], ['eleven', 'Eleven'], ['finaleultimo', 'Finale Ultimo'],
+];
+// Voicing classifier — same rules the corpus generator uses (data.js voicing is
+// free text: "Company", "Solo", "Tevye + Golde", …).
+function atlasVoice(v) {
+  if (!v) return null; const t = String(v).trim();
+  // Honor explicit voicing words first (the template + many boards write the
+  // literal "Solo" / "Duet" / "Company"); fall back to counting a cast list.
+  if (/\bsolo\b/i.test(t)) return 'solo';
+  if (/\bduet\b/i.test(t)) return 'duet';
+  if (/\b(trio|quartet|quintet|sextet|company|ensemble|chorus|group|full|men|women|kids|daughters|boys|girls|townsfolk|crowd|all)\b|co\./i.test(t)) return 'group';
+  const parts = t.split(/\s*(?:,|\+|&|and)\s*/i).filter(Boolean);
+  return parts.length >= 3 ? 'group' : parts.length === 2 ? 'duet' : 'solo';
+}
+
+function buildDnaAtlas(host) {
+  if (state.format === 'prose') return;                       // musical instrument
+  if (typeof ATLAS_DATA === 'undefined' || !Array.isArray(ATLAS_DATA) || !ATLAS_DATA.length) return;
+  const dark = document.body.classList.contains('dark');
+  const SVGNS_ = 'http://www.w3.org/2000/svg';
+  // small svgEl helper (the app's el() covers most SVG tags, but a terse
+  // create-set-append is cleaner for the dial's dense geometry)
+  const sv = (parent, tag, attrs, txt) => {
+    const e = document.createElementNS(SVGNS_, tag);
+    for (const k in (attrs || {})) e.setAttribute(k, attrs[k]);
+    if (txt != null) e.textContent = txt;
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+  const pct = (x) => Math.round(x * 100) + '%';
+
+  // ── read the board (lane order 1 → 2A → 2B → 3, mirroring the corpus) ──
+  const laneCards = [];
+  LANE_KEYS.forEach((a) => state.cards.forEach((c) => { if (c.act === a) laneCards.push(c); }));
+  const total = laneCards.reduce((s, c) => s + (c.min || 0), 0);
+  const songCards = laneCards.filter((c) => c.type === 'song' && c.fn);
+  const mine = [];
+  let cum = 0;
+  laneCards.forEach((c) => {
+    if (c.type === 'song' && c.fn) {
+      const pos = total ? (cum + (c.min || 0) / 2) / total : 0;
+      mine.push({ title: (c.title || '').trim(), fn: c.fn, pos: +pos.toFixed(3), voicing: c.voicing || '' });
+    }
+    cum += c.min || 0;
+  });
+  // dial intermission tick: cumulative card-minutes of lanes 1+2A / total
+  const a12card = laneCards.reduce((s, c) => s + (['1', '2A'].includes(c.act) ? (c.min || 0) : 0), 0);
+  const breakClock = (songCards.length && total) ? a12card / total : 0.58;
+  // break SHARE for Field Notes / Neighbors: A1 fraction of SONG minutes only
+  // (matches ATLAS_SHOWS.a1share, so "Fiddler 68 / Gypsy 64" line up)
+  const songMin = songCards.reduce((s, c) => s + (c.min || 0), 0);
+  const a1songMin = songCards.reduce((s, c) => s + (['1', '2A'].includes(c.act) ? (c.min || 0) : 0), 0);
+  const breakShare = songMin ? a1songMin / songMin : null;
+
+  // ── shell ──
+  const sec = el('div', { class: 'atlas' });
+  host.appendChild(sec);
+  const head = el('div', { class: 'dna-sec-head' });
+  head.appendChild(el('h3', { class: 'dna-sec-title', text: 'The Atlas' }));
+  head.appendChild(el('p', { class: 'dna-sec-sub', text: 'Tap a function to isolate it · tap any star to name it · your show sits on the dial, its mirrors strung across the interior.' }));
+  sec.appendChild(head);
+
+  // chips
+  const chipsEl = el('div', { class: 'atlas-chips' });
+  sec.appendChild(chipsEl);
+  const statEl = el('div', { class: 'atlas-stat' });
+  sec.appendChild(statEl);
+
+  // stage
+  const stage = el('div', { class: 'atlas-stage' });
+  sec.appendChild(stage);
+  const svg = sv(stage, 'svg', { viewBox: '0 0 980 640', class: 'atlas-svg' });
+  const card = el('div', { class: 'atlas-card' });
+  card.appendChild(el('div', { class: 'atlas-card-t' }));
+  card.appendChild(el('div', { class: 'atlas-card-s' }));
+  card.appendChild(el('div', { class: 'atlas-card-m' }));
+  stage.appendChild(card);
+
+  // ── dial geometry (from the mock) ──
+  const cx = 490, cy = 470, R = 330, a0 = 205, a1 = -25;
+  const A = (t) => (a0 + (a1 - a0) * t) * Math.PI / 180;
+  const P = (t, r) => ({ x: cx + Math.cos(A(t)) * r, y: cy - Math.sin(A(t)) * r });
+  const B = breakClock;
+  const mins = (t) => t * 150 + (t >= B ? 15 : 0);           // 165-min night
+
+  // dial arc
+  let d = 'M';
+  for (let i = 0; i <= 100; i++) { const p = P(i / 100, R); d += (i ? 'L' : '') + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ' '; }
+  sv(svg, 'path', { d, fill: 'none', stroke: 'var(--atlas-arc)', 'stroke-width': 1.5 });
+  // hour ticks (8/9/10/11 o'clock)
+  for (const [lbl, m] of [['8:00', 0], ['9:00', 60], ['10:00', 120], ['11:00', 165]]) {
+    const t = m <= B * 150 ? m / 150 : (m - 15) / 150;
+    const p1 = P(t, R - 2), p2 = P(t, R + 13), pl = P(t, R + 58);
+    sv(svg, 'line', { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, stroke: 'var(--atlas-tick)', 'stroke-width': 1.5 });
+    sv(svg, 'text', { x: pl.x, y: pl.y + 4, fill: 'var(--atlas-tick)', 'font-size': 11.5, 'text-anchor': 'middle', 'letter-spacing': '1' }, lbl);
+  }
+  // intermission tick — sage, at the show's actual break
+  {
+    const p1 = P(B, R - 12), p2 = P(B, R + 14), pl = P(B, R + 76);
+    sv(svg, 'line', { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, stroke: 'var(--sage)', 'stroke-width': 3 });
+    sv(svg, 'text', { x: pl.x, y: pl.y, fill: 'var(--sage)', 'font-size': 10, 'text-anchor': 'middle', 'letter-spacing': '1.5' }, 'INTERMISSION');
+  }
+
+  // ── corpus stars (deterministic seeded jitter — no Math.random) ──
+  let seed = 11;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
+  const gauss = () => { const a = rnd(), b = rnd(); return Math.sqrt(-2 * Math.log(a + 1e-9)) * Math.cos(2 * Math.PI * b); };
+  const opBoost = dark ? 1 : 1.9;                             // paper needs stronger ink
+  const starsG = sv(svg, 'g', {});
+  const starEls = [], starBase = [];
+  ATLAS_DATA.forEach((s, i) => {
+    const r = R + 12 + Math.abs(gauss()) * 11, p = P(s.pos, r);
+    const op = Math.min(0.85, (0.13 + rnd() * 0.2) * opBoost);
+    const rr = +(rnd() * 1.3 + 0.7).toFixed(1);
+    starBase.push({ op: +op.toFixed(2), r: rr });
+    const e = sv(starsG, 'circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: rr, fill: atlasFamVar(s.fn), opacity: op.toFixed(2), 'data-i': i, class: 'atlas-star' });
+    starEls.push(e);
+  });
+
+  // ── chiasmus chords across the interior (dashed, subtle) ──
+  const chordsG = sv(svg, 'g', {});
+  const drawChord = (ta, tb) => {
+    const p = P(ta, R - 6), q = P(tb, R - 6);
+    sv(chordsG, 'path', { d: `M${p.x.toFixed(1)} ${p.y.toFixed(1)} Q ${cx} ${cy - 40} ${q.x.toFixed(1)} ${q.y.toFixed(1)}`, fill: 'none', stroke: 'var(--atlas-chord)', 'stroke-width': 1.1, 'stroke-dasharray': '3 5' });
+  };
+  const stripRep = (t) => t.replace(/\s*\((?:rep|reprise)[^)]*\)\s*$/i, '').trim();
+  if (mine.length) {
+    // (a) each reprise → nearest earlier song whose title it contains
+    mine.forEach((m, i) => {
+      if (m.fn !== 'reprise') return;
+      const base = stripRep(m.title).toLowerCase();
+      if (!base) return;
+      let best = null;
+      for (let j = 0; j < i; j++) {
+        const o = mine[j].title.toLowerCase();
+        if (o && (base.startsWith(o) || o.startsWith(base))) { if (!best || mine[j].pos > best.pos) best = mine[j]; }
+      }
+      if (best) drawChord(best.pos, m.pos);
+    });
+    // (b) I Want ↔ eleven
+    const iw = mine.find((m) => m.fn === 'iwant'), el11 = mine.find((m) => m.fn === 'eleven');
+    if (iw && el11) drawChord(iw.pos, el11.pos);
+    // (c) the bookend: first ↔ last
+    if (mine.length >= 2) drawChord(mine[0].pos, mine[mine.length - 1].pos);
+  }
+
+  // ── the user's songs, on the dial in their fam colors ──
+  const mineEls = [];
+  mine.forEach((m) => {
+    const p = P(m.pos, R), col = 'var(--fam-' + ((FN[m.fn] || {}).fam || 'gray') + ')';
+    const g = sv(svg, 'g', { 'data-fn': m.fn, class: 'atlas-mine' });
+    sv(g, 'circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 10, fill: col, opacity: dark ? .16 : .12 });
+    sv(g, 'circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 4.5, fill: col, stroke: 'var(--panel)', 'stroke-width': 1.5 });
+    g.style.cursor = 'pointer';
+    mineEls.push({ g, m });
+    g.addEventListener('click', () => pickMine(m, g));
+  });
+
+  // center label
+  const shownTitle = (state.title || 'Your show').toUpperCase();
+  sv(svg, 'text', { x: cx, y: cy - 118, fill: 'var(--ink)', 'font-size': 15, 'font-weight': 600, 'text-anchor': 'middle' }, shownTitle);
+  sv(svg, 'text', { x: cx, y: cy - 99, fill: 'var(--faint)', 'font-size': 10.5, 'text-anchor': 'middle' },
+    mine.length ? `your ${mine.length === 1 ? 'song' : mine.length + ' songs'} on the dial of the whole tradition`
+                : 'your songs will appear here as you write them');
+
+  sec.appendChild(el('div', { class: 'atlas-foot', text: 'the dial is the night — 8:00 curtain at the left foot, eleven o’clock where it belongs · chords are the chiasmus: reprise → source, I Want → eleven, the bookend.' }));
+
+  // ── zone glow + filter ──
+  const zoneG = sv(svg, 'g', {});
+  const showsCount = (typeof ATLAS_SHOWS !== 'undefined' ? ATLAS_SHOWS.length : new Set(ATLAS_DATA.map((s) => s.show)).size);
+  const statDefault = `All functions · ${ATLAS_DATA.length.toLocaleString()} songs · ${showsCount} shows, 1943–2026`;
+  statEl.textContent = statDefault;
+  let active = null;
+  function setFilter(fn) {
+    active = fn;
+    [...chipsEl.children].forEach((c) => {
+      const on = (fn === null && c.dataset.fn === '') || c.dataset.fn === fn;
+      c.classList.toggle('on', on);
+    });
+    starEls.forEach((e, i) => {
+      const s = ATLAS_DATA[i];
+      if (!fn) { e.setAttribute('opacity', starBase[i].op); e.setAttribute('r', starBase[i].r); e.removeAttribute('stroke'); }
+      else if (atlasCanon(s.fn) === fn) { e.setAttribute('opacity', .9); e.setAttribute('r', 2.4); }
+      else { e.setAttribute('opacity', dark ? .03 : .05); e.setAttribute('r', 1); }
+    });
+    mineEls.forEach(({ g, m }) => g.setAttribute('opacity', !fn || m.fn === fn ? 1 : .15));
+    zoneG.innerHTML = '';
+    if (fn) {
+      const rows = ATLAS_DATA.filter((s) => atlasCanon(s.fn) === fn);
+      const ps = rows.map((s) => s.pos).sort((a, b) => a - b);
+      if (ps.length) {
+        const lo = ps[Math.floor(ps.length * .1)], hi = ps[Math.min(ps.length - 1, Math.floor(ps.length * .9))];
+        let dz = 'M';
+        for (let i = 0; i <= 30; i++) { const p = P(lo + (hi - lo) * i / 30, R); dz += (i ? 'L' : '') + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ' '; }
+        sv(zoneG, 'path', { d: dz, fill: 'none', stroke: atlasFamVar(rows[0].fn), 'stroke-width': 9, opacity: dark ? .16 : .22, 'stroke-linecap': 'round' });
+        const med = ps[Math.floor(ps.length / 2)];
+        const vc = { solo: 0, duet: 0, group: 0 };
+        rows.forEach((s) => { if (vc[s.v] != null) vc[s.v]++; });
+        const dom = Object.entries(vc).sort((a, b) => b[1] - a[1])[0];
+        const label = (ATLAS_CHIPS.find((c) => c[0] === fn) || [fn, fn])[1];
+        statEl.innerHTML = `<b>${label}</b> · ${ps.length} songs · median <b>${pct(med)}</b> · 10–90th ${pct(lo)}–${pct(hi)} · usually ${dom[0]} (${dom[1]}/${ps.length})`;
+      }
+    } else statEl.textContent = statDefault;
+  }
+  // chips
+  const mkChip = (fn, label) => {
+    const b = el('button', { class: 'atlas-chip', text: label });
+    b.dataset.fn = fn || '';
+    if (fn) b.style.setProperty('--_fam', atlasFamVar(fn));
+    else b.style.setProperty('--_fam', 'var(--sage)');
+    b.addEventListener('click', () => setFilter(fn));
+    chipsEl.appendChild(b);
+    return b;
+  };
+  mkChip(null, 'All');
+  ATLAS_CHIPS.forEach(([fn, label]) => mkChip(fn, label));
+
+  // ── tap to identify ──
+  function clearRings() { starEls.forEach((e) => e.removeAttribute('stroke')); mineEls.forEach(({ g }) => g.classList.remove('ring')); }
+  function pickStar(i) {
+    const s = ATLAS_DATA[i];
+    card.querySelector('.atlas-card-t').textContent = s.t;
+    card.querySelector('.atlas-card-s').textContent = s.show;
+    const label = (ATLAS_CHIPS.find((c) => c[0] === atlasCanon(s.fn)) || [null, s.fn])[1];
+    card.querySelector('.atlas-card-m').textContent = `${label} · ${pct(s.pos)} of the show · ${s.v}`;
+    card.classList.add('show');
+    clearRings();
+    starEls[i].setAttribute('stroke', 'var(--atlas-ring)');
+    starEls[i].setAttribute('stroke-width', 1);
+    starEls[i].setAttribute('opacity', 1);
+    starEls[i].setAttribute('r', 3.2);
+  }
+  function pickMine(m, g) {
+    card.querySelector('.atlas-card-t').textContent = m.title || '(untitled)';
+    card.querySelector('.atlas-card-s').textContent = state.title || '';
+    const label = (ATLAS_CHIPS.find((c) => c[0] === m.fn) || [null, (FN[m.fn] || {}).label || m.fn])[1];
+    const vc = atlasVoice(m.voicing);
+    card.querySelector('.atlas-card-m').textContent = `${label} · ${pct(m.pos)}` + (m.voicing ? ` · ${vc}` : '');
+    card.classList.add('show');
+    clearRings();
+    g.classList.add('ring');
+  }
+  starsG.addEventListener('click', (e) => { const i = e.target.getAttribute('data-i'); if (i != null) pickStar(+i); });
+
+  setFilter(null);
+
+  // ── Field Notes + Structural Neighbors (below the dial) ──
+  if (mine.length >= 1) buildAtlasNotes(sec, { mine, breakShare, pct });
+}
+
+// Precompute-on-demand corpus rollups for Field Notes + Neighbors.
+function atlasCorpus() {
+  const byFn = {}, byShow = {};
+  ATLAS_DATA.forEach((s) => {
+    const f = atlasCanon(s.fn);
+    (byFn[f] || (byFn[f] = [])).push(s);
+    (byShow[s.show] || (byShow[s.show] = [])).push(Object.assign({ cfn: f }, s));
+  });
+  const median = (arr) => { const a = arr.slice().sort((x, y) => x - y); return a[Math.floor(a.length / 2)]; };
+  const showFnPos = {};
+  for (const show in byShow) {
+    const m = {}; const grp = {};
+    byShow[show].forEach((s) => { (grp[s.cfn] || (grp[s.cfn] = [])).push(s.pos); });
+    for (const f in grp) m[f] = median(grp[f]);
+    showFnPos[show] = m;
+  }
+  const share = {};
+  if (typeof ATLAS_SHOWS !== 'undefined') ATLAS_SHOWS.forEach((r) => { share[r.show] = r.a1share; });
+  return { byFn, byShow, showFnPos, share, median };
+}
+
+function buildAtlasNotes(sec, ctx) {
+  const { mine, breakShare, pct } = ctx;
+  const { byFn, byShow, showFnPos, share, median } = atlasCorpus();
+  const fnLabel = (k) => (ATLAS_CHIPS.find((c) => c[0] === k) || [null, (FN[k] || {}).label || k])[1];
+
+  // ── Field Notes (only offered at ≥6 fn-tagged songs; OFF by default) ──
+  const notes = [];
+  // bookend (celebratory)
+  if (mine.length >= 2) {
+    const first = mine[0].title.replace(/\s*\((?:rep|reprise)[^)]*\)\s*$/i, '').trim().toLowerCase();
+    const last = mine[mine.length - 1].title.replace(/\s*\((?:rep|reprise)[^)]*\)\s*$/i, '').trim().toLowerCase();
+    // first and last are distinct cards (length ≥ 2); a shared title = the frame
+    if (first && last && (last.startsWith(first) || first.startsWith(last)))
+      notes.push(`Your bookend closes — “${mine[mine.length - 1].title}” reprises where you opened. The tradition loves a frame that returns.`);
+  }
+  // break position vs the 50–58 zone
+  if (breakShare != null && (breakShare < 0.50 || breakShare > 0.58) && Object.keys(share).length) {
+    const near = Object.entries(share).sort((a, b) => Math.abs(a[1] - breakShare) - Math.abs(b[1] - breakShare)).slice(0, 2);
+    const co = near.map(([sh, v]) => `${sh} ${Math.round(v * 100)}`).join(', ');
+    notes.push(`The tradition breaks at 50–58%; yours sits at ${pct(breakShare)} — in company: ${co}.`);
+  }
+  // early love song (< 35%)
+  const loveEarly = mine.filter((m) => m.fn === 'love' && m.pos < 0.35).sort((a, b) => a.pos - b.pos)[0];
+  if (loveEarly && byFn.love) {
+    const ex = byFn.love.filter((s) => s.pos < 0.35 && s.t && s.t !== '(untitled)').sort((a, b) => a.pos - b.pos)[0];
+    if (ex) notes.push(`An early-romance shape — the corpus rarely sings love this soon. ${ex.t} (${ex.show}) sits at ${pct(ex.pos)}.`);
+  }
+  // eleven voicing not solo
+  const userEleven = mine.filter((m) => m.fn === 'eleven' && m.voicing).map((m) => ({ m, v: atlasVoice(m.voicing) })).find((x) => x.v && x.v !== 'solo');
+  if (userEleven && byFn.eleven) {
+    const solo = byFn.eleven.filter((s) => s.v === 'solo').length, tot = byFn.eleven.length;
+    const ex = byFn.eleven.filter((s) => s.v === userEleven.v && s.t && s.t !== '(untitled)');
+    const pool = (ex.length >= 2 ? ex : byFn.eleven.filter((s) => s.v !== 'solo' && s.t && s.t !== '(untitled)'));
+    const seen = [], names = [];
+    for (const s of pool) { if (!seen.includes(s.t)) { seen.push(s.t); names.push(s.t); } if (names.length === 2) break; }
+    if (names.length) notes.push(`${solo} of ${tot} eleven-o’clock numbers are solos — you’re in the minority, with ${userEleven.v} elevens like ${names.join(', ')}.`);
+  }
+  // the 80–95% (eleven-o'clock) slot left open
+  if (!mine.some((m) => m.pos >= 0.80 && m.pos <= 0.95))
+    notes.push('The tradition keeps a solo in the 80–95% band — the eleven-o’clock slot is open in yours.');
+
+  const picked = notes.slice(0, 4);
+
+  if (mine.length >= 6 && picked.length) {
+    const fnWrap = el('div', { class: 'atlas-fieldnotes' });
+    const toggle = el('button', { class: 'atlas-toggle', text: 'Field Notes' });
+    const notesBox = el('div', { class: 'atlas-notes' });
+    notesBox.hidden = true;
+    picked.forEach((t) => notesBox.appendChild(el('div', { class: 'atlas-note', text: t })));
+    toggle.addEventListener('click', () => {
+      const open = notesBox.hidden;
+      notesBox.hidden = !open;
+      toggle.classList.toggle('on', open);
+    });
+    fnWrap.appendChild(toggle);
+    fnWrap.appendChild(notesBox);
+    sec.appendChild(fnWrap);
+  }
+
+  // ── Structural Neighbors: top 3 corpus shows by similarity ──
+  if (breakShare == null) return;
+  const userFnPos = {};
+  { const grp = {}; mine.forEach((m) => { (grp[m.fn] || (grp[m.fn] = [])).push(m.pos); }); for (const f in grp) userFnPos[f] = median(grp[f]); }
+  const rows = [];
+  for (const show in showFnPos) {
+    if (show === state.title) continue;
+    const sfp = showFnPos[show];
+    const shared = Object.keys(userFnPos).filter((f) => sfp[f] != null);
+    const posTerm = shared.length ? shared.reduce((s, f) => s + Math.abs(userFnPos[f] - sfp[f]), 0) / shared.length : 0.5;
+    const breakTerm = share[show] != null ? Math.abs(share[show] - breakShare) : 0.5;
+    rows.push({ show, sim: 0.5 * breakTerm + 0.5 * posTerm, songs: (byShow[show] || []).length, a1: share[show] });
+  }
+  rows.sort((a, b) => a.sim - b.sim);
+  const top = rows.slice(0, 3);
+  if (!top.length) return;
+
+  const nWrap = el('div', { class: 'atlas-neighbors' });
+  const nHead = el('div', { class: 'dna-sec-head atlas-nb-head' });
+  nHead.appendChild(el('h3', { class: 'dna-sec-title', text: 'Structural Neighbors' }));
+  nHead.appendChild(el('p', { class: 'dna-sec-sub', text: 'The corpus shows your shape sits closest to — by act balance and where the functions fall.' }));
+  nWrap.appendChild(nHead);
+  const SVGNS_ = 'http://www.w3.org/2000/svg';
+  const miniArc = (a1) => {
+    const svg = document.createElementNS(SVGNS_, 'svg');
+    svg.setAttribute('viewBox', '0 0 56 34'); svg.setAttribute('class', 'atlas-nb-glyph');
+    const cx = 28, cy = 30, r = 22, a0 = 205, a1d = -25;
+    const A = (t) => (a0 + (a1d - a0) * t) * Math.PI / 180;
+    const P = (t) => ({ x: cx + Math.cos(A(t)) * r, y: cy - Math.sin(A(t)) * r });
+    let d = 'M'; for (let i = 0; i <= 24; i++) { const p = P(i / 24); d += (i ? 'L' : '') + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ' '; }
+    const arc = document.createElementNS(SVGNS_, 'path'); arc.setAttribute('d', d); arc.setAttribute('fill', 'none'); arc.setAttribute('stroke', 'var(--atlas-arc)'); arc.setAttribute('stroke-width', '1.3'); svg.appendChild(arc);
+    const t = Math.max(0, Math.min(1, a1 == null ? 0.58 : a1));
+    const p1 = P(t), p2 = { x: cx + Math.cos(A(t)) * (r + 5), y: cy - Math.sin(A(t)) * (r + 5) };
+    const tick = document.createElementNS(SVGNS_, 'line'); tick.setAttribute('x1', p1.x); tick.setAttribute('y1', p1.y); tick.setAttribute('x2', p2.x); tick.setAttribute('y2', p2.y); tick.setAttribute('stroke', 'var(--sage)'); tick.setAttribute('stroke-width', '2'); svg.appendChild(tick);
+    return svg;
+  };
+  top.forEach((r) => {
+    const row = el('div', { class: 'atlas-nb-row' });
+    row.appendChild(miniArc(r.a1));
+    const txt = el('div', { class: 'atlas-nb-txt' });
+    txt.appendChild(el('div', { class: 'atlas-nb-name', text: r.show }));
+    txt.appendChild(el('div', { class: 'atlas-nb-fact', text: `break ${r.a1 != null ? Math.round(r.a1 * 100) + '%' : '—'} · ${r.songs} songs` }));
+    row.appendChild(txt);
+    nWrap.appendChild(row);
+  });
+  sec.appendChild(nWrap);
 }
 
 function buildDnaWeb(wrap, dna, ro) {

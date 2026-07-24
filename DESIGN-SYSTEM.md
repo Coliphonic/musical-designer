@@ -377,3 +377,49 @@ seed show).
 - **Character-web cast chips** (`.dna-web-chip`) are still bordered pills. They
   are the same species we replaced with highlighter swatches elsewhere, but the
   seed show's web is empty so they were never actually reviewed on screen.
+
+---
+
+## 8. Story DNA · Atlas panel (the "Astrolabe")
+
+A full-width, **read-only** panel appended to the Story DNA page
+(`buildDnaAtlas()` in `app.js`, styles under `.atlas-*` in `styles.css`). It
+renders the whole 81-show / 1,484-song corpus (`atlas-data.js` →
+`ATLAS_DATA` + `ATLAS_SHOWS`, built by `corpus/build-atlas-data.mjs`) as a
+**~230° dial of stars** — a night from an 8:00 curtain (left foot) to eleven
+o'clock (right foot) — and lays the writer's own songs on it. It **reads the
+board and never writes**: no inputs, no editors, no saves. Musical projects
+only (`state.format !== 'prose'`).
+
+- **Colour.** Stars and the writer's songs colour off the card-family tokens,
+  promoted from the `.pill[data-fam]` inks to CSS variables: `--fam-blue`,
+  `--fam-teal`, `--fam-amber`, `--fam-pink`, `--fam-coral`, `--fam-purple`,
+  `--fam-red`, `--fam-green`, `--fam-gray` (defined in `:root` and flipped in
+  `body.dark`). The SVG reads them straight from the cascade, so a theme toggle
+  recolours every star for free. Dial chrome (`--atlas-sky`, `--atlas-arc`,
+  `--atlas-tick`, `--atlas-chord`, `--atlas-ring`) flips too: **dark = a deep
+  night sky, light = ink-on-paper** (deep fam inks, a warm-paper radial, no dark
+  background hack). The intermission tick is `--sage`, at the show's real break.
+- **Theme-adaptive opacity.** Because SVG per-star opacity can't ride a CSS var,
+  the base star opacity is boosted ~1.9× when the light theme is active at
+  render time (paper needs stronger ink). Fam *hue* still flips live on a theme
+  toggle; the opacity boost only re-applies on the next page build (a re-nav).
+- **Interactions.** Function chips isolate one family (a soft 10–90th-percentile
+  band glows on the dial; a stat line reports n · median · range · dominant
+  voicing). Tapping any star or the writer's own songs names it in an info card.
+  `ATLAS_DATA` mixes display-fn spellings (`'act finale'`) and compact ones
+  (`'finale'`); `atlasCanon()` folds both onto the app's card fn keys so colours,
+  chips, and stats line up.
+- **Field Notes** — a toggle that is **OFF by default and only offered when the
+  show has ≥6 fn-tagged songs**. Up to four one-line observations, computed
+  against the corpus and phrased **precedent-first, never as errors** (break vs
+  the 50–58 zone with the two closest corpus shows; a non-solo eleven; an early
+  love song; an open 80–95% slot; a returning bookend).
+- **Structural Neighbors** — the three corpus shows closest in shape
+  (`0.5·|break-share Δ| + 0.5·avg |position Δ|` over shared functions), each with
+  a tiny arc glyph, name, and a factual line (break %, song count).
+
+Small-caps section labels reuse `.dna-sec-title` / `.dna-sec-sub`. Verified with
+a static harness (real `styles.css` + `atlas-data.js` + the extracted panel code
+against a synthetic show) screenshotted headless in both themes — never by
+driving the live app.

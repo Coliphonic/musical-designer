@@ -2,31 +2,35 @@
 // [act, title, fn, voicing, estMinutes]
 // Keys / BPM / exact runtimes intentionally omitted ("needs score").
 
-// Default template applied to every new user project.
-// 15 blank song cards placed in statistically typical act positions.
+// Default template applied to every new user project (v2 — corpus-derived).
+// 16 blank song cards placed at the positions an 81-show corpus (1943–2026,
+// 1,484 classified songs) actually favors, with voicing prefills where the
+// corpus is near-deterministic (Company/Solo/Duet). See TEMPLATE-PLAN.md.
+// 9/7 act split · intermission at ~58% (the all-corpus mean) · lane shape 3/6/4/3.
 // Lane mapping: '1' = Act 1 (pre-break), '2A' = build to intermission,
 // '2B' = post-intermission, '3' = late Act 2 through close.
 // INTERMISSION marker renders between 2A and 2B.
 const DEFAULT_TEMPLATE = [
   // ── Act 1: establish world, voice, first hook ───────────────────
-  { act: '1',  type: 'song', title: '', fn: 'opening', voicing: '', min: 4   },
-  { act: '1',  type: 'song', title: '', fn: 'charm',   voicing: '', min: 3   },
-  { act: '1',  type: 'song', title: '', fn: 'iwant',   voicing: '', min: 3.5 },
-  // ── Act 2A: complications deepen → threat crystallizes → cliffhanger
-  { act: '2A', type: 'song', title: '', fn: 'comedy',  voicing: '', min: 2.5 },
-  { act: '2A', type: 'song', title: '', fn: 'love',    voicing: '', min: 3.5 },
-  { act: '2A', type: 'song', title: '', fn: 'villain', voicing: '', min: 2.5 },
-  { act: '2A', type: 'song', title: '', fn: 'anthem',  voicing: '', min: 3.5 },
-  { act: '2A', type: 'song', title: '', fn: 'finale',  voicing: '', min: 4   },
+  { act: '1',  type: 'song', title: '', fn: 'opening',   voicing: 'Company', min: 4   },
+  { act: '1',  type: 'song', title: '', fn: 'charm',     voicing: '',        min: 3   },
+  { act: '1',  type: 'song', title: '', fn: 'iwant',     voicing: 'Solo',    min: 3.5 },
+  // ── Act 2A: the new world — fun → threat → act-break drive ──────
+  { act: '2A', type: 'song', title: '', fn: 'comedy',     voicing: '',        min: 3   },
+  { act: '2A', type: 'song', title: '', fn: 'villain',    voicing: '',        min: 2.5 },
+  { act: '2A', type: 'song', title: '', fn: 'production', voicing: 'Company', min: 4   },
+  { act: '2A', type: 'song', title: '', fn: 'love',       voicing: 'Duet',    min: 3.5 },
+  { act: '2A', type: 'song', title: '', fn: 'ballad',     voicing: '',        min: 3   },
+  { act: '2A', type: 'song', title: '', fn: 'finale',     voicing: 'Company', min: 4.5 },
   // ── Act 2B: regroup → cost mounts → late-act drive ──────────────
-  { act: '2B', type: 'song', title: '', fn: 'charm',      voicing: '', min: 3   },
-  { act: '2B', type: 'song', title: '', fn: 'ballad',     voicing: '', min: 3.5 },
-  { act: '2B', type: 'song', title: '', fn: 'reprise',    voicing: '', min: 2   },
-  { act: '2B', type: 'song', title: '', fn: 'production', voicing: '', min: 4.5 },
-  { act: '2B', type: 'song', title: '', fn: 'anthem',     voicing: '', min: 3.5 },
-  // ── Act 3: climax → resolution ──────────────────────────────────
-  { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: '', min: 4.5 },
-  { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: '', min: 3   },
+  { act: '2B', type: 'song', title: '', fn: 'reprise',    voicing: '',        min: 1.5 },
+  { act: '2B', type: 'song', title: '', fn: 'drive',      voicing: '',        min: 2.5 },
+  { act: '2B', type: 'song', title: '', fn: 'ballad',     voicing: '',        min: 3.5 },
+  { act: '2B', type: 'song', title: '', fn: 'production', voicing: 'Company', min: 4.5 },
+  // ── Act 3: reckoning → climax → resolution ──────────────────────
+  { act: '3',  type: 'song', title: '', fn: 'soliloquy',    voicing: 'Solo',    min: 3   },
+  { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: 'Solo',    min: 4   },
+  { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Company', min: 3   },
 ];
 
 // Default template applied to every new Prose Plot novel. Chapters take the
