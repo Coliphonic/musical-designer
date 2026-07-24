@@ -5513,7 +5513,7 @@ function buildDnaAtlas(host) {
   host.appendChild(sec);
   const head = el('div', { class: 'dna-sec-head' });
   head.appendChild(el('h3', { class: 'dna-sec-title', text: 'The Atlas' }));
-  head.appendChild(el('p', { class: 'dna-sec-sub', text: 'Tap a function to isolate it · sweep across the stars to name them · your show sits on the dial, its mirrors strung across the interior.' }));
+  head.appendChild(el('p', { class: 'dna-sec-sub', text: 'Tap a function to isolate it · sweep to name stars, click one to pin it · your show sits on the dial, its mirrors strung across the interior.' }));
   sec.appendChild(head);
 
   // chips
@@ -5530,6 +5530,7 @@ function buildDnaAtlas(host) {
   card.appendChild(el('div', { class: 'atlas-card-t' }));
   card.appendChild(el('div', { class: 'atlas-card-s' }));
   card.appendChild(el('div', { class: 'atlas-card-m' }));
+  card.appendChild(el('div', { class: 'atlas-card-pin', text: 'pinned · tap empty space to release' }));
   stage.appendChild(card);
 
   // ── dial geometry (from the mock) ──
@@ -5564,7 +5565,7 @@ function buildDnaAtlas(host) {
   const opBoost = dark ? 1 : 1.9;                             // paper needs stronger ink
   const starsG = sv(svg, 'g', {});
   const starEls = [], starBase = [], starPos = [];
-  let curStar = null, curMineG = null;                        // what the readout is naming now
+  let curStar = null, curMineG = null, pinned = false;        // what the readout is naming now; pinned = frozen on a click
   ATLAS_DATA.forEach((s, i) => {
     const r = R + 12 + Math.abs(gauss()) * 11, p = P(s.pos, r);
     const op = Math.min(0.85, (0.13 + rnd() * 0.2) * opBoost);
@@ -5611,7 +5612,9 @@ function buildDnaAtlas(host) {
     sv(g, 'circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 4.5, fill: col, stroke: 'var(--panel)', 'stroke-width': 1.5 });
     g.style.cursor = 'pointer';
     mineEls.push({ g, m });
-    g.addEventListener('click', () => selectMine(m, g));
+    // keep the show-song press from reaching the svg's nearest-corpus-star sweep
+    g.addEventListener('pointerdown', (e) => e.stopPropagation());
+    g.addEventListener('click', (e) => { e.stopPropagation(); selectMine(m, g); pinned = true; setPinnedCue(true); });
   });
 
   // center label
@@ -5632,7 +5635,7 @@ function buildDnaAtlas(host) {
   function setFilter(fn) {
     active = fn;
     if (curMineG) curMineG.classList.remove('ring');
-    curStar = null; curMineG = null;
+    curStar = null; curMineG = null; pinned = false; setPinnedCue(false);
     [...chipsEl.children].forEach((c) => {
       const on = (fn === null && c.dataset.fn === '') || c.dataset.fn === fn;
       c.classList.toggle('on', on);
@@ -5712,14 +5715,15 @@ function buildDnaAtlas(host) {
     card.classList.add('show');
     g.classList.add('ring');
   }
-  // nearest corpus star to the pointer, respecting the active filter
-  function sweep(e) {
+  function setPinnedCue(on) { stage.classList.toggle('pinned', on); }
+  // nearest corpus star to the pointer (respecting the active filter); -1 if none in reach
+  function nearestAt(e) {
     const ctm = svg.getScreenCTM();
-    if (!ctm) return;
+    if (!ctm) return -1;
     const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
     const l = pt.matrixTransform(ctm.inverse());
     const rp = Math.hypot(l.x - cx, l.y - cy);
-    if (rp < R - 55 || rp > R + 95) return;                   // only within the star band
+    if (rp < R - 55 || rp > R + 95) return -1;                // only within the star band
     let bi = -1, bd = Infinity;
     const cap = active ? 130 * 130 : 30 * 30;                 // snap wider when a filter thins the field
     for (let i = 0; i < starPos.length; i++) {
@@ -5727,10 +5731,27 @@ function buildDnaAtlas(host) {
       const dx = starPos[i].x - l.x, dy = starPos[i].y - l.y, d2 = dx * dx + dy * dy;
       if (d2 < bd) { bd = d2; bi = i; }
     }
-    if (bi >= 0 && bd <= cap) selectStar(bi);
+    return (bi >= 0 && bd <= cap) ? bi : -1;
+  }
+  // hover / drag names the nearest star live — unless a pin has frozen the readout
+  function sweep(e) {
+    if (pinned) {
+      // a press-drag (finger down, or mouse button held) means "scan again" → release the pin
+      if (e.type === 'pointermove' && (e.buttons & 1)) { pinned = false; setPinnedCue(false); }
+      else return;
+    }
+    const i = nearestAt(e);
+    if (i >= 0) selectStar(i);
+  }
+  // a click pins the nearest star; clicking empty sky releases back to hover
+  function pinAt(e) {
+    const i = nearestAt(e);
+    if (i >= 0) { selectStar(i); starEls[i].setAttribute('stroke-width', 1.8); pinned = true; setPinnedCue(true); }
+    else if (pinned) { pinned = false; setPinnedCue(false); }
   }
   svg.addEventListener('pointermove', sweep);
-  svg.addEventListener('pointerdown', sweep);                 // a tap names too (touch has no hover)
+  svg.addEventListener('pointerdown', sweep);                 // touch has no hover: a press names too
+  svg.addEventListener('click', pinAt);
 
   setFilter(null);
 
