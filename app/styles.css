@@ -2589,8 +2589,8 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
   position: relative; background: var(--atlas-sky);
   border: 1px solid var(--line); border-radius: 12px; padding: 6px; overflow: hidden;
 }
-.atlas-svg { display: block; width: 100%; height: auto; }
-.atlas-star { cursor: pointer; }
+.atlas-svg { display: block; width: 100%; height: auto; touch-action: none; cursor: crosshair; }
+.atlas-star { cursor: crosshair; }
 .atlas-mine.ring circle:last-child { stroke: var(--atlas-ring); stroke-width: 2; }
 .atlas-card {
   position: absolute; top: 16px; right: 16px; max-width: 250px;

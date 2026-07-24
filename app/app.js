@@ -5513,7 +5513,7 @@ function buildDnaAtlas(host) {
   host.appendChild(sec);
   const head = el('div', { class: 'dna-sec-head' });
   head.appendChild(el('h3', { class: 'dna-sec-title', text: 'The Atlas' }));
-  head.appendChild(el('p', { class: 'dna-sec-sub', text: 'Tap a function to isolate it · tap any star to name it · your show sits on the dial, its mirrors strung across the interior.' }));
+  head.appendChild(el('p', { class: 'dna-sec-sub', text: 'Tap a function to isolate it · sweep across the stars to name them · your show sits on the dial, its mirrors strung across the interior.' }));
   sec.appendChild(head);
 
   // chips
@@ -5563,12 +5563,14 @@ function buildDnaAtlas(host) {
   const gauss = () => { const a = rnd(), b = rnd(); return Math.sqrt(-2 * Math.log(a + 1e-9)) * Math.cos(2 * Math.PI * b); };
   const opBoost = dark ? 1 : 1.9;                             // paper needs stronger ink
   const starsG = sv(svg, 'g', {});
-  const starEls = [], starBase = [];
+  const starEls = [], starBase = [], starPos = [];
+  let curStar = null, curMineG = null;                        // what the readout is naming now
   ATLAS_DATA.forEach((s, i) => {
     const r = R + 12 + Math.abs(gauss()) * 11, p = P(s.pos, r);
     const op = Math.min(0.85, (0.13 + rnd() * 0.2) * opBoost);
     const rr = +(rnd() * 1.3 + 0.7).toFixed(1);
     starBase.push({ op: +op.toFixed(2), r: rr });
+    starPos.push({ x: p.x, y: p.y });
     const e = sv(starsG, 'circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: rr, fill: atlasFamVar(s.fn), opacity: op.toFixed(2), 'data-i': i, class: 'atlas-star' });
     starEls.push(e);
   });
@@ -5609,7 +5611,7 @@ function buildDnaAtlas(host) {
     sv(g, 'circle', { cx: p.x.toFixed(1), cy: p.y.toFixed(1), r: 4.5, fill: col, stroke: 'var(--panel)', 'stroke-width': 1.5 });
     g.style.cursor = 'pointer';
     mineEls.push({ g, m });
-    g.addEventListener('click', () => pickMine(m, g));
+    g.addEventListener('click', () => selectMine(m, g));
   });
 
   // center label
@@ -5629,6 +5631,8 @@ function buildDnaAtlas(host) {
   let active = null;
   function setFilter(fn) {
     active = fn;
+    if (curMineG) curMineG.classList.remove('ring');
+    curStar = null; curMineG = null;
     [...chipsEl.children].forEach((c) => {
       const on = (fn === null && c.dataset.fn === '') || c.dataset.fn === fn;
       c.classList.toggle('on', on);
@@ -5671,32 +5675,62 @@ function buildDnaAtlas(host) {
   mkChip(null, 'All');
   ATLAS_CHIPS.forEach(([fn, label]) => mkChip(fn, label));
 
-  // ── tap to identify ──
-  function clearRings() { starEls.forEach((e) => e.removeAttribute('stroke')); mineEls.forEach(({ g }) => g.classList.remove('ring')); }
-  function pickStar(i) {
+  // ── sweep to identify: hover (mouse) or drag (touch) names the nearest star,
+  //    so you can rapidly scan the whole corpus without clicking each one ──
+  function restoreStar(i) {
+    const s = ATLAS_DATA[i];
+    starEls[i].removeAttribute('stroke');
+    if (!active) { starEls[i].setAttribute('opacity', starBase[i].op); starEls[i].setAttribute('r', starBase[i].r); }
+    else if (atlasCanon(s.fn) === active) { starEls[i].setAttribute('opacity', .9); starEls[i].setAttribute('r', 2.4); }
+    else { starEls[i].setAttribute('opacity', dark ? .03 : .05); starEls[i].setAttribute('r', 1); }
+  }
+  function selectStar(i) {
+    if (i === curStar) return;
+    if (curMineG) { curMineG.classList.remove('ring'); curMineG = null; }
+    if (curStar != null) restoreStar(curStar);
+    curStar = i;
     const s = ATLAS_DATA[i];
     card.querySelector('.atlas-card-t').textContent = s.t;
     card.querySelector('.atlas-card-s').textContent = s.show;
     const label = (ATLAS_CHIPS.find((c) => c[0] === atlasCanon(s.fn)) || [null, s.fn])[1];
     card.querySelector('.atlas-card-m').textContent = `${label} · ${pct(s.pos)} of the show · ${s.v}`;
     card.classList.add('show');
-    clearRings();
     starEls[i].setAttribute('stroke', 'var(--atlas-ring)');
     starEls[i].setAttribute('stroke-width', 1);
     starEls[i].setAttribute('opacity', 1);
     starEls[i].setAttribute('r', 3.2);
   }
-  function pickMine(m, g) {
+  function selectMine(m, g) {
+    if (curStar != null) { restoreStar(curStar); curStar = null; }
+    if (curMineG && curMineG !== g) curMineG.classList.remove('ring');
+    curMineG = g;
     card.querySelector('.atlas-card-t').textContent = m.title || '(untitled)';
     card.querySelector('.atlas-card-s').textContent = state.title || '';
     const label = (ATLAS_CHIPS.find((c) => c[0] === m.fn) || [null, (FN[m.fn] || {}).label || m.fn])[1];
     const vc = atlasVoice(m.voicing);
     card.querySelector('.atlas-card-m').textContent = `${label} · ${pct(m.pos)}` + (m.voicing ? ` · ${vc}` : '');
     card.classList.add('show');
-    clearRings();
     g.classList.add('ring');
   }
-  starsG.addEventListener('click', (e) => { const i = e.target.getAttribute('data-i'); if (i != null) pickStar(+i); });
+  // nearest corpus star to the pointer, respecting the active filter
+  function sweep(e) {
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const l = pt.matrixTransform(ctm.inverse());
+    const rp = Math.hypot(l.x - cx, l.y - cy);
+    if (rp < R - 55 || rp > R + 95) return;                   // only within the star band
+    let bi = -1, bd = Infinity;
+    const cap = active ? 130 * 130 : 30 * 30;                 // snap wider when a filter thins the field
+    for (let i = 0; i < starPos.length; i++) {
+      if (active && atlasCanon(ATLAS_DATA[i].fn) !== active) continue;
+      const dx = starPos[i].x - l.x, dy = starPos[i].y - l.y, d2 = dx * dx + dy * dy;
+      if (d2 < bd) { bd = d2; bi = i; }
+    }
+    if (bi >= 0 && bd <= cap) selectStar(bi);
+  }
+  svg.addEventListener('pointermove', sweep);
+  svg.addEventListener('pointerdown', sweep);                 // a tap names too (touch has no hover)
 
   setFilter(null);
 
