@@ -1763,16 +1763,29 @@ body.ms-focus .ms-act-marker {
    .ms-sheet-content, swapped in on click — keeps identical geometry: any
    mismatch here reflows the text out from under the caret. */
 body.ms-focus .ms-edit-doc .ms-sheet-content { padding-top: 0; padding-bottom: 16px; }
-body.ms-focus .ms-edit-doc .ms-edit-logline { padding-top: 0; }
+/* Click-in must not move the page. The editor's .ms-line-editor is a flex item
+   of .ms-card-rich-editor, so it establishes a BFC and traps its first line's
+   16px top margin inside. The static .ms-card-content is a plain block, so with
+   no top padding that same margin collapses *out* of it — the two renders then
+   differ by 16px and the text jumps down the moment you click. (The old 12px top
+   padding blocked the collapse by accident; zeroing it exposed the asymmetry.)
+   flow-root makes the static box trap it too, so both states are identical. */
+body.ms-focus .ms-edit-doc .ms-card-content.ms-sheet-content:not(.ms-card-section-empty) { display: flow-root; }
+/* …and with the margin now trapped rather than escaping, zero it on the opening
+   line so the divider's own 16px is the single blank line under a heading. It's
+   element-dependent (an Action line carries 16px, a Lyric none), so leaving it
+   in would make the gap under a heading vary by what the card opens with. */
+body.ms-focus .ms-edit-doc .ms-sheet-content > :first-child { margin-top: 0; }
+/* The editor's Beatline is its own .ms-sheet-content block above the editor,
+   where static keeps the same line inside the content box — so it must carry no
+   padding at all, or click-in pushes the first lyric down by that much. */
+body.ms-focus .ms-edit-doc .ms-edit-logline { padding-top: 0; padding-bottom: 0; }
 /* An empty card is a heading with nothing under it yet; its placeholder is
    already hidden above. Collapse it to a single blank line — the same blank a
    typed page would leave you to write on, and still a click target for the
-   editor (the card's 40px min-height was reading as a hole). Its divider drops
-   its bottom margin so the heading sits right on that line, giving exactly one
-   blank line between an empty heading and the next one. */
+   editor (the card's 40px min-height was reading as a hole). */
 body.ms-focus .ms-edit-doc .ms-card-section { min-height: 16px; }
 body.ms-focus .ms-edit-doc .ms-card-section-empty { min-height: 0; padding-bottom: 0; }
-body.ms-focus .ms-card-divider-empty { margin-bottom: 0; }
 /* The doc's own top padding is the first act's air — don't add the marker's. */
 body.ms-focus .ms-act-marker:first-child { margin-top: 0; }
 
