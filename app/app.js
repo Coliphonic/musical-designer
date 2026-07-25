@@ -8587,7 +8587,25 @@ function buildManuscriptPage(sceneId) {
   // the big comment in styles.css above the body.ms-focus rules — so this
   // block no longer tracks or dims anything; it just toggles the body class,
   // runs the exit pill, and (below) typewriter scroll + pinch/wheel zoom.
-  const exitPill = el('button', { class: 'ms-focus-exit-pill', title: 'Exit focus mode (Esc)', text: '✕ Exit focus' });
+  // The only control on the page in Focus, so it stays a quiet hairline circle
+  // at rest and grows leftward into a labelled pill on hover / keyboard focus
+  // (styles.css). The ✕ is drawn from two bars rather than set as a glyph so it
+  // stays crisp and optically centred; the Esc keycap teaches the shortcut that
+  // does the same thing without reaching for the corner.
+  const exitPill = el('button', {
+    // No `title`: the native tooltip fires about when the pill has finished
+    // expanding, so it would just cover the label it duplicates. aria-label
+    // carries the same thing for screen readers.
+    class: 'ms-focus-exit-pill', type: 'button', 'aria-label': 'Exit focus mode',
+  }, [
+    el('span', { class: 'ms-focus-exit-more' }, [
+      el('span', { class: 'ms-focus-exit-more-in' }, [
+        el('span', { class: 'ms-focus-exit-label', text: 'Exit focus' }),
+        el('kbd', { class: 'ms-focus-exit-key', text: 'Esc' }),
+      ]),
+    ]),
+    el('span', { class: 'ms-focus-exit-x' }),
+  ]);
   msWrap.appendChild(exitPill);
   let focusMode = false;
   let pillTimer = null;

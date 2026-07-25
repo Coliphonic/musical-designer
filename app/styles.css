@@ -1790,6 +1790,12 @@ body.ms-focus .ms-edit-doc .ms-card-section-empty { min-height: 0; padding-botto
 /* The doc's own top padding is the first act's air — don't add the marker's. */
 body.ms-focus .ms-act-marker:first-child { margin-top: 0; }
 
+/* The only control on the page in Focus, so it earns its keep by being quiet:
+   a hairline circle holding just the ✕, which grows leftward into a labelled
+   pill on hover or keyboard focus. Anchored by `right`, so the growth pushes
+   away from the corner and the ✕ never moves under the pointer. Everything
+   comes from the existing tokens — no new hues, and --energy stays reserved
+   for the focus ring. */
 .ms-focus-exit-pill {
   position: absolute;
   /* Focus mode hides the topbar, so .ms-wrap reaches the very top of the screen.
@@ -1798,19 +1804,110 @@ body.ms-focus .ms-act-marker:first-child { margin-top: 0; }
   top: calc(14px + env(safe-area-inset-top, 0px));
   right: calc(18px + env(safe-area-inset-right, 0px));
   z-index: 20;
-  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding: 0;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: var(--panel);
-  color: var(--ink);
-  font-size: 12px;
+  background: var(--panel); /* fallback for engines without color-mix */
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  -webkit-backdrop-filter: blur(10px) saturate(1.2);
+  backdrop-filter: blur(10px) saturate(1.2);
+  color: var(--muted);
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s ease;
-  box-shadow: 0 2px 10px #0004;
+  transition: opacity 0.25s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  box-shadow: 0 1px 2px #0000001a, 0 6px 18px #00000026;
 }
 body.ms-focus .ms-focus-exit-pill.show { opacity: 1; pointer-events: auto; }
+/* Dark needs a lifted surface, not a matching one: the pill can float over the
+   sheet (--panel) as well as the surround, and at --panel it would read as a
+   hairline outline around nothing. A few percent of white separates it from
+   both, and the shadow can't do the work it does on a light ground. */
+body.dark .ms-focus-exit-pill {
+  background: color-mix(in srgb, var(--panel) 88%, #fff);
+  border-color: color-mix(in srgb, var(--line) 70%, #fff);
+  box-shadow: 0 1px 2px #0000004d, 0 8px 22px #00000059;
+}
+.ms-focus-exit-pill:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 22%, var(--line)); }
+body.dark .ms-focus-exit-pill:hover { border-color: color-mix(in srgb, var(--line) 45%, #fff); }
+.ms-focus-exit-pill:focus-visible { outline: 2px solid var(--energy); outline-offset: 2px; }
+/* The ✕, drawn as two bars rather than set as a glyph: no font dependency, and
+   it stays optically centred in the circle at any size (✕ sits high in most
+   faces). The 34px square is also the whole target at rest. */
+.ms-focus-exit-x {
+  position: relative;
+  flex: none;
+  width: 32px;
+  align-self: stretch;
+}
+.ms-focus-exit-x::before,
+.ms-focus-exit-x::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 11px;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+  transition: transform 0.22s cubic-bezier(.3,.7,.3,1);
+}
+.ms-focus-exit-x::before { transform: translate(-50%, -50%) rotate(45deg); }
+.ms-focus-exit-x::after  { transform: translate(-50%, -50%) rotate(-45deg); }
+/* A quarter turn on hover — the one bit of movement in the room, and it reads
+   as the control acknowledging you rather than as decoration. */
+.ms-focus-exit-pill:hover .ms-focus-exit-x::before { transform: translate(-50%, -50%) rotate(135deg); }
+.ms-focus-exit-pill:hover .ms-focus-exit-x::after  { transform: translate(-50%, -50%) rotate(45deg); }
+/* Reveal: 0fr → 1fr on a grid column animates an intrinsic width, so the label
+   never needs a hard-coded max-width to slide out from behind. */
+.ms-focus-exit-more {
+  display: grid;
+  grid-template-columns: 0fr;
+  opacity: 0;
+  transition: grid-template-columns 0.24s cubic-bezier(.3,.7,.3,1), opacity 0.16s ease;
+}
+.ms-focus-exit-pill:hover .ms-focus-exit-more,
+.ms-focus-exit-pill:focus-visible .ms-focus-exit-more { grid-template-columns: 1fr; opacity: 1; }
+.ms-focus-exit-more-in {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+/* The lead-in space belongs to the label, not to this box: padding here would
+   sit outside the clip and keep 14px of width even at 0fr, so the rest state
+   would be a squashed oval instead of a circle. */
+.ms-focus-exit-label {
+  padding-left: 14px;
+  font-family: var(--ui-font);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+/* Not decoration — the shortcut that does this without reaching for the corner. */
+.ms-focus-exit-key {
+  font-family: var(--ui-font);
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  padding: 3px 5px 4px;
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  color: var(--muted);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ms-focus-exit-pill,
+  .ms-focus-exit-more,
+  .ms-focus-exit-x::before,
+  .ms-focus-exit-x::after { transition-duration: 0.01ms; }
+}
 .ms-wrap { flex: 1; min-height: 0; min-width: 0; display: flex; overflow: hidden; position: relative; }
 .ms-wrap .ms-body { flex: 1; min-width: 0; overflow-y: auto; background: #9a948a; }
 
