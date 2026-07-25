@@ -165,6 +165,13 @@ function findSnap(store, snapId) {
 }
 
 // ---- Auth helpers --------------------------------------------------------
+// True if a resolved filesystem path sits in a directory that holds user data
+// (shows, snapshots, or the seed copies). Used to keep the unauthenticated
+// static handler away from content the API guards with canAccess/roleFor.
+// Compared with a trailing separator so `…/shows-notes` isn't caught by `…/shows`.
+function isUnderDataDir(fp) {
+  return [SHOWS_DIR, SNAPS_DIR, SEED_DIR].some((d) => fp === d || fp.startsWith(d + path.sep));
+}
 function loadUsers() { try { return JSON.parse(fs.readFileSync(USERS_FILE, 'utf8')); } catch (_) { return []; } }
 function saveUsers(users) { fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), { mode: 0o600 }); }
 function loadInvites() { try { return JSON.parse(fs.readFileSync(INVITES_FILE, 'utf8')); } catch (_) { return []; } }
@@ -607,9 +614,33 @@ if (USE_REMOTE) {
   console.log('[USE_REMOTE_DATA] Shows API → ' + REMOTE_URL);
 }
 
+// Last-resort net. The two known crashers are handled at their source below, but
+// a single unhandled throw anywhere in a request listener exits the process, and
+// pm2 parks an app in `errored` after enough rapid restarts — so one malformed
+// request could take the site down until someone SSHes in. Staying up on a
+// logged error is the better trade here: request handling is stateless (reads
+// and atomic writes), so a failed request doesn't leave the next one broken.
+process.on('uncaughtException', (err) => {
+  console.error('[uncaught]', err && err.stack ? err.stack : err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('[unhandled rejection]', err && err.stack ? err.stack : err);
+});
+
 http
   .createServer((req, res) => {
-    let p = decodeURIComponent((req.url || '/').split('?')[0]);
+    // decodeURIComponent throws URIError on malformed input — `GET /%` alone was
+    // enough to take the whole process down, unauthenticated, since a throw in a
+    // request listener is an uncaught exception and Node exits. A null byte did
+    // the same one step later, inside fs.readFile. Reject both as bad requests
+    // instead. (The blanket guard below catches anything else of this shape.)
+    let p;
+    try {
+      p = decodeURIComponent((req.url || '/').split('?')[0]);
+    } catch (_) {
+      res.writeHead(400); res.end('bad request'); return;
+    }
+    if (p.indexOf('\0') >= 0) { res.writeHead(400); res.end('bad request'); return; }
 
     // Auth endpoints are always reachable.
     if (p.startsWith('/api/auth')) { handleAuth(req, res, p.split('/').filter(Boolean).slice(1)); return; }
@@ -664,9 +695,20 @@ http
     }
 
     const fp = path.join(ROOT, p);
-    if (!fp.startsWith(ROOT)) { res.writeHead(403); res.end('forbidden'); return; }
+    // ROOT + sep, not ROOT: a bare prefix test also matches a SIBLING directory
+    // whose name merely starts with the same characters (…/app vs …/app-data),
+    // which `path.join(ROOT, '/../app-data/x')` reaches.
+    if (fp !== ROOT && !fp.startsWith(ROOT + path.sep)) { res.writeHead(403); res.end('forbidden'); return; }
     // Never serve secrets/users over HTTP.
     if (fp === USERS_FILE || fp === SECRET_FILE || fp === INVITES_FILE) { res.writeHead(403); res.end('forbidden'); return; }
+    // Never serve user CONTENT from the static handler either. This path has no
+    // session check at all, so anything reachable here is world-readable — and
+    // SHOWS_DIR/SNAPS_DIR both DEFAULT to inside ROOT. In production SHOWS_DIR
+    // was overridden but SNAPS_DIR was not, which published every show's full
+    // version history to the internet. The env vars are now set correctly, but
+    // the default must not be a data leak waiting on a config line, so refuse
+    // these prefixes whether or not they've been moved out of the web root.
+    if (isUnderDataDir(fp)) { res.writeHead(403); res.end('forbidden'); return; }
     fs.readFile(fp, (err, data) => {
       if (err) { res.writeHead(404); res.end('not found'); return; }
       // index.html carries per-subdomain title/theme-color; patch on the way out.
