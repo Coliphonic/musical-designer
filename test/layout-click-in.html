@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Manuscript click-in geometry</title>
+<link rel="stylesheet" href="../app/styles.css">
+<style>
+  /* Harness chrome only — nothing here styles the thing under test. */
+  html, body { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  #panel {
+    position: fixed; top: 0; right: 0; z-index: 999; width: 420px; max-height: 100vh;
+    overflow: auto; background: #12141a; color: #cfd6e4; padding: 14px 16px;
+    font-size: 12px; line-height: 1.55; box-shadow: -2px 0 14px #0006;
+  }
+  #panel h1 { font-size: 12px; margin: 0 0 10px; letter-spacing: .08em; text-transform: uppercase; color: #8fa3c4; }
+  #panel button { font: inherit; padding: 4px 9px; margin: 0 6px 10px 0; cursor: pointer;
+    background: #232838; color: #cfd6e4; border: 1px solid #3a4152; border-radius: 5px; }
+  #panel button.on { background: #2f6f4f; border-color: #47a06f; color: #eafff2; }
+  table { border-collapse: collapse; width: 100%; margin-top: 6px; }
+  th, td { text-align: right; padding: 2px 5px; border-bottom: 1px solid #262c3a; font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: #7f8aa3; font-weight: 500; }
+  .pass { color: #6ee7a8; } .fail { color: #ff8a8a; font-weight: 700; }
+  #verdict { margin-top: 12px; padding: 8px 10px; border-radius: 6px; font-weight: 700; }
+  #verdict.pass { background: #10301f; } #verdict.fail { background: #3a1414; }
+  #stage { padding-right: 440px; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <h1>Manuscript click-in geometry</h1>
+  <p style="margin:0 0 10px;color:#8fa3c4">
+    Clicking a card swaps its static render for the rich editor. The two must be
+    geometrically identical, or the text moves out from under the caret. This
+    builds both states of the same card side by side and diffs them.
+  </p>
+  <button id="tFocus" type="button">Focus mode</button>
+  <button id="tDark" type="button">Dark</button>
+  <button id="tProse" type="button">Prose</button>
+  <div id="out"></div>
+  <div id="verdict"></div>
+</div>
+<div id="stage"><div class="ms-body"><div class="ms-edit-doc" id="doc"></div></div></div>
+
+<script>
+/*
+ * Mirrors the DOM that app.js builds, so the CSS under test sees what it sees:
+ *
+ *   static   sec.ms-card-section > .ms-card-content.ms-sheet-content
+ *                                    ( .lw-note-ms? , .ms-el* )
+ *   editing  sec.ms-card-section[.ms-has-logline]
+ *              > .ms-sheet-content.ms-edit-logline > .lw-note-ms      (if any)
+ *              > .ms-card-rich-editor > .ms-line-editor.ms-sheet-content > .ms-el*
+ *
+ * Sources: renderCardSection() and enterCardEditRich() in app/app.js.
+ * The asymmetry to watch is that a Beatline lives INSIDE the content box when
+ * static and in its OWN box when editing — every click-in shift found so far
+ * has come from padding or margins that land on one but not the other.
+ */
+const CASES = [
+  { key: 'scene-action',  label: 'Scene · Action first',      note: null,
+    body: [['lw-action', 'The roof door bangs open.'], ['lw-action', 'He is out of breath.']] },
+  { key: 'song-char',     label: 'Song · Beatline + CHAR',    note: 'Hero states the want.',
+    body: [['lw-char', 'TONY'], ['lw-sung', 'Could be, who knows?'], ['lw-sung', "There's something due any day"]] },
+  { key: 'song-lyric',    label: 'Song · Beatline + Lyric',   note: 'The want, sung.',
+    body: [['lw-sung', 'Could be, who knows?']] },
+  { key: 'song-paren',    label: 'Song · Beatline + Paren',   note: 'A held breath.',
+    body: [['lw-paren', 'quietly'], ['lw-sung', 'Could be…']] },
+  { key: 'beat-plain',    label: 'Beat · no Beatline',        note: null,
+    body: [['lw-action', 'They meet at the dance.']] },
+  { key: 'scene-header',  label: 'Scene · header first',      note: null,
+    body: [['lw-scene-header', 'INT. GYM — NIGHT'], ['lw-action', 'Streamers, and nobody dancing.']] },
+];
+
+const mk = (tag, cls, text) => {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+};
+const bodyLines = (body) => body.map(([cls, text]) => {
+  const d = mk('div', 'ms-el ' + cls, text);
+  d.dataset.type = cls;
+  return d;
+});
+
+function build() {
+  const doc = document.getElementById('doc');
+  doc.textContent = '';
+  doc.appendChild(mk('div', 'ms-act-marker', '#ACT 1'));
+  for (const cs of CASES) {
+    for (const mode of ['static', 'edit']) {
+      const dv = mk('div', 'ms-card-divider ' + (cs.note ? 'dv-song' : 'dv-scene'));
+      const lb = mk('span', 'ms-card-divider-label');
+      lb.appendChild(mk('span', 'ms-card-divider-icon', cs.note ? '♪' : '◆'));
+      lb.appendChild(mk('span', 'ms-card-divider-title', cs.label + ' — ' + mode));
+      dv.appendChild(lb);
+      doc.appendChild(dv);
+
+      const sec = mk('div', 'ms-card-section');
+      sec.id = cs.key + '-' + mode;
+      if (mode === 'static') {
+        const c = mk('div', 'ms-card-content ms-sheet-content');
+        if (cs.note) c.appendChild(mk('div', 'lw-note-ms', cs.note));
+        bodyLines(cs.body).forEach((l) => c.appendChild(l));
+        sec.appendChild(c);
+      } else {
+        if (cs.note) {
+          sec.classList.add('ms-has-logline');
+          const lg = mk('div', 'ms-sheet-content ms-edit-logline');
+          lg.appendChild(mk('div', 'lw-note-ms', cs.note));
+          sec.appendChild(lg);
+        }
+        const rw = mk('div', 'ms-card-rich-editor');
+        const le = mk('div', 'ms-line-editor ms-sheet-content');
+        le.contentEditable = 'true';
+        bodyLines(cs.body).forEach((l) => le.appendChild(l));
+        rw.appendChild(le);
+        sec.appendChild(rw);
+      }
+      doc.appendChild(sec);
+    }
+  }
+}
+
+// Three numbers per state. Beatline offset and first-body-line offset catch a
+// shift at the top of the card; section height catches one that moves
+// everything BELOW the card instead (the two are independent failures).
+function probe(id) {
+  const s = document.getElementById(id), r = s.getBoundingClientRect();
+  const n = s.querySelector('.lw-note-ms'), e = s.querySelector('.ms-el');
+  const at = (el) => (el ? Math.round(el.getBoundingClientRect().top - r.top) : null);
+  return { note: at(n), first: at(e), height: Math.round(r.height) };
+}
+
+function run() {
+  const rows = [];
+  let failed = 0;
+  for (const cs of CASES) {
+    const a = probe(cs.key + '-static'), b = probe(cs.key + '-edit');
+    const ok = a.note === b.note && a.first === b.first && a.height === b.height;
+    if (!ok) failed++;
+    rows.push({ label: cs.label, a, b, ok });
+  }
+  const cell = (v) => (v === null ? '—' : v);
+  document.getElementById('out').innerHTML =
+    '<table><tr><th>case</th><th>beatline</th><th>1st line</th><th>height</th><th></th></tr>' +
+    rows.map((r) =>
+      `<tr><td>${r.label}</td><td>${cell(r.a.note)}</td><td>${r.a.first}</td><td>${r.a.height}</td><td rowspan="2" class="${r.ok ? 'pass' : 'fail'}">${r.ok ? 'match' : 'SHIFT'}</td></tr>` +
+      `<tr><td style="color:#7f8aa3">↳ editing</td><td>${cell(r.b.note)}</td><td>${r.b.first}</td><td>${r.b.height}</td></tr>`
+    ).join('') + '</table>';
+  const v = document.getElementById('verdict');
+  v.className = failed ? 'fail' : 'pass';
+  v.textContent = failed
+    ? failed + ' of ' + CASES.length + ' card shapes shift on click-in'
+    : 'PASS — all ' + CASES.length + ' card shapes identical';
+  return !failed;
+}
+
+function toggle(btnId, cls, host) {
+  const btn = document.getElementById(btnId);
+  btn.addEventListener('click', () => {
+    host.classList.toggle(cls);
+    btn.classList.toggle('on', host.classList.contains(cls));
+    run();
+  });
+  btn.classList.toggle('on', host.classList.contains(cls));
+}
+
+build();
+toggle('tFocus', 'ms-focus', document.body);
+toggle('tDark', 'dark', document.body);
+toggle('tProse', 'app-prose', document.body); // prose overrides .lw-action margins
+document.fonts.ready.then(run);
+// Exposed so a headless driver can assert without scraping the panel.
+window.checkClickInGeometry = run;
+</script>
+</body>
+</html>
