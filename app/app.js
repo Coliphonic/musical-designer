@@ -658,17 +658,25 @@ function buildFindRegex(query, opts) {
   try { return new RegExp(pattern, 'g' + (opts.case ? '' : 'i')); } catch (_) { return null; }
 }
 function htmlToText(html) {
-  const d = document.createElement('div');
-  d.innerHTML = html || '';
-  return d.textContent || '';
+  // DOMParser, not a temp element's innerHTML — assigning to a live element's
+  // innerHTML actually loads resources and fires handlers (an
+  // <img src=x onerror=...> runs the instant it's parsed, even in a detached
+  // div never inserted into the page). Card/note bodies are untrusted
+  // (collaborator-authored), and this runs just to count Find & Replace
+  // matches, so it must not execute anything. DOMParser's parsed document is
+  // never inserted into the page and stays inert.
+  const doc = new DOMParser().parseFromString(html || '', 'text/html');
+  return doc.body.textContent || '';
 }
 // Replaces within text nodes only, so bold/italic/links survive. A match that
 // spans a formatting boundary (half bold, half not) won't be found — a known
 // limitation shared with most rich-text editors' basic find/replace.
 function replaceInHtml(html, re, replacement) {
-  const container = document.createElement('div');
-  container.innerHTML = html || '';
-  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  // See htmlToText above — parse via DOMParser, not innerHTML, so a poisoned
+  // card/note body can't execute just by being opened in Find & Replace.
+  const doc = new DOMParser().parseFromString(html || '', 'text/html');
+  const container = doc.body;
+  const walker = doc.createTreeWalker(container, NodeFilter.SHOW_TEXT);
   const nodes = [];
   let n;
   while ((n = walker.nextNode())) nodes.push(n);
@@ -2199,6 +2207,75 @@ const CHORD_RE = new RegExp('\\[(' + CHORD_TOKEN + ')\\]', 'g');
 // *italic*, _underline_) so they round-trip through the plain-text body blob and
 // print. These helpers convert that markup to display HTML and back.
 function escHtml(s) { return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+// ---- HTML sanitizer (research notes are collaborator-authored HTML that
+// round-trips through the server, so one user's note body renders in another
+// user's browser — this is the one gate between them) --------------------
+// Allow-list of formatting tags we're willing to keep. Anything else is
+// either unwrapped (dropped, keeping its children/text — e.g. a stray <font>)
+// or dropped wholesale with its contents (script-capable or resource-loading
+// tags, where the "contents" are the attack).
+const SANITIZE_ALLOWED_TAGS = new Set([
+  'p', 'div', 'br', 'span', 'h1', 'h2', 'h3', 'blockquote', 'ul', 'ol', 'li',
+  'b', 'strong', 'i', 'em', 'u', 's', 'strike', 'code', 'pre', 'a', 'hr',
+  'table', 'thead', 'tbody', 'tr', 'td', 'th',
+]);
+const SANITIZE_DROPPED_TAGS = new Set([
+  'script', 'style', 'iframe', 'object', 'embed', 'link', 'meta', 'svg',
+  'math', 'img', 'video', 'audio', 'source', 'form', 'input', 'button',
+  'textarea', 'select',
+]);
+// The only attribute this sanitizer ever keeps is href on <a>, and only when
+// the scheme is one that can't execute script on click. Shared with the
+// toolbar's "Insert link" prompt (see buildNotesPage) so typed and pasted
+// links are held to the same rule.
+function sanitizeAnchorHref(rawHref) {
+  const stripped = (rawHref || '').replace(/[\u0000-\u001f\u007f]/g, '').trim();
+  const lower = stripped.toLowerCase();
+  if (lower.startsWith('http://') || lower.startsWith('https://') ||
+      lower.startsWith('mailto:') || lower.startsWith('#')) return stripped;
+  return null; // javascript:, data:, vbscript:, and anything unrecognized
+}
+// Cleans attacker-controllable HTML (a note body, a pasted clipboard payload)
+// down to plain formatting with no attributes but href. Parses with
+// DOMParser rather than assigning the string to a scratch element's
+// innerHTML — a live innerHTML parse actually loads resources and fires
+// handlers (verified in-browser: <img src=x onerror=...> executes the
+// instant it's parsed, even inside a div that's never attached to the page),
+// which is exactly the bug this function exists to close. A DOMParser
+// document is never inserted into the page and never runs script or loads
+// anything, so walking it is safe no matter what's in the input.
+function sanitizeHtmlFragment(html) {
+  const doc = new DOMParser().parseFromString(html || '', 'text/html');
+  const out = document.createElement('div');
+  // Walk with an explicit stack rather than recursion — hostile input can
+  // nest thousands of tags deep for the sole purpose of blowing a recursive
+  // walker's call stack, and an explicit stack has no such limit.
+  const stack = [];
+  const pushChildren = (srcParent, destParent) => {
+    const kids = srcParent.childNodes;
+    for (let i = kids.length - 1; i >= 0; i--) stack.push({ node: kids[i], dest: destParent });
+  };
+  pushChildren(doc.body, out);
+  while (stack.length) {
+    const { node, dest } = stack.pop();
+    if (node.nodeType === 3) { dest.appendChild(document.createTextNode(node.nodeValue)); continue; } // text
+    if (node.nodeType !== 1) continue; // comments, processing instructions, etc. — drop
+    const tag = node.nodeName.toLowerCase();
+    if (SANITIZE_DROPPED_TAGS.has(tag)) continue; // drop element and its contents
+    if (!SANITIZE_ALLOWED_TAGS.has(tag)) { pushChildren(node, dest); continue; } // unwrap: keep children, drop the wrapper
+    const clean = document.createElement(tag);
+    if (tag === 'a') {
+      const safeHref = sanitizeAnchorHref(node.getAttribute('href'));
+      if (safeHref) clean.setAttribute('href', safeHref);
+    }
+    // Every other attribute (style, on*, class, id, ...) is simply never
+    // copied — the allow-list is additive, not a blocklist of bad ones.
+    dest.appendChild(clean);
+    pushChildren(node, clean);
+  }
+  return out.innerHTML;
+}
 function emphToHtml(text) {
   let s = escHtml(text);
   s = s.replace(/\*\*\*([^*]+?)\*\*\*/g, '<b><i>$1</i></b>')
@@ -5169,7 +5246,12 @@ function buildNotesPage() {
     // Insert
     fmt.appendChild(mkBtn(ICON.link, 'Insert link', () => {
       const url = prompt('Link URL:');
-      if (url) document.execCommand('createLink', false, url);
+      if (!url) return;
+      // Same scheme allow-list as sanitizeHtmlFragment's href handling — a
+      // typed javascript: URL is just as live as a pasted one.
+      const safeUrl = sanitizeAnchorHref(url);
+      if (!safeUrl) { alert('Links must start with http://, https://, mailto:, or #.'); return; }
+      document.execCommand('createLink', false, safeUrl);
     }, { html: true }));
     fmt.appendChild(mkBtn(ICON.table, 'Insert table', () => {
       document.execCommand('insertHTML', false,
@@ -5203,12 +5285,19 @@ function buildNotesPage() {
   docEl.appendChild(titleHead);
 
   editorEl = el('div', { class: 'notes-editor' });
-  editorEl.innerHTML = note.body || '';
+  // Notes are shared with collaborators and their bodies round-trip through
+  // the server (PUT /api/shows/:id), so a note body is attacker-controllable
+  // HTML by the time it gets here — sanitize before it ever reaches innerHTML.
+  editorEl.innerHTML = sanitizeHtmlFragment(note.body || '');
   if (ro) editorEl.setAttribute('contenteditable', 'false');
   else {
     editorEl.setAttribute('contenteditable', 'true');
     editorEl.addEventListener('input', () => {
-      note.body = editorEl.innerHTML;
+      // Sanitize on capture too, not just on load — execCommand('insertHTML')
+      // in the paste handler below already inserts clean markup, but this
+      // keeps what's persisted clean at rest regardless of how it got into
+      // the editor (e.g. a future formatting command we haven't audited).
+      note.body = sanitizeHtmlFragment(editorEl.innerHTML);
       note.updatedAt = Date.now();
       scheduleSave();
     });
@@ -5224,6 +5313,18 @@ function buildNotesPage() {
       if (!li) return;
       e.preventDefault();
       document.execCommand(e.shiftKey ? 'outdent' : 'indent');
+    });
+    // Paste — sanitize inbound HTML before insertion, since a clipboard
+    // payload (from another app, a browser extension, or a copy off a
+    // poisoned page) is just as untrusted as a stored note body. Falls back
+    // to plain text when the clipboard offers no HTML flavour.
+    editorEl.addEventListener('paste', (e) => {
+      e.preventDefault();
+      const data = e.clipboardData || window.clipboardData;
+      const html = data ? data.getData('text/html') : '';
+      if (html) { document.execCommand('insertHTML', false, sanitizeHtmlFragment(html)); return; }
+      const text = data ? data.getData('text/plain') : '';
+      if (text) document.execCommand('insertText', false, text);
     });
   }
   docEl.appendChild(editorEl);
