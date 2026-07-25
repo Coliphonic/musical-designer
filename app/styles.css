@@ -1771,11 +1771,12 @@ body.ms-focus .ms-edit-doc .ms-sheet-content { padding-top: 0; padding-bottom: 1
    padding blocked the collapse by accident; zeroing it exposed the asymmetry.)
    flow-root makes the static box trap it too, so both states are identical. */
 body.ms-focus .ms-edit-doc .ms-card-content.ms-sheet-content:not(.ms-card-section-empty) { display: flow-root; }
-/* …and with the margin now trapped rather than escaping, zero it on the opening
-   line so the divider's own 16px is the single blank line under a heading. It's
-   element-dependent (an Action line carries 16px, a Lyric none), so leaving it
-   in would make the gap under a heading vary by what the card opens with. */
-body.ms-focus .ms-edit-doc .ms-sheet-content > :first-child { margin-top: 0; }
+/* Nothing zeroes the opening line's own top margin here. It's element-dependent
+   (Character/Action/Beatline carry Final Draft's 12pt space-before, Lyrics and
+   Dialogue carry none), and both containers are now BFCs, so that margin lands
+   identically in the static render and the editor. Forcing it to 0 would only
+   land on whichever element is literally first — the Beatline in static, the
+   first body line in the editor — and reintroduce the jump it was meant to fix. */
 /* The editor's Beatline is its own .ms-sheet-content block above the editor,
    where static keeps the same line inside the content box — so it must carry no
    padding at all, or click-in pushes the first lyric down by that much. */
