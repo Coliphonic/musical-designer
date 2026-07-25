@@ -1705,7 +1705,7 @@ body.ms-focus .ms-format-bar { display: none !important; }
 body.ms-focus .ms-edit-doc {
   width: 816px;
   margin: 0 auto;
-  padding: 64px 0 45vh; /* long tail so typewriter scroll can center the last line */
+  padding: 48px 0 45vh; /* long tail so typewriter scroll can center the last line */
   background: var(--panel);
   box-shadow: 0 2px 12px #0003;
 }
@@ -1715,7 +1715,7 @@ body.ms-focus .ms-edit-doc {
 body.ms-focus .ms-edit-doc .ms-card-section { background: transparent; box-shadow: none; width: auto; }
 body.ms-focus .ms-card-divider {
   width: 816px;
-  margin: 36px auto 10px;
+  margin: 16px auto;
   box-sizing: border-box;
   padding: 0 120px;
   justify-content: flex-start;
@@ -1745,7 +1745,7 @@ body.ms-focus .ms-card-placeholder { display: none; } /* "(scene heading — cli
 body.ms-focus .ms-act-marker {
   display: block;
   width: 816px;
-  margin: 48px auto 10px;
+  margin: 32px auto 16px;
   box-sizing: border-box;
   padding: 0 120px;
   font-family: var(--edit-font, 'Courier Prime', 'Courier New', Courier, monospace);
@@ -1753,6 +1753,29 @@ body.ms-focus .ms-act-marker {
   color: var(--muted);
   user-select: none;
 }
+/* Vertical rhythm. One body line in the sheet is exactly 16px (.ms-sheet-content
+   is 16px/1.0), so every gap in Focus is a whole number of blank lines and the
+   page sits on a real typed grid: heading, blank, text — never card-sized air.
+   Outside Focus these blocks each carry card padding (12px top / 48px bottom on
+   the content, 56px min-height on an empty one), which is right when they're
+   separate sheets of paper and reads as a void once the seams dissolve.
+   .ms-sheet-content (not .ms-card-content) so the rich editor — .ms-line-editor
+   .ms-sheet-content, swapped in on click — keeps identical geometry: any
+   mismatch here reflows the text out from under the caret. */
+body.ms-focus .ms-edit-doc .ms-sheet-content { padding-top: 0; padding-bottom: 16px; }
+body.ms-focus .ms-edit-doc .ms-edit-logline { padding-top: 0; }
+/* An empty card is a heading with nothing under it yet; its placeholder is
+   already hidden above. Collapse it to a single blank line — the same blank a
+   typed page would leave you to write on, and still a click target for the
+   editor (the card's 40px min-height was reading as a hole). Its divider drops
+   its bottom margin so the heading sits right on that line, giving exactly one
+   blank line between an empty heading and the next one. */
+body.ms-focus .ms-edit-doc .ms-card-section { min-height: 16px; }
+body.ms-focus .ms-edit-doc .ms-card-section-empty { min-height: 0; padding-bottom: 0; }
+body.ms-focus .ms-card-divider-empty { margin-bottom: 0; }
+/* The doc's own top padding is the first act's air — don't add the marker's. */
+body.ms-focus .ms-act-marker:first-child { margin-top: 0; }
+
 .ms-focus-exit-pill {
   position: absolute;
   /* Focus mode hides the topbar, so .ms-wrap reaches the very top of the screen.
