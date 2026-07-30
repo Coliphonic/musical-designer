@@ -14,7 +14,7 @@ const shows = Object.entries(SHOWS).filter(isMusical);
 const voiceClass = (v) => {
   if (!v) return null;
   const t = v.trim();
-  if (/company|ensemble|co\.|men|women|chorus|all|full|kids|daughters|boys|girls|townsfolk|crowd/i.test(t)) return 'group';
+  if (/company|ensemble|co\.|men|women|chorus|all|full|kids|daughters|boys|girls|townsfolk|crowd|fates|workers/i.test(t)) return 'group';
   const parts = t.split(/\s*(?:,|\+|&|and)\s*/i).filter(Boolean);
   if (parts.length >= 3) return 'group';
   if (parts.length === 2) return 'duet';

@@ -28,12 +28,33 @@ const NAMES = {
   merrily:'Merrily We Roll Along',chess:'Chess',carrie:'Carrie',big:'Big',
   bonnieclyde:'Bonnie & Clyde',nexttonormal:'Next to Normal',littleshop:'Little Shop of Horrors',
   lastfiveyears:'The Last Five Years',falsettos:'Falsettos',once:'Once',
+  oncethisisland:'Once on This Island',titleofshow:'[title of show]',
+  ordinarydays:'Ordinary Days',ridethecyclone:'Ride the Cyclone',
+  rockyhorror:'The Rocky Horror Show',
 };
+
+// One-act vs full-length, for the Atlas form filter. 'other' is the escape hatch
+// for anything that is neither (currently just Encanto, a film) — it must be
+// excluded from BOTH sides of the filter rather than lumped into one.
+const formKind = (f) => !f ? null : /^one-act/.test(f) ? 'one' : f === 'two-act' ? 'full' : 'other';
 const out = [];
+
+// Shelf shows are read FIRST, before the corpus batches, only so their titles can
+// veto a duplicate corpus row below. Shelf and corpus are meant to be disjoint —
+// but a show gets promoted from data-only to carded from time to time (Hadestown,
+// 2026-07-29), and both sets key on the same resolved title, so a leftover corpus
+// row would silently double every one of that show's songs and blend its a1share.
+// Shelf wins: the carded pass is the richer one and its positions come off a full
+// card timeline rather than song minutes alone.
+const shelfSrc = readFileSync(DIR + '/app/data.js', 'utf8');
+const { SHOWS } = new Function(shelfSrc + '\n;return { SHOWS };')();
+const SHELF_TITLES = new Set(Object.values(SHOWS).map((s) => s.title));
+
 // per-show Act-1 song-minute accumulator → ATLAS_SHOWS
 const shareMap = new Map(); // name -> {a1, tot}
 const yearMap = new Map();  // name -> year from an explicit `year:` field (authoritative)
 const yearComment = new Map(); // name -> year from the show's `// YYYY` header comment (fallback)
+const formMap = new Map();  // name -> raw `form:` string ('two-act' | 'one-act-NN' | 'film')
 const addShare = (name, a1, tot) => {
   const r = shareMap.get(name) || { a1: 0, tot: 0 };
   r.a1 += a1; r.tot += tot; shareMap.set(name, r);
@@ -47,6 +68,10 @@ for (const f of readdirSync(DIR + '/corpus').filter(f => f.startsWith('corpus-')
   let show = null, songs = [];
   const flush = () => {
     if (!show || !songs.length) return;
+    if (SHELF_TITLES.has(NAMES[show] || show)) {
+      console.log('skip corpus row (already on the shelf):', NAMES[show] || show);
+      songs = []; return;
+    }
     const total = songs.reduce((s, x) => s + x.min, 0);
     const a1 = songs.reduce((s, x) => s + (x.act === 'A1' ? x.min : 0), 0);
     addShare(NAMES[show] || show, a1, total);
@@ -66,9 +91,16 @@ for (const f of readdirSync(DIR + '/corpus').filter(f => f.startsWith('corpus-')
       // (classics), or only in the `// YYYY` header comment (winners/extras).
       const yf = ln.match(/\byear:\s*(\d{4})/); if (yf) yearMap.set(nm, +yf[1]);
       const yc = ln.match(/\/\/\s*(\d{4})/);    if (yc) yearComment.set(nm, +yc[1]);
+      const ff = ln.match(/\bform:\s*'([^']+)'/); if (ff) formMap.set(nm, ff[1]);
       continue;
     }
-    if (show) { const yf = ln.match(/\byear:\s*(\d{4})/); if (yf) yearMap.set(NAMES[show] || show, +yf[1]); }
+    if (show) {
+      const nm2 = NAMES[show] || show;
+      const yf = ln.match(/\byear:\s*(\d{4})/); if (yf) yearMap.set(nm2, +yf[1]);
+      // `form:` sits inline on the show-open line (batch4) or on its own line
+      // just after it (winners, batch8) — check both, same as year.
+      const ff = ln.match(/\bform:\s*'([^']+)'/); if (ff) formMap.set(nm2, ff[1]);
+    }
     const m = ln.trim().match(tupleRe);
     if (m && show) {
       let t = (m[5] || '').trim()
@@ -79,13 +111,11 @@ for (const f of readdirSync(DIR + '/corpus').filter(f => f.startsWith('corpus-')
   flush();
 }
 
-// ── shelf shows from data.js ──
-const src = readFileSync(DIR + '/app/data.js', 'utf8');
-const { SHOWS } = new Function(src + '\n;return { SHOWS };')();
+// ── shelf shows from data.js (SHOWS already parsed above for the overlap guard) ──
 const LANES = ['1', '2A', '2B', '3'];
 const voiceClass = (v) => {
   if (!v) return null; const t = v.trim();
-  if (/company|ensemble|co\.|men|women|chorus|all|full|kids|daughters|boys|girls|townsfolk|crowd/i.test(t)) return 'group';
+  if (/company|ensemble|co\.|men|women|chorus|all|full|kids|daughters|boys|girls|townsfolk|crowd|fates|workers/i.test(t)) return 'group';
   const parts = t.split(/\s*(?:,|\+|&|and)\s*/i).filter(Boolean);
   return parts.length >= 3 ? 'group' : parts.length === 2 ? 'duet' : 'solo';
 };
@@ -99,6 +129,7 @@ for (const show of Object.values(SHOWS)) {
   const a1song = songCards.reduce((s, c) => s + (['1', '2A'].includes(c.lane || c.act) ? (c.min || 0) : 0), 0);
   addShare(show.title, a1song, songTot);
   if (show.year) yearMap.set(show.title, show.year);
+  if (show.form) formMap.set(show.title, show.form);
   let cum = 0;
   for (const c of cards) {
     if (c.type === 'song' && c.fn) {
@@ -115,7 +146,8 @@ const cnt = {};
 out.forEach((s) => { cnt[s.show] = (cnt[s.show] || 0) + 1; });
 const shows = [...shareMap.entries()].map(([show, r]) =>
   ({ show, a1share: +(r.a1 / r.tot).toFixed(3),
-     year: yearMap.get(show) ?? yearComment.get(show) ?? null, n: cnt[show] || 0 }));
+     year: yearMap.get(show) ?? yearComment.get(show) ?? null, n: cnt[show] || 0,
+     kind: formKind(formMap.get(show)) }));
 
 writeFileSync(
   DIR + '/app/atlas-data.js',
@@ -127,3 +159,11 @@ console.log('sample:', JSON.stringify(out.find(s => s.fn === 'villain' && Math.a
 console.log('share sample:', JSON.stringify(shows.find(s => s.show === 'Fiddler on the Roof')), JSON.stringify(shows.find(s => s.show === 'Gypsy')));
 const noYear = shows.filter(s => !s.year).map(s => s.show);
 console.log('shows missing year:', noYear.length ? noYear.join(', ') : 'none');
+const noKind = shows.filter(s => !s.kind).map(s => s.show);
+console.log('shows missing form:', noKind.length ? noKind.join(', ') : 'none');
+const kindTally = shows.reduce((a, s) => { a[s.kind] = (a[s.kind] || 0) + 1; return a; }, {});
+const songKind = out.reduce((a, s) => {
+  const k = (shows.find(x => x.show === s.show) || {}).kind || 'unknown';
+  a[k] = (a[k] || 0) + 1; return a;
+}, {});
+console.log('shows by form:', JSON.stringify(kindTally), '| songs by form:', JSON.stringify(songKind));

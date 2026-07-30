@@ -1,4 +1,6 @@
-// Merged corpus analysis: 15 shelf shows (data.js cards) + 12 data-only shows.
+// Merged corpus analysis: 16 shelf shows (data.js cards) + the data-only batches.
+// The two sets are disjoint — a show promoted to the carded shelf has its corpus
+// row deleted, or it would be counted twice here and in build-atlas-data.
 // Normalizes both to [half, fn, voice, min, posPct] and recomputes the stats
 // behind TEMPLATE-PLAN.md.
 import { readFileSync } from 'fs';
@@ -9,6 +11,7 @@ import { BATCH4 } from './corpus-batch4.mjs';
 import { BATCH5 } from './corpus-batch5.mjs';
 import { BATCH6 } from './corpus-batch6.mjs';
 import { BATCH7 } from './corpus-batch7.mjs';
+import { BATCH8 } from './corpus-batch8.mjs';
 
 // Regional tradition for cross-culture comparison. Everything unlisted = bway.
 const REGIONS = { phantom: 'westend', lesmis: 'westend' };
@@ -29,7 +32,7 @@ const laneOf = (c) => c.lane || c.act;
 const voiceClass = (v) => {
   if (!v) return null;
   const t = v.trim();
-  if (/company|ensemble|co\.|men|women|chorus|all|full|kids|daughters|boys|girls|townsfolk|crowd/i.test(t)) return 'group';
+  if (/company|ensemble|co\.|men|women|chorus|all|full|kids|daughters|boys|girls|townsfolk|crowd|fates|workers/i.test(t)) return 'group';
   const parts = t.split(/\s*(?:,|\+|&|and)\s*/i).filter(Boolean);
   return parts.length >= 3 ? 'group' : parts.length === 2 ? 'duet' : 'solo';
 };
@@ -56,7 +59,7 @@ for (const [key, show] of Object.entries(SHOWS)) {
 }
 
 // ---- normalize data-only shows (position from song-minute timeline — caveat) ----
-for (const [name, data] of Object.entries({ ...WINNERS, ...EXTRAS, ...CLASSICS, ...BATCH4, ...BATCH5, ...BATCH6, ...BATCH7 })) {
+for (const [name, data] of Object.entries({ ...WINNERS, ...EXTRAS, ...CLASSICS, ...BATCH4, ...BATCH5, ...BATCH6, ...BATCH7, ...BATCH8 })) {
   const total = data.songs.reduce((s, t) => s + t[3], 0);
   let cum = 0;
   const songs = data.songs.map(([half, fn, voice, min]) => {

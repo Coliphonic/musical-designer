@@ -33,6 +33,295 @@ const DEFAULT_TEMPLATE = [
   { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Company', min: 3   },
 ];
 
+// ---- The Template Library (TEMPLATE-PLAN.md §7) ---------------------------
+// Nine seed shapes, each a *measured cut* of the 86-show corpus rather than a
+// mood: a cohort is filtered, its act ratio and function census read off, and
+// the seats laid out at the positions that cohort actually favors. Browsable on
+// the Library shelf, previewable read-only on the board, and chosen in the
+// new-show modal — see openTemplatePreview / createProject in app.js.
+//   id      — stable key; stored nowhere, only passed to createProject
+//   label   — the name on the shelf card (mixed case)
+//   sub     — one-line blurb in the reference shelf's `teaches` voice
+//   mode    — 'full' | 'oneact'; filters the modal's select and sets the show's
+//             act model. One-act templates carry NO act finale (measured at
+//             0 of 223 one-act songs) and no villain (1 of 223).
+//   basis   — the measured numbers the shape encodes, shown in the preview banner
+//   cards   — the existing template card shape; songs-only (§4 scaffold deferred)
+// Minutes are the cohort ballpark nudged by at most ±0.5 so each template's
+// Act-1 song-minute share (lanes 1+2A vs 2B+3) lands on its cohort's measured
+// share; the deviations are noted per template.
+const TEMPLATES = [
+  {
+    id: 'full-mean',
+    label: 'Book Musical — the mean',
+    sub: 'The measured middle of the form: 16 songs where 70 two-act shows actually put them.',
+    mode: 'full',
+    basis: '70 two-act shows · A1:A2 ratio 1.33 · break at 58% — the all-corpus mean',
+    // The shipped v2 default, referenced (not copied) so the two can never drift.
+    cards: DEFAULT_TEMPLATE,
+  },
+  {
+    id: 'full-goldenage',
+    label: 'Golden Age',
+    sub: 'Frontloaded Act One, love secured before the break, a company blowout at the curtain.',
+    mode: 'full',
+    basis: 'Pre-1990 cohort (n=28) · ratio 1.44 · A1 60% · charm skews Act 1, 85 of 112',
+    // 17 songs · 10/7 · A1 share 61.6% (target ~61%) — minutes as written in §7b.
+    cards: [
+      // ── Act 1: the world, wide and generous — two charm spots and a big number ──
+      { act: '1',  type: 'song', title: '', fn: 'opening',      voicing: 'Company', min: 4.5 },
+      { act: '1',  type: 'song', title: '', fn: 'charm',        voicing: '',        min: 3   },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 3.5 },
+      { act: '1',  type: 'song', title: '', fn: 'production',   voicing: 'Company', min: 3.5 },
+      { act: '1',  type: 'song', title: '', fn: 'charm',        voicing: '',        min: 2.5 },
+      // ── Act 2A: love lands BEFORE the break, then the blowout curtain ──────────
+      { act: '2A', type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'love',         voicing: 'Duet',    min: 3.5 },
+      { act: '2A', type: 'song', title: '', fn: 'drive',        voicing: '',        min: 2.5 },
+      { act: '2A', type: 'song', title: '', fn: 'production',   voicing: 'Company', min: 4   },
+      { act: '2A', type: 'song', title: '', fn: 'finale',       voicing: 'Company', min: 4.5 },
+      // ── Act 2B: the shorter second half — callback, patter, the cost ───────────
+      { act: '2B', type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 1.5 },
+      { act: '2B', type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'ballad',       voicing: 'Solo',    min: 4   },
+      { act: '2B', type: 'song', title: '', fn: 'drive',        voicing: '',        min: 2.5 },
+      // ── Act 3: reckoning → climax → curtain ───────────────────────────────────
+      { act: '3',  type: 'song', title: '', fn: 'soliloquy',    voicing: 'Solo',    min: 2.5 },
+      { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: 'Solo',    min: 4.5 },
+      { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Company', min: 3   },
+    ],
+  },
+  {
+    id: 'full-modern',
+    label: 'Modern Pop',
+    sub: 'Two I Wants for two leads, an anthem where the villain was, and a solo transformation at the break.',
+    mode: 'full',
+    basis: '1990+ cohort (n=40) · ratio 1.25 · A1 56% · 8 of 62 shows run dual I Wants',
+    // 16 songs · 9/7 · A1 share 57.5% (target ~57%) — minutes as written in §7b.
+    cards: [
+      // ── Act 1: want before world-building finishes — the modern cold-ish open ──
+      { act: '1',  type: 'song', title: '', fn: 'opening',      voicing: 'Company', min: 4   },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 3.5 },
+      { act: '1',  type: 'song', title: '', fn: 'charm',        voicing: '',        min: 3   },
+      { act: '1',  type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 3   },
+      // ── Act 2A: the counter-want, then the solo-transformation act ender ──────
+      { act: '2A', type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'anthem',       voicing: 'Company', min: 3.5 },
+      { act: '2A', type: 'song', title: '', fn: 'love',         voicing: 'Duet',    min: 3.5 },
+      { act: '2A', type: 'song', title: '', fn: 'drive',        voicing: '',        min: 2.5 },
+      { act: '2A', type: 'song', title: '', fn: 'finale',       voicing: 'Solo',    min: 4.5 },
+      // ── Act 2B: regroup, then the cost ────────────────────────────────────────
+      { act: '2B', type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 1.5 },
+      { act: '2B', type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 3   },
+      { act: '2B', type: 'song', title: '', fn: 'ballad',       voicing: 'Solo',    min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'production',   voicing: 'Company', min: 4   },
+      // ── Act 3: reckoning → climax → resolution ────────────────────────────────
+      { act: '3',  type: 'song', title: '', fn: 'soliloquy',    voicing: 'Solo',    min: 3   },
+      { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: 'Solo',    min: 4   },
+      { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Company', min: 3.5 },
+    ],
+  },
+  {
+    id: 'full-sungthrough',
+    label: 'Sung-Through',
+    sub: 'No book to frontload: a motif planted early, developed at the midpoint, paid off as the 11 o’clock.',
+    mode: 'full',
+    basis: 'West End tradition (n=10) · ratio 1.16 · A1 54% · 42 of 55 reprises land in Act 2',
+    // 20 songs · 11/9 · A1 share 54.5% (target ~54%). Four ±0.5 nudges buy the
+    // flat British split: Act-1 production and the 2A anthem come down 0.5, the
+    // 2B drive and the Act-3 soliloquy go up 0.5.
+    cards: [
+      // ── Act 1: the frame opens and the motif is planted ────────────────────────
+      { act: '1',  type: 'song', title: '', fn: 'opening',      voicing: 'Company', min: 4   },
+      { act: '1',  type: 'song', title: '', fn: 'motif',        voicing: 'Solo',    min: 1.5 },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 3   },
+      { act: '1',  type: 'song', title: '', fn: 'love',         voicing: 'Duet',    min: 3   },
+      { act: '1',  type: 'song', title: '', fn: 'production',   voicing: 'Company', min: 3.5 },
+      // ── Act 2A: the motif develops; the act ends on a full-company curtain ────
+      { act: '2A', type: 'song', title: '', fn: 'drive',        voicing: 'Company', min: 3.5 },
+      { act: '2A', type: 'song', title: '', fn: 'villain',      voicing: '',        min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'motif',        voicing: 'Solo',    min: 1.5 },
+      { act: '2A', type: 'song', title: '', fn: 'ballad',       voicing: '',        min: 2.5 },
+      { act: '2A', type: 'song', title: '', fn: 'anthem',       voicing: 'Company', min: 3.5 },
+      { act: '2A', type: 'song', title: '', fn: 'finale',       voicing: 'Company', min: 4   },
+      // ── Act 2B: the second act opens on a staged number, then the callbacks ───
+      { act: '2B', type: 'song', title: '', fn: 'diegetic',     voicing: 'Company', min: 4   },
+      { act: '2B', type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 1.5 },
+      { act: '2B', type: 'song', title: '', fn: 'ballad',       voicing: 'Duet',    min: 3   },
+      { act: '2B', type: 'song', title: '', fn: 'drive',        voicing: 'Company', min: 4   },
+      { act: '2B', type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 2   },
+      // ── Act 3: the motif pays off, then the opening returns as a bookend ──────
+      { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: 'Solo',    min: 4.5 },
+      { act: '3',  type: 'song', title: '', fn: 'soliloquy',    voicing: '',        min: 3.5 },
+      { act: '3',  type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 2   },
+      { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Company', min: 3   },
+    ],
+  },
+  {
+    id: 'full-comedy',
+    label: 'Comedy',
+    sub: 'Comedy leads the break into two, the villain is comic, and exactly one ballad means it.',
+    mode: 'full',
+    basis: 'Comedy batch (7 shows) · comedy avg position 46% — it leads the break into two',
+    // 16 songs · 9/7 · A1 share 57.9% (target ~58%). Comedies run flatter than
+    // their seat count suggests: Act-1 charm comes down 0.5 and every Act-2 seat
+    // goes up 0.5, which also brings the total to the corpus's ~53 min.
+    cards: [
+      // ── Act 1: establish the joke engine ──────────────────────────────────────
+      { act: '1',  type: 'song', title: '', fn: 'opening',      voicing: 'Company', min: 4   },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 3.5 },
+      { act: '1',  type: 'song', title: '', fn: 'charm',        voicing: '',        min: 2.5 },
+      { act: '1',  type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 3   },
+      // ── Act 2A: comedy IS the break into two; the villain plays it for laughs ─
+      { act: '2A', type: 'song', title: '', fn: 'comedy',       voicing: 'Company', min: 3.5 },
+      { act: '2A', type: 'song', title: '', fn: 'villain',      voicing: '',        min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'love',         voicing: 'Duet',    min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'production',   voicing: 'Company', min: 4   },
+      { act: '2A', type: 'song', title: '', fn: 'finale',       voicing: 'Company', min: 4.5 },
+      // ── Act 2B: more of the fun, and the one number that isn't funny ──────────
+      { act: '2B', type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 2   },
+      { act: '2B', type: 'song', title: '', fn: 'ballad',       voicing: 'Solo',    min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'drive',        voicing: '',        min: 3   },
+      // ── Act 3: the group showstopper, a button, and out ───────────────────────
+      { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: 'Company', min: 4.5 },
+      { act: '3',  type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 2.5 },
+      { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Company', min: 3.5 },
+    ],
+  },
+  {
+    id: 'full-chamber',
+    label: 'Chamber',
+    sub: 'Small cast, no production number at all — the act ends on an ensemble knot, not a blowout.',
+    mode: 'full',
+    basis: 'Intimate wing (Next to Normal · Falsettos · Once · Little Shop) · zero production numbers — the absence is the signature',
+    // 17 songs · 10/7 · A1 share 56.2% (target ~56%). The 2A comedy comes down
+    // 0.5 and five Act-2 seats go up 0.5 — a chamber show carries its weight
+    // late, where the full-company shapes carry it early.
+    cards: [
+      // ── Act 1: four or five voices, established one at a time ─────────────────
+      { act: '1',  type: 'song', title: '', fn: 'opening',      voicing: '',        min: 3   },
+      { act: '1',  type: 'song', title: '', fn: 'establishing', voicing: '',        min: 2.5 },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 3.5 },
+      { act: '1',  type: 'song', title: '', fn: 'charm',        voicing: 'Duet',    min: 2.5 },
+      { act: '1',  type: 'song', title: '', fn: 'ballad',       voicing: '',        min: 3   },
+      // ── Act 2A: the knot tightens; the act ender is intimate, not a blowout ───
+      { act: '2A', type: 'song', title: '', fn: 'drive',        voicing: 'Duet',    min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 2   },
+      { act: '2A', type: 'song', title: '', fn: 'love',         voicing: 'Duet',    min: 3.5 },
+      { act: '2A', type: 'song', title: '', fn: 'ballad',       voicing: 'Solo',    min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'finale',       voicing: '',        min: 3.5 },
+      // ── Act 2B: the cost, sung two at a time ──────────────────────────────────
+      { act: '2B', type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 2   },
+      { act: '2B', type: 'song', title: '', fn: 'drive',        voicing: '',        min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'ballad',       voicing: 'Duet',    min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 2.5 },
+      // ── Act 3: the dark night, the payoff, the small curtain ──────────────────
+      { act: '3',  type: 'song', title: '', fn: 'soliloquy',    voicing: 'Solo',    min: 4   },
+      { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: 'Solo',    min: 4   },
+      { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Company', min: 3.5 },
+    ],
+  },
+  {
+    id: 'full-frame',
+    label: 'Concept / Frame',
+    sub: 'Every number performed inside a frame; the sincere ones happen outside it, and the frame cracks late.',
+    mode: 'full',
+    basis: 'Concept-frame cohort (Chicago · Cabaret) · 4 of 16 seats diegetic · the welcome returns as a dark bookend',
+    // 16 songs · 9/7 · A1 share 57.0% (target ~57%). Act-1 charm and the 2A
+    // villain come down 0.5; four Act-2 seats go up 0.5 — the frame cracking is
+    // the long stretch, so Act 2 carries more minutes than the seat count reads.
+    cards: [
+      // ── Act 1: the emcee's welcome sets the rules of the frame ────────────────
+      { act: '1',  type: 'song', title: '', fn: 'opening',      voicing: 'Company', min: 4   },
+      { act: '1',  type: 'song', title: '', fn: 'diegetic',     voicing: '',        min: 3   },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 3   },
+      { act: '1',  type: 'song', title: '', fn: 'charm',        voicing: '',        min: 2.5 },
+      // ── Act 2A: the act plays on, and love happens OUTSIDE the frame ──────────
+      { act: '2A', type: 'song', title: '', fn: 'diegetic',     voicing: 'Company', min: 3.5 },
+      { act: '2A', type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'villain',      voicing: '',        min: 2.5 },
+      { act: '2A', type: 'song', title: '', fn: 'love',         voicing: 'Duet',    min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'finale',       voicing: 'Company', min: 4   },
+      // ── Act 2B: the frame cracks — the ballad is the first unstaged truth ─────
+      { act: '2B', type: 'song', title: '', fn: 'diegetic',     voicing: '',        min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 1.5 },
+      { act: '2B', type: 'song', title: '', fn: 'ballad',       voicing: 'Solo',    min: 4   },
+      { act: '2B', type: 'song', title: '', fn: 'drive',        voicing: '',        min: 3   },
+      // ── Act 3: the title number as reckoning, the welcome turned dark ─────────
+      { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: 'Solo',    min: 4   },
+      { act: '3',  type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 2.5 },
+      { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Company', min: 3   },
+    ],
+  },
+  {
+    id: 'oneact-mean',
+    label: 'One-Act — the mean',
+    sub: 'No intermission, no act finale, no villain — the ballad at the midpoint is the breath.',
+    mode: 'oneact',
+    basis: '15 one-acts · 14.9 songs per show · 50/50 split · act finale 0 of 223 songs, villain 1 of 223',
+    // 14 songs · A1 share 50.6% (target ~50%). A one-act splits its score down
+    // the middle, so with 8 seats before the midpoint and 6 after, every first-half
+    // seat runs 0.5 short and every second-half seat 0.5 long — the full ±0.5
+    // swing, and the only way the census's 50/50 is reachable from these seats.
+    cards: [
+      // ── First quarter: world, want, first laugh — no time to spend ────────────
+      { act: '1',  type: 'song', title: '', fn: 'opening',      voicing: 'Company', min: 3.5 },
+      { act: '1',  type: 'song', title: '', fn: 'charm',        voicing: '',        min: 2.5 },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 3   },
+      { act: '1',  type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 2.5 },
+      // ── To the midpoint: the ballad is the breath, not a cliff ────────────────
+      { act: '2A', type: 'song', title: '', fn: 'charm',        voicing: '',        min: 2.5 },
+      { act: '2A', type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 2.5 },
+      { act: '2A', type: 'song', title: '', fn: 'production',   voicing: 'Company', min: 3.5 },
+      { act: '2A', type: 'song', title: '', fn: 'ballad',       voicing: 'Solo',    min: 3   },
+      // ── Past the midpoint: the plot moves and the love lands ──────────────────
+      { act: '2B', type: 'song', title: '', fn: 'drive',        voicing: '',        min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'love',         voicing: 'Duet',    min: 4   },
+      { act: '2B', type: 'song', title: '', fn: 'ballad',       voicing: '',        min: 3.5 },
+      // ── Last quarter: reckoning → climax → out ────────────────────────────────
+      { act: '3',  type: 'song', title: '', fn: 'soliloquy',    voicing: 'Solo',    min: 3.5 },
+      { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: 'Solo',    min: 4.5 },
+      { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Company', min: 3.5 },
+    ],
+  },
+  {
+    id: 'oneact-cycle',
+    label: 'One-Act Chamber Cycle',
+    sub: 'Two voices braided, solo and duet only, sung through from the first note.',
+    mode: 'oneact',
+    basis: 'Sung-through one-acts (The Last Five Years · Ordinary Days · A Strange Loop) · 2–4 voices · solo/duet only · 50/50 split',
+    // 17 songs · A1 share 50.0% (target ~50%). Five first-half seats come down
+    // 0.5 and all seven second-half seats go up 0.5: a cycle's second half is
+    // where the two braided lines start colliding, so its numbers run longer.
+    // "Company" in a 2–4 hander means everyone you've met, so the production
+    // seat carries no voicing prefill.
+    cards: [
+      // ── First quarter: both voices introduce themselves, each with a want ─────
+      { act: '1',  type: 'song', title: '', fn: 'opening',      voicing: '',        min: 2.5 },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 2   },
+      { act: '1',  type: 'song', title: '', fn: 'establishing', voicing: 'Solo',    min: 2.5 },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 3   },
+      { act: '1',  type: 'song', title: '', fn: 'comedy',       voicing: 'Solo',    min: 2   },
+      // ── To the midpoint: the braid tightens; the ballad is the crossing ───────
+      { act: '2A', type: 'song', title: '', fn: 'charm',        voicing: 'Solo',    min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'drive',        voicing: 'Duet',    min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'comedy',       voicing: 'Duet',    min: 2   },
+      { act: '2A', type: 'song', title: '', fn: 'production',   voicing: '',        min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'ballad',       voicing: 'Solo',    min: 3   },
+      // ── Past the midpoint: the same two voices, further apart ─────────────────
+      { act: '2B', type: 'song', title: '', fn: 'charm',        voicing: 'Duet',    min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'comedy',       voicing: 'Duet',    min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'ballad',       voicing: 'Solo',    min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'drive',        voicing: 'Solo',    min: 2.5 },
+      // ── Last quarter: the reckoning, the payoff, the two of them out ──────────
+      { act: '3',  type: 'song', title: '', fn: 'soliloquy',    voicing: 'Solo',    min: 4   },
+      { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: 'Solo',    min: 5   },
+      { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Duet',    min: 4   },
+    ],
+  },
+];
+
 // Default template applied to every new Prose Plot novel. Chapters take the
 // place of scenes (same card type, recontextualized — a thin vertical-text
 // rectangle, coral instead of purple in this app). 30 chapters, spread across
@@ -1332,6 +1621,106 @@ const SHOWS = {
       { lane: '3', type: 'song', title: "The Gospel Truth V (That's Our Tale)", fn: 'motif', voicing: 'Muses + Ensemble', min: 2 },
       { lane: '3', type: 'beat', title: 'The spine closes', note: 'The fifth and last Gospel Truth. The film needed three; the stage needed five, spaced so the narrators open the show, cover the act break, and close it — a chorus device promoted into load-bearing structure.', min: 1 },
       { lane: '3', type: 'song', title: 'A Star Is Born', fn: 'finaleultimo', voicing: 'Company', min: 3.5 },
+    ],
+  },
+  hadestown: {
+    title: 'Hadestown', year: 2019, form: 'two-act',
+    teaches: 'A tragedy that announces its own ending in the first number and earns a climax anyway — plus the shelf\'s clearest motif architecture: a song composed inside the show in three instalments (Epic I/II/III), and a second act built almost entirely out of the first act turned inside out',
+    // ENRICHED reference (2026-07-29): promoted from the data-only corpus row to
+    // a full carded study object. No lyrics reproduced — structure only.
+    //
+    // SOURCING NOTE: running order follows the 2019 Broadway cast recording
+    // (Walter Kerr). Two judgement calls worth stating. (1) "Papers" is included
+    // here as a short Hades interstitial; the earlier data-only pass omitted it,
+    // so this scaffold carries 33 songs where the corpus row carried 32 — check
+    // against the album if the count matters. (2) Beat minutes are deliberately
+    // small (0.5–1) because the show is near-sung-through and has very little
+    // spoken scene work; inflating them would drag every song's measured
+    // position off its true place in the running time.
+    characters: {
+      'ORPHEUS': { voiceType: 'Tenor', desc: 'A poor boy and a musician, son of a Muse, working on a song he believes will set the world right. Written punishingly high — the falsetto is characterisation, not display: he sounds like someone reaching past what he can reliably hold.' },
+      'EURYDICE': { voiceType: 'Mezzo-Soprano', desc: 'A hungry young runaway who has survived by leaving. Her want is not romantic but material — warmth, food, a roof — which is what makes her descent a reasonable decision rather than a mistake, and the show honest about why people sell themselves.' },
+      'HERMES': { voiceType: 'Baritone (character)', desc: 'The narrator, and the show\'s structural device. He knows the ending, says so in the first number, and tells it anyway. Every transition in a near-sung-through evening is his to carry.' },
+      'HADES': { voiceType: 'Bass', desc: 'King of Hadestown, run as an industrial concern behind a wall. Written extraordinarily low, so the register itself is the power. His flaw is not cruelty but fear of being unloved, which is what Orpheus\'s song eventually finds.' },
+      'PERSEPHONE': { voiceType: 'Alto', desc: 'Goddess of spring, six months above and six months below, drinking her way through the half she did not choose. The show\'s other half of the central marriage — and the one whose thaw is the actual resolution.' },
+      'THE FATES': { voiceType: 'Trio (three women)', desc: 'Three voices who sing what the characters will not admit — doubt, temptation, the cynicism of the world. A chorus device that externalises subtext, so the show can voice interior collapse without stopping for a soliloquy every time.' },
+      'WORKERS\' CHORUS': { voiceType: 'Ensemble', desc: 'The shades of Hadestown, who have forgotten their own names. The wall they build is the antagonist\'s ideology given a body — and Eurydice joins them, which is what makes the Act One curtain land.' },
+    },
+    titlePage: {
+      subtitle: 'A Folk Opera',
+      authors: 'Music, lyrics and book by Anaïs Mitchell · Developed with and directed by Rachel Chavkin · After the myth of Orpheus and Eurydice',
+      settings: ['A bar, somewhere on the road to hell', 'Hadestown — a walled industrial city underground', 'Depression-era America by way of New Orleans; myth time'],
+      productionNotes: 'Reference study object — structural scaffold only; no lyric text is reproduced. This is the shelf\'s case study in writing a story whose ending the audience already knows. Hermes gives away the outcome in the opening number — it is a sad song, it is an old song, and we sing it again anyway — which means suspense is off the table as an engine from minute one. What replaces it is recurrence: the pleasure and dread of watching a known shape come round, and the question of whether it might land differently this time. Any writer adapting myth, history, biography or a famous novel is solving this exact problem.\n\nThree things repay close study. First, the Epic system: the plot turns on a song being written, and we hear it three times — a fragment (Epic I), a fuller draft (Epic II), and the finished thing (Epic III), which is the eleven o\'clock number and the only weapon the protagonist has. A motif that is literally the hero\'s work in progress, so structural planting and character want are the same object. Second, reprise density: five of Act Two\'s numbers are marked reprises, and the act\'s shape is Act One inverted — the mirror principle carried by the score itself rather than by plot echo. Third, the resolution goes to the wrong couple. Orpheus\'s song thaws Hades and Persephone; it does not save him and Eurydice. The subplot gets the happy ending and the plot does not, which is a bolder allocation than most shows attempt.\n\nTwo measurements worth noting against the corpus. The act balance is 16 songs to 17 and roughly 52% of song-minutes in Act One — flatter than the corpus mean of 1.35 and 58%, because a sung-through show has no dialogue to absorb time and must distribute it evenly. And the Act One finale is an outlier: "Why We Build the Wall" is not a protagonist number at all but the antagonist\'s catechism, sung call-and-response by the chorus with the heroine newly among them. Compare the shelf\'s solo-ballad and production-blowout act enders — this is a third option, the curtain as ideology.\n\nDevelopment ran thirteen years: a 2006 community theatre project in Vermont, a 2010 concept album, New York Theatre Workshop (2016), the Citadel in Edmonton (2017), the National Theatre in London (2018), then Broadway in 2019, where it won eight Tony Awards including Best Musical and Best Original Score.',
+    },
+    cards: [
+      // ===== ACT ONE (lanes 1 + 2A) =====
+      { lane: '1', type: 'scene', title: 'A Bar, on the Road to Hell' },
+      { lane: '1', type: 'song', title: 'Road to Hell', fn: 'opening', voicing: 'Hermes + Company', min: 4 },
+      { lane: '1', type: 'beat', title: 'The ending, given away', note: 'Hermes names the cast, names the road, and tells us plainly that this is an old sad song and it ends badly. The single most instructive choice in the show: surrender surprise in the first four minutes and commit to recurrence as the engine instead.', min: 0.5 },
+      { lane: '1', type: 'song', title: 'Any Way the Wind Blows', fn: 'establishing', voicing: 'Eurydice, Fates', min: 3 },
+      { lane: '1', type: 'beat', title: 'A world with no weather left', note: 'Seasons have broken and hunger is general. Eurydice has survived by moving on before anything can hold her — the flaw stated as a habit rather than a wound.', min: 0.5 },
+      { lane: '1', type: 'scene', title: 'Orpheus Meets Eurydice' },
+      { lane: '1', type: 'song', title: 'Come Home with Me', fn: 'charm', voicing: 'Orpheus, Eurydice', min: 1.5 },
+      { lane: '1', type: 'song', title: 'Wedding Song', fn: 'love', voicing: 'Eurydice, Orpheus', min: 3 },
+      { lane: '1', type: 'beat', title: 'What he offers instead of money', note: 'Eurydice asks the practical question — who will pay for the wedding, where does the food come from — and Orpheus answers with the song he is writing. The couple\'s whole conflict compressed into one exchange: she needs provision, he offers art.', min: 1 },
+      { lane: '1', type: 'song', title: 'Epic I', fn: 'motif', voicing: 'Orpheus', min: 1.5 },
+      { lane: '1', type: 'beat', title: 'The song, first instalment', note: 'A fragment of the piece Orpheus is composing: how the world came out of joint when Hades fell for Persephone. Planted at 13% and paid off at 77% — the earliest, cleanest example on the shelf of a motif that is also the protagonist\'s project.', min: 0.5 },
+      { lane: '1', type: 'scene', title: 'Spring — Persephone Comes Up' },
+      { lane: '1', type: 'song', title: 'Livin\' It Up on Top', fn: 'production', voicing: 'Persephone, Hermes, Orpheus, Co.', min: 3 },
+      { lane: '1', type: 'song', title: 'All I\'ve Ever Known', fn: 'love', voicing: 'Eurydice, Orpheus', min: 4 },
+      { lane: '1', type: 'beat', title: 'She lets herself be held', note: 'Eurydice chooses to stay — the one thing her survival strategy forbids. The show gives the lovers their high point early and in full, because everything after this is its withdrawal.', min: 0.5 },
+      { lane: '1', type: 'song', title: 'Way Down Hadestown', fn: 'production', voicing: 'Hermes, Fates, Persephone, Co.', min: 4.5 },
+      { lane: '1', type: 'song', title: 'A Gathering Storm', fn: 'drive', voicing: 'Hermes, Orpheus, Eurydice', min: 1.5 },
+      { lane: '1', type: 'beat', title: 'Winter arrives early', note: 'Hades takes Persephone back before her season is done, and the cold comes with her going. Orpheus turns to his song to fix it and stops watching Eurydice, who is getting hungry.', min: 1 },
+
+      { lane: '2A', type: 'song', title: 'Epic II', fn: 'motif', voicing: 'Orpheus', min: 1.5 },
+      { lane: '2A', type: 'beat', title: 'The song, second instalment', note: 'The draft goes further and still will not close. Placed at 28% — the threshold — so the act break is crossed with the hero\'s only weapon visibly unfinished.', min: 0.5 },
+      { lane: '2A', type: 'scene', title: 'Hadestown — Below' },
+      { lane: '2A', type: 'song', title: 'Chant', fn: 'drive', voicing: 'Company', min: 5 },
+      { lane: '2A', type: 'beat', title: 'The factory and the marriage', note: 'Hadestown revealed as an industrial concern, and the royal marriage revealed as a cold one. The two plots stated in the same number: Hades builds to keep Persephone, Persephone drinks because the building is what she got.', min: 1 },
+      { lane: '2A', type: 'song', title: 'Hey, Little Songbird', fn: 'villain', voicing: 'Hades, Eurydice', min: 3 },
+      { lane: '2A', type: 'beat', title: 'The offer', note: 'Hades finds Eurydice cold and alone and offers exactly what she lacks. The villain song is a recruitment pitch that is not wrong about anything — the strongest form of temptation, because refusing it would be the unreasonable act.', min: 1 },
+      { lane: '2A', type: 'song', title: 'When the Chips Are Down', fn: 'drive', voicing: 'Fates', min: 2.5 },
+      { lane: '2A', type: 'song', title: 'Gone, I\'m Gone', fn: 'ballad', voicing: 'Eurydice, Fates', min: 2 },
+      { lane: '2A', type: 'beat', title: 'She signs', note: 'Eurydice goes down. The catch: she gets the warmth and the roof, and hands over her name and her memory to get them. What she wanted, on terms that cost her the person who wanted it.', min: 0.5 },
+      { lane: '2A', type: 'scene', title: 'The Road Down' },
+      { lane: '2A', type: 'song', title: 'Wait for Me', fn: 'anthem', voicing: 'Hermes, Orpheus, Company', min: 5 },
+      { lane: '2A', type: 'beat', title: 'He follows her', note: 'Hermes tells Orpheus the way down and he takes it. The hero crosses into the antagonist\'s world at 45% — late by the corpus median, and the show can afford it because the outcome was never the question.', min: 1 },
+      { lane: '2A', type: 'song', title: 'Why We Build the Wall', fn: 'finale', voicing: 'Hades, Company', min: 4.5 },
+      { lane: '2A', type: 'beat', title: 'Curtain on the catechism', note: 'Hades leads a call-and-response on why the wall exists — the enemy is poverty, and the wall keeps us free — with Eurydice now answering among the workers. An act finale that belongs entirely to the antagonist and gives the protagonist no part in it at all.', min: 0.5 },
+
+      // ===== ACT TWO (lanes 2B + 3) =====
+      { lane: '2B', type: 'scene', title: 'Hadestown — The Factory Floor' },
+      { lane: '2B', type: 'song', title: 'Our Lady of the Underground', fn: 'diegetic', voicing: 'Persephone, Company', min: 4 },
+      { lane: '2B', type: 'beat', title: 'A speakeasy in hell', note: 'Persephone runs a bar out of the back of the underworld, selling what little green is left. The act two opener as tonal reset, and a rare literal diegetic number — she is performing to a room that exists inside the story.', min: 1 },
+      { lane: '2B', type: 'song', title: 'Way Down Hadestown (Reprise)', fn: 'reprise', voicing: 'Hermes, Fates', min: 1.5 },
+      { lane: '2B', type: 'song', title: 'Flowers', fn: 'ballad', voicing: 'Eurydice', min: 3 },
+      { lane: '2B', type: 'beat', title: 'She has forgotten him', note: 'Eurydice, stripped of her name and her memory, reaches for flowers she can no longer picture. The show\'s quietest number and its lowest point for her — the bargain shown as taken, not merely struck.', min: 0.5 },
+      { lane: '2B', type: 'song', title: 'Come Home with Me (Reprise)', fn: 'reprise', voicing: 'Orpheus, Eurydice', min: 1 },
+      { lane: '2B', type: 'beat', title: 'The same words, underground', note: 'The meet-cute line returned in the worst possible room. The clearest single instance of the show\'s method: Act Two says Act One\'s lines again with the meaning inverted.', min: 0.5 },
+      { lane: '2B', type: 'song', title: 'Papers', fn: 'villain', voicing: 'Hades', min: 1 },
+      { lane: '2B', type: 'song', title: 'Nothing Changes', fn: 'motif', voicing: 'Fates', min: 1.5 },
+      { lane: '2B', type: 'song', title: 'If It\'s True', fn: 'drive', voicing: 'Orpheus, Workers\' Chorus', min: 3.5 },
+      { lane: '2B', type: 'beat', title: 'The workers begin to listen', note: 'Orpheus asks the question the wall was built to prevent — if the enemy is poverty, why are we the poor ones. He has no leverage over Hades, so the pressure arrives as labour unrest instead. The pinch point: the antagonist is threatened from below, not beaten from in front.', min: 1 },
+      { lane: '2B', type: 'song', title: 'How Long?', fn: 'ballad', voicing: 'Persephone, Hades', min: 3.5 },
+      { lane: '2B', type: 'beat', title: 'The queen asks her husband', note: 'Persephone presses Hades on how long he means to hold the line. The subplot marriage put on the table as the thing that can actually change — planted here so the climax can pay off there.', min: 0.5 },
+      { lane: '2B', type: 'song', title: 'Chant (Reprise)', fn: 'reprise', voicing: 'Company', min: 3.5 },
+
+      { lane: '3', type: 'scene', title: 'Orpheus Sings for the King' },
+      { lane: '3', type: 'song', title: 'Epic III', fn: 'eleven', voicing: 'Orpheus, Company', min: 4 },
+      { lane: '3', type: 'beat', title: 'The song, finished', note: 'Orpheus completes the piece at last and sings Hades his own forgotten love back to him. Planted at 13%, developed at 28%, paid off at 77% — and the eleven o\'clock number is not a declaration of the hero\'s want but an act of accurate attention to someone else\'s.', min: 1 },
+      { lane: '3', type: 'song', title: 'Promises', fn: 'love', voicing: 'Orpheus, Eurydice', min: 3 },
+      { lane: '3', type: 'song', title: 'Word to the Wise', fn: 'motif', voicing: 'Fates', min: 1.5 },
+      { lane: '3', type: 'song', title: 'His Kiss, the Riot', fn: 'soliloquy', voicing: 'Hades', min: 3 },
+      { lane: '3', type: 'beat', title: 'Why he sets the terms', note: 'Hades, moved and cornered, works out aloud that killing Orpheus now would martyr him. So he invents the condition — walk out in front and do not look back — as a way to lose without appearing to. The famous rule arrives as a tyrant\'s face-saving improvisation, which is far better motivated than fate.', min: 1 },
+      { lane: '3', type: 'scene', title: 'The Long Walk Up' },
+      { lane: '3', type: 'song', title: 'Wait for Me (Reprise)', fn: 'reprise', voicing: 'Orpheus, Eurydice, Company', min: 2.5 },
+      { lane: '3', type: 'song', title: 'Doubt Comes In', fn: 'drive', voicing: 'Orpheus, Eurydice, Fates', min: 4 },
+      { lane: '3', type: 'beat', title: 'He turns around', note: 'The Fates work on Orpheus the whole way up and he looks back within sight of daylight. The audience has known this was coming since minute four, and it lands anyway — because the show spent two hours making him someone who cannot stop needing to check.', min: 1 },
+      { lane: '3', type: 'scene', title: 'The Bar — Again' },
+      { lane: '3', type: 'song', title: 'Road to Hell (Reprise)', fn: 'reprise', voicing: 'Hermes, Company', min: 3 },
+      { lane: '3', type: 'beat', title: 'We sing it again anyway', note: 'Hermes closes the frame by reopening it: the song is sad, we knew, and we will tell it again as though it might come out differently. The one ending available to a show that gave away its ending — and the reason the structure works.', min: 0.5 },
+      { lane: '3', type: 'song', title: 'We Raise Our Cups', fn: 'finaleultimo', voicing: 'Persephone, Eurydice, Women', min: 3 },
     ],
   },
 };

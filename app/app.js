@@ -78,6 +78,7 @@ const BOOK_MATTER_KINDS = {
 
 const state = {
   showKey: 'fiddler',
+  templateKey: null,   // id of the TEMPLATES entry being previewed read-only, else null
   title: '',
   format: 'song',      // 'song' | 'prose' — which Plot Suite app this show belongs to
   currentApp: appFromHost() || 'song',  // which app's Library you're currently browsing (waffle launcher)
@@ -264,6 +265,7 @@ function openReference(key) {
   // opened *project*, so reopening the app returns to the user's own work.
   state.loading = true;
   state.showKey = key;
+  state.templateKey = null;
   const isNovel = !SHOWS[key] && !!NOVELS[key];
   const show = SHOWS[key] || NOVELS[key];
   const fmt = isNovel ? 'prose' : 'song';
@@ -287,6 +289,71 @@ function openReference(key) {
   state.mode = isNovel ? 'oneact' : (show.form === 'one-act-90' ? 'oneact' : 'full');
   state.format = fmt;
   state.currentApp = fmt;
+  state.wordTarget = 0;
+  state.wordCountBaseline = 0;
+  state.wordCountBaselineDate = '';
+  state.paraStyle = 'indent';
+  state.loading = false;
+  render();
+  setSaveInd('ref');
+}
+
+// ---- Template library (TEMPLATE-PLAN.md §7) -------------------------------
+function templateById(id) {
+  if (!id || typeof TEMPLATES === 'undefined') return null;
+  return TEMPLATES.find((t) => t.id === id) || null;
+}
+// The cards a new show seeds from. An explicit template wins; anything
+// unresolved falls back to the *mode's* measured mean, which is the bug fix
+// TEMPLATE-PLAN §7 called out — createProject used to seed every new show from
+// the two-act mean, so a one-act opened with an act-finale card, the one
+// function measured at 0 of 223 one-act songs.
+function templateCardsFor(mode, templateId) {
+  const t = templateById(templateId) || templateById(mode === 'oneact' ? 'oneact-mean' : 'full-mean');
+  return t ? t.cards : DEFAULT_TEMPLATE;
+}
+function templateSongCount(t) { return t.cards.filter((c) => c.type === 'song').length; }
+function templateMinutes(t) { return t.cards.reduce((s, c) => s + (c.min || 0), 0); }
+// A template seat's *preview* title: its function label plus the voicing prefill
+// ("Opening — Company", "I Want — Solo", a bare "Ballad" where the corpus is
+// genuinely mixed) so the previewed board reads as a shape instead of a wall of
+// blanks. Preview only — created shows get the registry's own title: ''.
+function templateSeatLabel(c) {
+  const label = (FN[c.fn] || {}).label || c.fn || 'Song';
+  return c.voicing ? label + ' — ' + c.voicing : label;
+}
+
+// Open a template read-only on the board — the same posture as a reference show
+// (no project id, no saves, read-only rendering), on a pseudo-show built from
+// the registry's cards. Nothing exists server-side until the new-show modal's
+// Create; the banner's "Use this template" is what gets you there.
+function openTemplatePreview(id) {
+  const t = templateById(id);
+  if (!t) return;
+  // Flush a pending debounced save before leaving the real project open now —
+  // see openProject's identical guard for why.
+  if (_saveTimer) { clearTimeout(_saveTimer); _saveTimer = null; doSave(); }
+  state.loading = true;
+  state.templateKey = t.id;
+  state.showKey = null;
+  state.cards = t.cards.map((c) => { const card = cardFromObj(c); card.title = templateSeatLabel(c); return card; });
+  state.revisions = []; state.currentRev = null; state.pageLock = null; // a template has no history
+  state.characters = {};
+  state.notes = [];
+  state.storyDna = migrateDna(null);
+  const tpDefaults = { subtitle: 'A musical', authors: '', draftLine1: '', draftLine2: '', contactName: '', contactAddress: '', contactPhone: '', contactEmail: '', representedBy: '', settings: [], productionNotes: '', acknowledgements: '', include: { contact: true, cast: true, settings: true, songs: true, productionNotes: true, acknowledgements: true, rule: false, subtitle: false, draft: false } };
+  state.titlePage = Object.assign({}, tpDefaults);
+  state.titlePage.include = Object.assign({}, tpDefaults.include);
+  state.scriptHeader = { enabled: true, format: '{title} – {date} – {page}.', revisionDate: '', alignment: 'right', firstPage: false };
+  state.book = bookDefaults();
+  state.title = t.label;
+  state.projectId = null;
+  state.readonly = true;
+  state.status = 'active';
+  state.folder = '';
+  state.mode = t.mode === 'oneact' ? 'oneact' : 'full';
+  state.format = 'song';
+  state.currentApp = 'song';
   state.wordTarget = 0;
   state.wordCountBaseline = 0;
   state.wordCountBaselineDate = '';
@@ -359,6 +426,7 @@ function openProject(id, afterOpen) {
     applyShowData(d);
     state.projectId = id;
     state.showKey = null;
+    state.templateKey = null;
     state.role = d.role || 'owner';
     // A 'viewer' collaborator gets the same read-only rendering as the
     // reference library (no card edits, no lyric editing, no saves) — see
@@ -510,6 +578,15 @@ function buildLibraryPage() {
     Object.keys(folders).sort((a, b) => a.localeCompare(b)).forEach((f) => host.appendChild(libSection(f, folders[f].map((p) => () => libCard(p)))));
   }
 
+  // Templates — the nine measured cuts of the corpus (TEMPLATE-PLAN §7),
+  // browsed and previewed exactly like the Reference shelf and sitting just
+  // above it: the writer's own shows first, then what to start from, then what
+  // to study. Song Plot only — a novel seeds from the single PROSE_TEMPLATE, so
+  // there'd be nothing to choose between.
+  if (!isProseLib && typeof TEMPLATES !== 'undefined') {
+    host.appendChild(libSection('Templates', TEMPLATES.map((t) => () => libTemplateCard(t))));
+  }
+
   // Reference library — read-only study examples, always in their own
   // section. Song Plot studies musicals (SHOWS); Prose Plot studies novels
   // (NOVELS) — fully separate shelves, per the partitioned-library rule.
@@ -536,6 +613,27 @@ function libRefCard(key) {
   if (r.teaches) card.appendChild(el('div', { class: 'lib-teaches', text: r.teaches }));
   const tags = el('div', { class: 'lib-card-tags' });
   tags.appendChild(el('span', { class: 'lib-badge lib-ref-badge', text: 'Reference' }));
+  card.appendChild(tags);
+  return card;
+}
+
+// A shelf card for one template, in libRefCard's voice: the name, the act model
+// and the shape's size, and the `sub` blurb where a reference card carries its
+// `teaches` line. Clicking previews it read-only on the board.
+function libTemplateCard(t) {
+  const card = el('div', { class: 'lib-card lib-card-ref lib-card-tpl' });
+  card.addEventListener('click', () => { closeCardMenu(); openTemplatePreview(t.id); navigateTo('board'); });
+  const top = el('div', { class: 'lib-card-top' });
+  top.appendChild(el('span', { class: 'lib-card-title', text: t.label }));
+  card.appendChild(top);
+  const meta = el('div', { class: 'lib-card-meta' });
+  meta.appendChild(el('span', { class: 'lib-fmt', text: t.mode === 'oneact' ? 'One-act' : 'Two-act' }));
+  meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
+  meta.appendChild(el('span', { text: templateSongCount(t) + ' songs · ~' + Math.round(templateMinutes(t)) + ' min' }));
+  card.appendChild(meta);
+  if (t.sub) card.appendChild(el('div', { class: 'lib-teaches', text: t.sub }));
+  const tags = el('div', { class: 'lib-card-tags' });
+  tags.appendChild(el('span', { class: 'lib-badge lib-tpl-badge', text: 'Template' }));
   card.appendChild(tags);
   return card;
 }
@@ -1369,26 +1467,67 @@ function saveShowSettings() {
 }
 
 let _nsmMode = 'full';
-function openNewShowModal() {
+let _nsmTemplate = 'full-mean';
+// Fill the modal's template select with the templates for the chosen length,
+// preselecting `preferId` if it belongs to this mode and the mode's mean
+// otherwise — so flipping Full length ↔ One-act always lands on a legal shape
+// rather than leaving a two-act template selected for a one-act show.
+function fillNsmTemplates(mode, preferId) {
+  const sel = document.getElementById('nsm-template');
+  const subEl = document.getElementById('nsm-template-sub');
+  if (!sel) return;
+  const list = (typeof TEMPLATES === 'undefined' ? [] : TEMPLATES).filter((t) => t.mode === mode);
+  const meanId = mode === 'oneact' ? 'oneact-mean' : 'full-mean';
+  const pick = list.some((t) => t.id === preferId) ? preferId : meanId;
+  sel.innerHTML = '';
+  list.forEach((t) => {
+    const opt = el('option', { value: t.id, text: t.label });
+    if (t.id === pick) opt.setAttribute('selected', 'selected');
+    sel.appendChild(opt);
+  });
+  sel.value = pick;
+  _nsmTemplate = sel.value || pick;
+  if (subEl) { const t = templateById(_nsmTemplate); subEl.textContent = t ? t.sub : ''; }
+}
+// `preset` is passed by the template preview's "Use this template" button:
+// { mode, templateId }. Everywhere else opens on the defaults.
+function openNewShowModal(preset) {
   const isProse = state.currentApp === 'prose';
   // Novels have no intermission to speak of, so Prose Plot skips the length
   // choice entirely and just defaults to the one-act (no-intermission) model.
-  _nsmMode = isProse ? 'oneact' : 'full';
+  _nsmMode = isProse ? 'oneact' : ((preset && preset.mode === 'oneact') ? 'oneact' : 'full');
   document.getElementById('nsm-title').value = '';
   document.getElementById('nsm-title').placeholder = isProse ? 'My Novel' : 'My Musical';
   document.getElementById('nsm-mode-row').hidden = isProse;
+  // Prose Plot has one fixed scaffold (PROSE_TEMPLATE) — nothing to pick.
+  document.getElementById('nsm-template-row').hidden = isProse;
   document.getElementById('nsm-modal-title').textContent = isProse ? 'New novel' : 'New show';
   document.getElementById('nsm-create').textContent = isProse ? 'Create novel' : 'Create show';
   document.querySelectorAll('#nsm-mode-seg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === _nsmMode));
+  if (!isProse) fillNsmTemplates(_nsmMode, preset && preset.templateId);
   document.getElementById('new-show-modal').style.display = '';
   setTimeout(() => document.getElementById('nsm-title').focus(), 50);
 }
 function closeNewShowModal() {
   document.getElementById('new-show-modal').style.display = 'none';
 }
-function createProject(title, mode) {
+function submitNewShowModal() {
+  const title = document.getElementById('nsm-title').value.trim() || 'Untitled show';
+  const templateId = _nsmTemplate;
+  closeNewShowModal();
+  createProject(title, _nsmMode, templateId);
+}
+// `templateId` names an entry in the TEMPLATES registry (§7a). Unrecognized or
+// omitted, it falls back to the mode's measured mean — never to the two-act mean
+// for a one-act, which is the bug §7 was written to fix.
+function createProject(title, mode, templateId) {
   const isProse = state.currentApp === 'prose';
-  const template = isProse ? PROSE_TEMPLATE : DEFAULT_TEMPLATE;
+  const chosen = isProse ? null : (templateById(templateId) || templateById(mode === 'oneact' ? 'oneact-mean' : 'full-mean'));
+  const template = isProse ? PROSE_TEMPLATE : templateCardsFor(mode, templateId);
+  // A template's act model is part of the shape, not a separate setting — if a
+  // caller ever pairs a one-act template with 'full' (the modal's select can't,
+  // it's filtered by mode), the template wins so cards and mode can't disagree.
+  if (chosen) mode = chosen.mode;
   const body = JSON.stringify({ title, mode, format: state.currentApp, wordTarget: isProse ? 75000 : 0, cards: template.map((c) => Object.assign({}, c)), updated: Date.now() });
   fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
     .then((r) => r.json()).then((d) => loadProjects().then(() => openProject(d.id)));
@@ -5565,7 +5704,7 @@ function atlasVoice(v) {
   // literal "Solo" / "Duet" / "Company"); fall back to counting a cast list.
   if (/\bsolo\b/i.test(t)) return 'solo';
   if (/\bduet\b/i.test(t)) return 'duet';
-  if (/\b(trio|quartet|quintet|sextet|company|ensemble|chorus|group|full|men|women|kids|daughters|boys|girls|townsfolk|crowd|all)\b|co\./i.test(t)) return 'group';
+  if (/\b(trio|quartet|quintet|sextet|company|ensemble|chorus|group|full|men|women|kids|daughters|boys|girls|townsfolk|crowd|all|fates|workers)\b|co\./i.test(t)) return 'group';
   const parts = t.split(/\s*(?:,|\+|&|and)\s*/i).filter(Boolean);
   return parts.length >= 3 ? 'group' : parts.length === 2 ? 'duet' : 'solo';
 }
@@ -5614,12 +5753,14 @@ function buildDnaAtlas(host) {
   host.appendChild(sec);
   const head = el('div', { class: 'dna-sec-head' });
   head.appendChild(el('h3', { class: 'dna-sec-title', text: 'The Atlas' }));
-  head.appendChild(el('p', { class: 'dna-sec-sub', text: 'Tap a function to isolate it · sweep to name stars, click one to pin it · your show sits on the dial, its mirrors strung across the interior.' }));
+  head.appendChild(el('p', { class: 'dna-sec-sub', text: 'Tap a function to isolate it, and narrow to one-acts or full-lengths to see how the shape differs · sweep to name stars, click one to pin it · your show sits on the dial, its mirrors strung across the interior.' }));
   sec.appendChild(head);
 
   // chips
   const chipsEl = el('div', { class: 'atlas-chips' });
   sec.appendChild(chipsEl);
+  const formEl = el('div', { class: 'atlas-form' });
+  sec.appendChild(formEl);
   const statEl = el('div', { class: 'atlas-stat' });
   sec.appendChild(statEl);
 
@@ -5727,18 +5868,29 @@ function buildDnaAtlas(host) {
 
   sec.appendChild(el('div', { class: 'atlas-foot', text: 'the dial is the night — 8:00 curtain at the left foot, eleven o’clock where it belongs · chords are the chiasmus: reprise → source, I Want → eleven, the bookend.' }));
 
-  // ── two filter axes: function (active) and single show (activeShow) ──
+  // ── three filter axes: function (active), form (activeForm) and single show
+  //    (activeShow). Function and form COMPOSE — "where do ballads sit in
+  //    one-acts" is the question worth being able to ask, so the band and the
+  //    readout re-measure against the intersection rather than merely dimming
+  //    stars. Isolating one show supersedes both (a single show has one form). ──
   const zoneG = sv(svg, 'g', {});
   const spineG = sv(svg, 'g', {});                            // an isolated show's connected songs
   const showsCount = (typeof ATLAS_SHOWS !== 'undefined' ? ATLAS_SHOWS.length : new Set(ATLAS_DATA.map((s) => s.show)).size);
   const statDefault = `All functions · ${ATLAS_DATA.length.toLocaleString()} songs · ${showsCount} shows, 1943–2026`;
   statEl.textContent = statDefault;
-  let active = null, activeShow = null;
+  // show title -> 'one' | 'full' | 'other'. 'other' (a film) belongs to neither
+  // side, so it drops out of both filters instead of padding one.
+  const KIND = new Map(typeof ATLAS_SHOWS !== 'undefined' ? ATLAS_SHOWS.map((s) => [s.show, s.kind]) : []);
+  let active = null, activeShow = null, activeForm = null;
   function clearPin() { if (curMineG) curMineG.classList.remove('ring'); curStar = null; curMineG = null; pinned = false; setPinnedCue(false); }
-  // a star is "lit" when it passes whichever axis is engaged (show wins if both)
-  function litStar(i) { return activeShow ? ATLAS_DATA[i].show === activeShow : active ? atlasCanon(ATLAS_DATA[i].fn) === active : true; }
+  function formOk(i) { return !activeForm || KIND.get(ATLAS_DATA[i].show) === activeForm; }
+  // a star is "lit" when it passes whichever axes are engaged (show wins over both)
+  function litStar(i) {
+    if (activeShow) return ATLAS_DATA[i].show === activeShow;
+    return (!active || atlasCanon(ATLAS_DATA[i].fn) === active) && formOk(i);
+  }
   function applyStars() {
-    const filtering = !!(active || activeShow);
+    const filtering = !!(active || activeShow || activeForm);
     starEls.forEach((e, i) => {
       if (!filtering) { e.setAttribute('opacity', starBase[i].op); e.setAttribute('r', starBase[i].r); }
       else if (litStar(i)) { e.setAttribute('opacity', .9); e.setAttribute('r', activeShow ? 2.8 : 2.4); }
@@ -5764,36 +5916,71 @@ function buildDnaAtlas(host) {
       c.classList.toggle('on', !activeShow && ((active === null && c.dataset.fn === '') || c.dataset.fn === active));
     });
   }
+  function formHighlight() {
+    formEl.querySelectorAll('.atlas-form-seg').forEach((b) => {
+      b.classList.toggle('on', !activeShow && b.dataset.kind === (activeForm || ''));
+    });
+  }
+  // every song passing both engaged axes — the set the band and readout describe
+  function scopeRows() {
+    return ATLAS_DATA.filter((s) =>
+      (!active || atlasCanon(s.fn) === active) &&
+      (!activeForm || KIND.get(s.show) === activeForm));
+  }
+  const FORM_WORD = { one: 'One-act', full: 'Full-length' };
+  // repaint band + readout for the current (function × form) scope
+  function renderScope() {
+    chipHighlight(); formHighlight(); applyStars();
+    zoneG.innerHTML = '';
+    const rows = scopeRows();
+    const scopeNote = activeForm ? ` · ${activeForm === 'one' ? 'one-acts' : 'full-lengths'} only` : '';
+    if (active) {
+      const ps = rows.map((s) => s.pos).sort((a, b) => a - b);
+      const label = (ATLAS_CHIPS.find((c) => c[0] === active) || [active, active])[1];
+      if (!ps.length) {
+        // a real answer, not an empty state: one-acts have no act finale by
+        // definition, and saying so is more use than a blank readout.
+        statEl.innerHTML = `<b>${label}</b>${scopeNote} · <b>no songs</b> — this function does not appear in ${activeForm === 'one' ? 'the one-act corpus' : 'the full-length corpus'}`;
+        return;
+      }
+      const lo = ps[Math.floor(ps.length * .1)], hi = ps[Math.min(ps.length - 1, Math.floor(ps.length * .9))];
+      let dz = 'M';
+      for (let i = 0; i <= 30; i++) { const p = P(lo + (hi - lo) * i / 30, R); dz += (i ? 'L' : '') + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ' '; }
+      sv(zoneG, 'path', { d: dz, fill: 'none', stroke: atlasFamVar(rows[0].fn), 'stroke-width': 9, opacity: dark ? .16 : .22, 'stroke-linecap': 'round' });
+      const med = ps[Math.floor(ps.length / 2)];
+      const vc = { solo: 0, duet: 0, group: 0 };
+      rows.forEach((s) => { if (vc[s.v] != null) vc[s.v]++; });
+      const dom = Object.entries(vc).sort((a, b) => b[1] - a[1])[0];
+      statEl.innerHTML = `<b>${label}</b>${scopeNote} · ${ps.length} songs · median <b>${pct(med)}</b> · 10–90th ${pct(lo)}–${pct(hi)} · usually ${dom[0]} (${dom[1]}/${ps.length})`;
+    } else if (activeForm) {
+      const nShows = new Set(rows.map((s) => s.show)).size;
+      const shares = (typeof ATLAS_SHOWS !== 'undefined' ? ATLAS_SHOWS : [])
+        .filter((s) => s.kind === activeForm && s.a1share != null).map((s) => s.a1share);
+      const avgShare = shares.length ? shares.reduce((a, b) => a + b, 0) / shares.length : null;
+      statEl.innerHTML = `<b>${FORM_WORD[activeForm]}</b> · ${rows.length.toLocaleString()} songs · ${nShows} shows`
+        + (avgShare != null ? ` · first half averages <b>${pct(avgShare)}</b> of the score` : '');
+    } else statEl.textContent = statDefault;
+  }
   function setFilter(fn) {
     active = fn; activeShow = null;
     clearPin();
     pickInput.value = ''; pickWrap.classList.remove('picked', 'open');
     spineG.innerHTML = '';
-    chipHighlight();
-    applyStars();
-    zoneG.innerHTML = '';
-    if (fn) {
-      const rows = ATLAS_DATA.filter((s) => atlasCanon(s.fn) === fn);
-      const ps = rows.map((s) => s.pos).sort((a, b) => a - b);
-      if (ps.length) {
-        const lo = ps[Math.floor(ps.length * .1)], hi = ps[Math.min(ps.length - 1, Math.floor(ps.length * .9))];
-        let dz = 'M';
-        for (let i = 0; i <= 30; i++) { const p = P(lo + (hi - lo) * i / 30, R); dz += (i ? 'L' : '') + p.x.toFixed(1) + ' ' + p.y.toFixed(1) + ' '; }
-        sv(zoneG, 'path', { d: dz, fill: 'none', stroke: atlasFamVar(rows[0].fn), 'stroke-width': 9, opacity: dark ? .16 : .22, 'stroke-linecap': 'round' });
-        const med = ps[Math.floor(ps.length / 2)];
-        const vc = { solo: 0, duet: 0, group: 0 };
-        rows.forEach((s) => { if (vc[s.v] != null) vc[s.v]++; });
-        const dom = Object.entries(vc).sort((a, b) => b[1] - a[1])[0];
-        const label = (ATLAS_CHIPS.find((c) => c[0] === fn) || [fn, fn])[1];
-        statEl.innerHTML = `<b>${label}</b> · ${ps.length} songs · median <b>${pct(med)}</b> · 10–90th ${pct(lo)}–${pct(hi)} · usually ${dom[0]} (${dom[1]}/${ps.length})`;
-      }
-    } else statEl.textContent = statDefault;
+    renderScope();
+  }
+  function setForm(kind) {
+    activeForm = kind; activeShow = null;
+    clearPin();
+    pickInput.value = ''; pickWrap.classList.remove('picked', 'open');
+    spineG.innerHTML = '';
+    renderScope();
   }
   function chooseShow(name) {
-    activeShow = name; active = null;
+    activeShow = name; active = null; activeForm = null;
     clearPin();
     zoneG.innerHTML = '';
     chipHighlight();
+    formHighlight();
     applyStars();
     drawSpine(name);
     pickInput.value = name; pickWrap.classList.add('picked'); pickWrap.classList.remove('open');
@@ -5807,9 +5994,7 @@ function buildDnaAtlas(host) {
     pickInput.value = ''; pickWrap.classList.remove('picked', 'open');
     spineG.innerHTML = '';
     clearPin();
-    chipHighlight();
-    applyStars();
-    statEl.textContent = statDefault;
+    renderScope();                    // falls back to whatever function/form is still engaged
   }
   // chips
   const mkChip = (fn, label) => {
@@ -5823,6 +6008,21 @@ function buildDnaAtlas(host) {
   };
   mkChip(null, 'All');
   ATLAS_CHIPS.forEach(([fn, label]) => mkChip(fn, label));
+
+  // form scope — deliberately NOT styled as another fam-coloured function chip,
+  // because it is a different kind of thing: it narrows the corpus the function
+  // chips measure against, rather than picking a function.
+  const mkForm = (kind, label) => {
+    const b = el('button', { class: 'atlas-form-seg', text: label });
+    b.dataset.kind = kind || '';
+    b.addEventListener('click', () => setForm(kind));
+    formEl.appendChild(b);
+    return b;
+  };
+  formEl.appendChild(el('span', { class: 'atlas-form-lab', text: 'Length' }));
+  mkForm(null, 'All');
+  mkForm('one', 'One-act');
+  mkForm('full', 'Full-length');
 
   // ── show picker: type-ahead + year-sorted browse; isolates one show's spine ──
   const pickWrap = el('div', { class: 'atlas-pick' });
@@ -5874,7 +6074,7 @@ function buildDnaAtlas(host) {
   //    so you can rapidly scan the whole corpus without clicking each one ──
   function restoreStar(i) {
     starEls[i].removeAttribute('stroke');
-    if (!active && !activeShow) { starEls[i].setAttribute('opacity', starBase[i].op); starEls[i].setAttribute('r', starBase[i].r); }
+    if (!active && !activeShow && !activeForm) { starEls[i].setAttribute('opacity', starBase[i].op); starEls[i].setAttribute('r', starBase[i].r); }
     else if (litStar(i)) { starEls[i].setAttribute('opacity', .9); starEls[i].setAttribute('r', activeShow ? 2.8 : 2.4); }
     else { starEls[i].setAttribute('opacity', dark ? .03 : .05); starEls[i].setAttribute('r', 1); }
   }
@@ -5916,7 +6116,7 @@ function buildDnaAtlas(host) {
     const rp = Math.hypot(l.x - cx, l.y - cy);
     if (rp < R - 55 || rp > R + 95) return -1;                // only within the star band
     let bi = -1, bd = Infinity;
-    const cap = (active || activeShow) ? 130 * 130 : 30 * 30; // snap wider when a filter thins the field
+    const cap = (active || activeShow || activeForm) ? 130 * 130 : 30 * 30; // snap wider when a filter thins the field
     for (let i = 0; i < starPos.length; i++) {
       if (!litStar(i)) continue;
       const dx = starPos[i].x - l.x, dy = starPos[i].y - l.y, d2 = dx * dx + dy * dy;
@@ -7249,7 +7449,7 @@ function openExportDrawer(ctx) {
   body.appendChild(el('div', { class: 'exp-group-div' }));
   body.appendChild(el('div', { class: 'exp-group-label', text: 'Backup' }));
   body.appendChild(makeRow({ icon: ICON_TRAY_DOWN, name: 'Save backup', sub: title + '.pshow — complete show data',
-    glyph: GLYPH_DOWNLOAD, async: false, run: exportShow, disabled: state.readonly && state.showKey }));
+    glyph: GLYPH_DOWNLOAD, async: false, run: exportShow, disabled: state.readonly && (state.showKey || state.templateKey) }));
   // Open backup keeps the hidden file-input mechanism (importShow adds a new project).
   const fileInput = el('input', { type: 'file', accept: '.pshow,.songplot,.json', class: 'exp-file-input', id: 'exp-file-input' });
   fileInput.addEventListener('change', (e) => { if (e.target.files[0]) { closeExportDrawer(); importShow(e.target.files[0]); } });
@@ -7258,7 +7458,7 @@ function openExportDrawer(ctx) {
   body.appendChild(fileInput);
   // Document exports stay live for reference shows (they mutate nothing); only
   // Save backup and Fountain go inert, so the explanation lives with Backup.
-  if (state.readonly) body.appendChild(el('p', { class: 'exp-note', text: 'Switch to a project (not a reference show) to export.' }));
+  if (state.readonly) body.appendChild(el('p', { class: 'exp-note', text: 'Switch to a project (not a reference show or template preview) to export.' }));
 
   drawer.appendChild(body);
   document.body.appendChild(drawer);
@@ -9818,6 +10018,19 @@ function render() {
     banner.appendChild(el('span', { class: 'ref-teach-text', text: 'Studying ' + refShow.title + (refShow.year ? ' (' + refShow.year + ')' : '') + ' — ' + refShow.teaches }));
     board.appendChild(banner);
   }
+  // A previewed template takes the same banner slot, citing the numbers its
+  // shape encodes — plus the one action a preview offers. Nothing exists
+  // server-side until the modal's Create, so this is a handoff, not a save.
+  const tplPreview = state.readonly && state.templateKey ? templateById(state.templateKey) : null;
+  if (tplPreview) {
+    const banner = el('div', { class: 'ref-teach ref-teach-tpl' });
+    banner.appendChild(el('span', { class: 'ref-teach-tag', text: 'Template' }));
+    banner.appendChild(el('span', { class: 'ref-teach-text', text: tplPreview.label + ' · ' + tplPreview.basis }));
+    const cta = el('button', { class: 'pbtn ref-teach-cta', text: 'Use this template' });
+    cta.addEventListener('click', () => openNewShowModal({ mode: tplPreview.mode, templateId: tplPreview.id }));
+    banner.appendChild(cta);
+    board.appendChild(banner);
+  }
   board.appendChild(buildBoard());
 
   buildStats();
@@ -9904,16 +10117,25 @@ function initControls() {
 
   // new show modal
   document.querySelectorAll('#nsm-mode-seg button').forEach((b) => {
-    b.addEventListener('click', () => { _nsmMode = b.dataset.mode; document.querySelectorAll('#nsm-mode-seg button').forEach((x) => x.classList.toggle('active', x === b)); });
+    b.addEventListener('click', () => {
+      _nsmMode = b.dataset.mode;
+      document.querySelectorAll('#nsm-mode-seg button').forEach((x) => x.classList.toggle('active', x === b));
+      // The template list is per-length; keep the current pick if it survives
+      // the switch, otherwise drop to the new mode's mean.
+      fillNsmTemplates(_nsmMode, _nsmTemplate);
+    });
+  });
+  const nsmTpl = document.getElementById('nsm-template');
+  if (nsmTpl) nsmTpl.addEventListener('change', () => {
+    _nsmTemplate = nsmTpl.value;
+    const t = templateById(_nsmTemplate);
+    const subEl = document.getElementById('nsm-template-sub');
+    if (subEl) subEl.textContent = t ? t.sub : '';
   });
   document.getElementById('nsm-cancel').addEventListener('click', closeNewShowModal);
-  document.getElementById('nsm-create').addEventListener('click', () => {
-    const title = document.getElementById('nsm-title').value.trim() || 'Untitled show';
-    closeNewShowModal();
-    createProject(title, _nsmMode);
-  });
+  document.getElementById('nsm-create').addEventListener('click', submitNewShowModal);
   document.getElementById('nsm-title').addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { const title = document.getElementById('nsm-title').value.trim() || 'Untitled show'; closeNewShowModal(); createProject(title, _nsmMode); }
+    if (e.key === 'Enter') submitNewShowModal();
   });
   document.getElementById('new-show-modal').addEventListener('click', (e) => { if (e.target.id === 'new-show-modal') closeNewShowModal(); });
 

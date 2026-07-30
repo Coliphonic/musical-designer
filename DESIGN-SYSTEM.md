@@ -384,13 +384,24 @@ seed show).
 
 A full-width, **read-only** panel appended to the Story DNA page
 (`buildDnaAtlas()` in `app.js`, styles under `.atlas-*` in `styles.css`). It
-renders the whole 81-show / 1,484-song corpus (`atlas-data.js` →
+renders the whole 86-show / 1,576-song corpus (`atlas-data.js` →
 `ATLAS_DATA` + `ATLAS_SHOWS`, built by `corpus/build-atlas-data.mjs`) as a
 **~230° dial of stars** — a night from an 8:00 curtain (left foot) to eleven
 o'clock (right foot) — and lays the writer's own songs on it. It **reads the
 board and never writes**: no inputs, no editors, no saves. Musical projects
 only (`state.format !== 'prose'`).
 
+- **Three filter axes.** Function chips (`.atlas-chip`, fam-coloured), a **form
+  scope** (`.atlas-form-seg`, All / One-act / Full-length), and the show picker.
+  Function × form **compose**: the zone band and the stat readout re-measure
+  against the intersection rather than merely dimming stars, because "where does
+  the ballad sit in a one-act" is the question worth being able to ask (answer:
+  54%, against 66% in full-lengths). Picking a single show supersedes both — one
+  show has one form. The form scope is deliberately **sage and smaller**, not
+  another fam-coloured pill: it narrows the corpus the chips measure against, so
+  it must not read as a fifteenth function. The empty intersection is a real
+  answer, not a blank: an act finale in a one-act returns "this function does not
+  appear in the one-act corpus," which is true and worth knowing.
 - **Colour.** Stars and the writer's songs colour off the card-family tokens,
   promoted from the `.pill[data-fam]` inks to CSS variables: `--fam-blue`,
   `--fam-teal`, `--fam-amber`, `--fam-pink`, `--fam-coral`, `--fam-purple`,

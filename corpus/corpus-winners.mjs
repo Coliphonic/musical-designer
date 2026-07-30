@@ -20,43 +20,11 @@ export const WINNERS = {
       ['A2', 'finaleultimo', 'group', 3],   // The Concert
     ],
   },
-  hadestown: { // 2019 · two-act 2:30 incl interm · near-sung-through
-    form: 'two-act',
-    songs: [
-      ['A1', 'opening',      'group', 4],   // Road to Hell
-      ['A1', 'establishing', 'solo',  3],   // Any Way the Wind Blows
-      ['A1', 'charm',        'duet',  1.5], // Come Home with Me
-      ['A1', 'love',         'duet',  3],   // Wedding Song
-      ['A1', 'motif',        'solo',  1.5], // Epic I
-      ['A1', 'production',   'group', 3],   // Livin' It Up on Top
-      ['A1', 'love',         'duet',  4],   // All I've Ever Known
-      ['A1', 'production',   'group', 4.5], // Way Down Hadestown
-      ['A1', 'drive',        'duet',  1.5], // A Gathering Storm
-      ['A1', 'motif',        'solo',  1.5], // Epic II
-      ['A1', 'drive',        'group', 5],   // Chant
-      ['A1', 'villain',      'solo',  3],   // Hey, Little Songbird
-      ['A1', 'drive',        'group', 2.5], // When the Chips Are Down
-      ['A1', 'ballad',       'solo',  2],   // Gone, I'm Gone
-      ['A1', 'anthem',       'group', 5],   // Wait for Me
-      ['A1', 'finale',       'group', 4.5], // Why We Build the Wall
-      ['A2', 'diegetic',     'group', 4],   // Our Lady of the Underground
-      ['A2', 'reprise',      'group', 1.5], // Way Down Hadestown (Rep)
-      ['A2', 'ballad',       'solo',  3],   // Flowers
-      ['A2', 'reprise',      'duet',  1],   // Come Home with Me (Rep)
-      ['A2', 'motif',        'group', 1.5], // Nothing Changes
-      ['A2', 'drive',        'group', 3.5], // If It's True
-      ['A2', 'ballad',       'duet',  3.5], // How Long?
-      ['A2', 'reprise',      'group', 3.5], // Chant (Rep)
-      ['A2', 'eleven',       'solo',  4],   // Epic III
-      ['A2', 'love',         'duet',  3],   // Promises
-      ['A2', 'motif',        'group', 1.5], // Word to the Wise
-      ['A2', 'soliloquy',    'solo',  3],   // His Kiss, the Riot
-      ['A2', 'reprise',      'group', 2.5], // Wait for Me (Rep)
-      ['A2', 'drive',        'group', 4],   // Doubt Comes In
-      ['A2', 'reprise',      'group', 3],   // Road to Hell (Rep)
-      ['A2', 'finaleultimo', 'group', 3],   // We Raise Our Cups
-    ],
-  },
+  // hadestown (2019) was PROMOTED to a full carded shelf show — see SHOWS.hadestown
+  // in app/data.js (2026-07-29). Its data-only row lived here and has been removed
+  // rather than kept, because shelf and corpus must stay DISJOINT: every consumer
+  // (build-atlas-data, analyze-merged) reads both sets and would otherwise count
+  // the show twice. build-atlas-data now also guards against the overlap by title.
   moulinrouge: { // 2020 · two-act 2:35 incl interm · jukebox
     form: 'two-act',
     songs: [

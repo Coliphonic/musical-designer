@@ -1,11 +1,11 @@
 # The Musical Beat Map — corpus × story-structure guides
 
 *Research doc. Companion to TEMPLATE-PLAN.md (§4 scene prompts) and SPEC §15
-Story DNA. Source: the 81-show corpus, 1,484 classified songs (1943–2026,
+Story DNA. Source: the 86-show corpus, 1,576 classified songs (1943–2026,
 Broadway + West End + continental Europe, hits AND flops). Data in `corpus/`.*
 
 **Stability note:** every beat-window leader below held unchanged as the
-corpus grew from 797 to 1,484 songs — the map has converged. §6 tests it
+corpus grew from 797 to 1,576 songs — the map has converged. §6 tests it
 against a flop control group.
 
 The question: when the popular beat systems are laid over where musicals
