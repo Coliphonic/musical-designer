@@ -19,6 +19,14 @@ const LANES = [
   { key: '3', label: 'Act 3' },
 ];
 const LANE_KEYS = LANES.map((l) => l.key);
+// A ten-minute musical has no acts to number, so the same four lanes carry the
+// short form's own slot names instead (TEMPLATE-PLAN §8). Only the labels
+// change — the keys, the drag targets and every consumer of `act` are untouched,
+// so a show can be switched between lengths without moving a card.
+const LANE_LABELS_TEN = { '1': 'Setup', '2A': 'Collision', '2B': 'Decision', '3': 'Button' };
+function laneLabel(key, fallback) {
+  return (state.mode === 'ten' && LANE_LABELS_TEN[key]) || fallback;
+}
 const STATUS = {
   idea: { label: 'Idea', c: '#b4b2a9' },
   lyric: { label: 'Lyric draft', c: '#EF9F27' },
@@ -286,7 +294,10 @@ function openReference(key) {
   state.projectId = null;
   state.readonly = true;
   state.folder = '';
-  state.mode = isNovel ? 'oneact' : (show.form === 'one-act-90' ? 'oneact' : 'full');
+  state.mode = isNovel ? 'oneact'
+    : show.form === 'one-act-90' ? 'oneact'
+    : show.form === 'ten-minute' ? 'ten'
+    : 'full';
   state.format = fmt;
   state.currentApp = fmt;
   state.wordTarget = 0;
@@ -303,13 +314,23 @@ function templateById(id) {
   if (!id || typeof TEMPLATES === 'undefined') return null;
   return TEMPLATES.find((t) => t.id === id) || null;
 }
+// The three act models a Song Plot show can be in. Anything unrecognized (an
+// older save, a hand-edited payload) reads as the two-act default.
+const MODES = ['full', 'oneact', 'ten'];
+function normMode(m) { return MODES.indexOf(m) >= 0 ? m : 'full'; }
+// Each length's own default shape — the one a new show falls back to when no
+// template was chosen, and the one the modal's select snaps to when the length
+// segment changes under a template that doesn't belong to it.
+function meanTemplateId(mode) {
+  return mode === 'oneact' ? 'oneact-mean' : mode === 'ten' ? 'ten-mean' : 'full-mean';
+}
 // The cards a new show seeds from. An explicit template wins; anything
 // unresolved falls back to the *mode's* measured mean, which is the bug fix
 // TEMPLATE-PLAN §7 called out — createProject used to seed every new show from
 // the two-act mean, so a one-act opened with an act-finale card, the one
 // function measured at 0 of 223 one-act songs.
 function templateCardsFor(mode, templateId) {
-  const t = templateById(templateId) || templateById(mode === 'oneact' ? 'oneact-mean' : 'full-mean');
+  const t = templateById(templateId) || templateById(meanTemplateId(mode));
   return t ? t.cards : DEFAULT_TEMPLATE;
 }
 function templateSongCount(t) { return t.cards.filter((c) => c.type === 'song').length; }
@@ -336,7 +357,10 @@ function openTemplatePreview(id) {
   state.loading = true;
   state.templateKey = t.id;
   state.showKey = null;
-  state.cards = t.cards.map((c) => { const card = cardFromObj(c); card.title = templateSeatLabel(c); return card; });
+  // Only SONG seats get a pseudo-title — a ten-minute shape's beats carry real
+  // slot names ("Dialogue B") that survive into created shows, and running them
+  // through templateSeatLabel would retitle every one of them "Song".
+  state.cards = t.cards.map((c) => { const card = cardFromObj(c); if (c.type === 'song') card.title = templateSeatLabel(c); return card; });
   state.revisions = []; state.currentRev = null; state.pageLock = null; // a template has no history
   state.characters = {};
   state.notes = [];
@@ -351,7 +375,7 @@ function openTemplatePreview(id) {
   state.readonly = true;
   state.status = 'active';
   state.folder = '';
-  state.mode = t.mode === 'oneact' ? 'oneact' : 'full';
+  state.mode = normMode(t.mode);
   state.format = 'song';
   state.currentApp = 'song';
   state.wordTarget = 0;
@@ -583,8 +607,11 @@ function buildLibraryPage() {
   // above it: the writer's own shows first, then what to start from, then what
   // to study. Song Plot only — a novel seeds from the single PROSE_TEMPLATE, so
   // there'd be nothing to choose between.
+  // Blank carries no cards, so it has nothing to preview and nothing to teach —
+  // it lives in the new-show modal's select only, not on the browsable shelf.
   if (!isProseLib && typeof TEMPLATES !== 'undefined') {
-    host.appendChild(libSection('Templates', TEMPLATES.map((t) => () => libTemplateCard(t))));
+    const shelf = TEMPLATES.filter((t) => t.cards.length);
+    host.appendChild(libSection('Templates', shelf.map((t) => () => libTemplateCard(t))));
   }
 
   // Reference library — read-only study examples, always in their own
@@ -607,7 +634,7 @@ function libRefCard(key) {
   top.appendChild(el('span', { class: 'lib-card-title', text: r.title }));
   card.appendChild(top);
   const meta = el('div', { class: 'lib-card-meta' });
-  meta.appendChild(el('span', { class: 'lib-fmt', text: r.form === 'two-act' ? 'Two-act' : r.form === 'one-act-90' ? 'One-act' : (r.form ? r.form.replace(/-/g, ' ') : 'Reference') }));
+  meta.appendChild(el('span', { class: 'lib-fmt', text: r.form === 'two-act' ? 'Two-act' : r.form === 'one-act-90' ? 'One-act' : r.form === 'ten-minute' ? 'Ten-minute' : (r.form ? r.form.replace(/-/g, ' ') : 'Reference') }));
   if (r.year) { meta.appendChild(el('span', { class: 'lib-dot', text: '·' })); meta.appendChild(el('span', { text: String(r.year) })); }
   card.appendChild(meta);
   if (r.teaches) card.appendChild(el('div', { class: 'lib-teaches', text: r.teaches }));
@@ -627,7 +654,7 @@ function libTemplateCard(t) {
   top.appendChild(el('span', { class: 'lib-card-title', text: t.label }));
   card.appendChild(top);
   const meta = el('div', { class: 'lib-card-meta' });
-  meta.appendChild(el('span', { class: 'lib-fmt', text: t.mode === 'oneact' ? 'One-act' : 'Two-act' }));
+  meta.appendChild(el('span', { class: 'lib-fmt', text: t.mode === 'oneact' ? 'One-act' : t.mode === 'ten' ? 'Ten-minute' : 'Two-act' }));
   meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
   meta.appendChild(el('span', { text: templateSongCount(t) + ' songs · ~' + Math.round(templateMinutes(t)) + ' min' }));
   card.appendChild(meta);
@@ -655,7 +682,7 @@ function libCard(p) {
   // novel has no intermission to speak of, so surfacing it here would just
   // be a meaningless label for novelists.
   if ((p.format || 'song') !== 'prose') {
-    meta.appendChild(el('span', { class: 'lib-fmt', text: p.mode === 'oneact' ? 'One-act' : 'Full length' }));
+    meta.appendChild(el('span', { class: 'lib-fmt', text: p.mode === 'oneact' ? 'One-act' : p.mode === 'ten' ? 'Ten-minute' : 'Full length' }));
     meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
   }
   meta.appendChild(el('span', { class: 'lib-updated', text: relTime(p.updated) }));
@@ -1426,7 +1453,7 @@ function openSnapshotsDrawer() {
 
 function openShowSettingsModal() {
   document.getElementById('ssm-title').value = state.title || '';
-  const currentMode = state.mode === 'oneact' ? 'oneact' : 'full';
+  const currentMode = normMode(state.mode);
   document.querySelectorAll('#ssm-mode-seg button').forEach((b) => b.classList.toggle('active', b.dataset.mode === currentMode));
   const currentStatus = state.status || 'active';
   document.querySelectorAll('#ssm-status-seg button').forEach((b) => b.classList.toggle('active', b.dataset.status === currentStatus));
@@ -1476,9 +1503,10 @@ function fillNsmTemplates(mode, preferId) {
   const sel = document.getElementById('nsm-template');
   const subEl = document.getElementById('nsm-template-sub');
   if (!sel) return;
-  const list = (typeof TEMPLATES === 'undefined' ? [] : TEMPLATES).filter((t) => t.mode === mode);
-  const meanId = mode === 'oneact' ? 'oneact-mean' : 'full-mean';
-  const pick = list.some((t) => t.id === preferId) ? preferId : meanId;
+  // A mode-less template (Blank) belongs to every length and stays in the list
+  // whichever segment is showing.
+  const list = (typeof TEMPLATES === 'undefined' ? [] : TEMPLATES).filter((t) => !t.mode || t.mode === mode);
+  const pick = list.some((t) => t.id === preferId) ? preferId : meanTemplateId(mode);
   sel.innerHTML = '';
   list.forEach((t) => {
     const opt = el('option', { value: t.id, text: t.label });
@@ -1495,7 +1523,7 @@ function openNewShowModal(preset) {
   const isProse = state.currentApp === 'prose';
   // Novels have no intermission to speak of, so Prose Plot skips the length
   // choice entirely and just defaults to the one-act (no-intermission) model.
-  _nsmMode = isProse ? 'oneact' : ((preset && preset.mode === 'oneact') ? 'oneact' : 'full');
+  _nsmMode = isProse ? 'oneact' : (preset ? normMode(preset.mode) : 'full');
   document.getElementById('nsm-title').value = '';
   document.getElementById('nsm-title').placeholder = isProse ? 'My Novel' : 'My Musical';
   document.getElementById('nsm-mode-row').hidden = isProse;
@@ -1522,12 +1550,13 @@ function submitNewShowModal() {
 // for a one-act, which is the bug §7 was written to fix.
 function createProject(title, mode, templateId) {
   const isProse = state.currentApp === 'prose';
-  const chosen = isProse ? null : (templateById(templateId) || templateById(mode === 'oneact' ? 'oneact-mean' : 'full-mean'));
+  const chosen = isProse ? null : (templateById(templateId) || templateById(meanTemplateId(mode)));
   const template = isProse ? PROSE_TEMPLATE : templateCardsFor(mode, templateId);
   // A template's act model is part of the shape, not a separate setting — if a
   // caller ever pairs a one-act template with 'full' (the modal's select can't,
   // it's filtered by mode), the template wins so cards and mode can't disagree.
-  if (chosen) mode = chosen.mode;
+  // Blank has no shape and so no opinion: it keeps whatever length was chosen.
+  if (chosen && chosen.mode) mode = chosen.mode;
   const body = JSON.stringify({ title, mode, format: state.currentApp, wordTarget: isProse ? 75000 : 0, cards: template.map((c) => Object.assign({}, c)), updated: Date.now() });
   fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body })
     .then((r) => r.json()).then((d) => loadProjects().then(() => openProject(d.id)));
@@ -1921,7 +1950,10 @@ function buildBoard() {
   const order = displayOrder();
   LANES.forEach((L) => {
     if (L.key === '2B') {
-      const label = state.mode === 'full' ? 'Intermission' : 'Midpoint';
+      // A ten hinges where the decision starts, not at its middle — the marker
+      // sits at ~60% of the clock, right after the screw-turn, so "Midpoint"
+      // would be a lie about the form. See TEMPLATE-PLAN §8.
+      const label = state.mode === 'full' ? 'Intermission' : state.mode === 'ten' ? 'The turn' : 'Midpoint';
       wrap.appendChild(el('div', { class: 'laneint' + (state.mode === 'full' ? ' interm' : '') }, [el('span', { text: label })]));
     }
     const lane = el('div', { class: 'actcards' });
@@ -1935,7 +1967,7 @@ function buildBoard() {
       lane.appendChild(buildCard(c, i, pct[i]));
     });
     if (!state.readonly) lane.appendChild(addTile(L.key));
-    wrap.appendChild(el('div', { class: 'actband' }, [el('div', { class: 'actlabel' }, [el('span', { text: L.label })]), lane]));
+    wrap.appendChild(el('div', { class: 'actband' }, [el('div', { class: 'actlabel' }, [el('span', { text: laneLabel(L.key, L.label) })]), lane]));
   });
   return wrap;
 }
@@ -1953,7 +1985,10 @@ function textInput(field, val, on) {
   return i;
 }
 function numInput(val, on) {
-  const i = el('input', { class: 'fi', type: 'number', step: '0.5', min: '0' });
+  // Half a minute is the right grain for a two-act show and far too coarse for a
+  // ten, where the whole piece is twenty of them and the guide's clock runs in
+  // fifteen-second steps — so the spinner steps by 0.25 at that length.
+  const i = el('input', { class: 'fi', type: 'number', step: state.mode === 'ten' ? '0.25' : '0.5', min: '0' });
   i.value = val;
   i.addEventListener('input', () => on(parseFloat(i.value) || 0));
   return i;
@@ -3781,7 +3816,9 @@ function buildContentTokens(sceneId) {
     const c = state.cards[i];
     if ((c.act === '1' || c.act === '2A') && !actDone.one) {
       actDone.one = true;
-      if (state.mode !== 'oneact' && msOpts.showActHeaders !== false) { toks.push({ type: 'act-header', text: 'ACT ONE', key: 'act1' }); toks.push({ type: 'blank' }); }
+      // Only a two-act show has an "ACT ONE" to announce — a one-act and a ten
+      // both run straight through.
+      if (state.mode === 'full' && msOpts.showActHeaders !== false) { toks.push({ type: 'act-header', text: 'ACT ONE', key: 'act1' }); toks.push({ type: 'blank' }); }
     }
     if ((c.act === '2B' || c.act === '3') && !actDone.two) {
       actDone.two = true;
@@ -5192,7 +5229,7 @@ function buildCharactersPage() {
       const appList = el('div', { class: 'ch-apps' });
       apps.forEach((a) => {
         const chip = el('button', { class: 'ch-app-chip' });
-        chip.appendChild(el('span', { class: 'ch-app-act', text: LANE_LABELS[a.act] || a.act }));
+        chip.appendChild(el('span', { class: 'ch-app-act', text: laneLabel(a.act, LANE_LABELS[a.act] || a.act) }));
         chip.appendChild(el('span', { class: 'ch-app-title', text: a.title || '(untitled)' }));
         chip.addEventListener('click', () => navigateTo('board'));
         appList.appendChild(chip);
@@ -6516,7 +6553,7 @@ function exportFountain() {
     // Act / intermission headers
     if ((c.act === '1' || c.act === '2A') && !actHeaderDone.one) {
       actHeaderDone.one = true;
-      if (state.mode !== 'oneact') { lines.push('# ACT ONE'); lines.push(''); }
+      if (state.mode === 'full') { lines.push('# ACT ONE'); lines.push(''); }
     }
     if ((c.act === '2B' || c.act === '3') && !actHeaderDone.two) {
       actHeaderDone.two = true;
@@ -8405,7 +8442,7 @@ function buildManuscriptPage(sceneId) {
       // an extra node between dividers is harmless.
       if (c.act !== curAct) {
         curAct = c.act;
-        doc.appendChild(el('div', { class: 'ms-act-marker', text: '#' + (LANE_LABELS[c.act] || c.act).toUpperCase() }));
+        doc.appendChild(el('div', { class: 'ms-act-marker', text: '#' + laneLabel(c.act, LANE_LABELS[c.act] || c.act).toUpperCase() }));
       }
       const isEmpty = !(c[cardField(c)] || '').trim();
       // dv-scene/dv-song/dv-beat — same type branch as the icon below, so Focus
@@ -9071,7 +9108,7 @@ function buildManuscriptPage(sceneId) {
       if (c.act !== curAct) {
         if (lastIdx != null) addInsertZone({ idx: lastIdx, where: 'after' }); // end of the previous act
         curAct = c.act;
-        navList.appendChild(el('div', { class: 'ms-nav-act', text: LANE_LABELS[c.act] || c.act }));
+        navList.appendChild(el('div', { class: 'ms-nav-act', text: laneLabel(c.act, LANE_LABELS[c.act] || c.act) }));
       }
       addInsertZone({ idx, where: 'before' });
       lastIdx = idx;

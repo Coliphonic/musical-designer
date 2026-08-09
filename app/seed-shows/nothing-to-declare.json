@@ -1,0 +1,165 @@
+{
+  "title": "Nothing to Declare",
+  "mode": "ten",
+  "format": "song",
+  "status": "active",
+  "folder": "",
+  "updated": 1786291200000,
+  "owner": "colin",
+  "cards": [
+    {
+      "type": "scene",
+      "act": "1",
+      "title": "The Green Channel — 06:40"
+    },
+    {
+      "type": "beat",
+      "act": "1",
+      "title": "Shutters up",
+      "min": 0.5,
+      "note": "Cold open, music first: the empty hall, the two signs, the tannoy, the tea squared to the corner of the bench. Thirty seconds before anyone speaks.",
+      "lyrics": "Dark. A tannoy chime — two notes, the same two notes as always.\n\nTANNOY\nWelcome to Terminal Two. Please do not leave baggage unattended.\n\nLight comes up on a long empty hall. A rope line. A steel bench. Two channels side by side: one under a green sign reading NOTHING TO DECLARE, one under a red sign reading GOODS TO DECLARE.\n\nOFFICER PATIENCE OKORO enters with a paper cup of tea. She sets it down on the bench, squares it to the corner, and pushes up the shutter.\n\nShe looks at the empty hall for a moment, the way you look at a room you are about to leave for good.\n\nMusic.\n"
+    },
+    {
+      "type": "song",
+      "act": "1",
+      "title": "Nothing to Declare",
+      "fn": "iwant",
+      "voicing": "PATIENCE",
+      "min": 2.25,
+      "status": "demo",
+      "purpose": "Her want in the venue's own words, so the title is doing structural work from the first bar. Speech could state the want; only the number can make twenty-two years of it sound like a virtue she is proud of — which is the crack the fourth song splits open.",
+      "note": "Fused opening and I Want. Establishes the hall, the creed and the clock (she is off the channel at eight, for good). Hairline crack planted in verse 3: she has never once missed one, and she says so a beat too proudly.",
+      "lyrics": "[Verse 1]\n\nPATIENCE\nThe shutters go up at half past six.\nThe red-eye is down. The hall fills in.\nTwenty-two years of the same three tricks —\nyou watch the hands. You watch the chin.\n\n[Verse 2]\n\nPATIENCE\nThey're jet-lagged and decent and mostly the same,\nthey've bought too much duty-free gin,\nand the guilty ones read every word of the sign\nand the innocent barely walk in.\n\n[Chorus]\n\nPATIENCE\nNothing to declare.\nNothing to declare.\nKeep it moving, keep it kind, keep it clean.\nNothing to declare.\nTwenty-two years on a spotless sheet\nand not one single incident between.\nNothing to declare.\n\n[Verse 3]\n\nPATIENCE\nUpstairs there's a desk with my name on the door,\na chair that reclines and a window that's mine.\nAt eight I go up and I don't come back down.\n~\nAnd I've never missed one. Not once. Not one.\nNot in twenty-two years on this line.\n\n[Bridge]\n\nPATIENCE\nIt isn't unkindness. It's simply the line.\nThe line is the reason the whole thing holds.\nLet one through because you liked their face\nand something gets in that never gets out.\n\n[Final Chorus]\n\nPATIENCE\nNothing to declare.\nNothing to declare.\nNinety minutes and a spotless sheet.\nNothing to declare.\nWhatever you're carrying, carry it past —\nI'm not looking. I'm nearly complete.\n(she squares the cup to the corner of the bench)\nNothing to declare.\nNothing at all.\n"
+    },
+    {
+      "type": "beat",
+      "act": "1",
+      "title": "The last of the red-eye",
+      "min": 0.75,
+      "note": "The obstacle walks in already mid-transaction. Arthur is past her before she stops him; the hook lands (he won't let go of the holdall strap) and the train at ten past sets his clock against hers.",
+      "lyrics": "The hall fills. PATIENCE works the line without appearing to look at it.\n\nPATIENCE\nStraight through. Straight through. Straight through, sir, thank you.\n\nARTHUR VELE comes through with a wheeled case and a canvas holdall. Seventies. A good coat, eleven days slept in. He is already past her when she speaks.\n\nPATIENCE\nSir.\n\nARTHUR\n(stopping)\nMe?\n\nPATIENCE\nYou. Bag on the bench, please.\n\nARTHUR\nI've a train at ten past.\n\nPATIENCE\nThen we'll be quick.\n(a small smile, entirely professional)\nIt's a random check.\n\nARTHUR\nIs it.\n\nPATIENCE\nIt's a random check the way a queue is a random line.\n(she pats the bench)\nHoldall as well.\n\nARTHUR lifts the holdall onto the bench. He does not let go of the strap.\n\nPATIENCE\n(noticing that, and saying nothing whatsoever about it)\nAnything to declare?\n"
+    },
+    {
+      "type": "song",
+      "act": "2A",
+      "title": "Anything to Declare?",
+      "fn": "drive",
+      "voicing": "PATIENCE, ARTHUR",
+      "min": 2.75,
+      "status": "music",
+      "purpose": "The collision, in misfire form: both of them sing the word \"nothing\" meaning opposite things, and neither is lying. A scene would have to pick whose version is true; two voices over one another don't.",
+      "note": "Argument duet by way of the standard customs questions. Power shifts verse by verse and the ground moves at the end — the bag is open and the jar is on the bench. Note that the audience learns what it is before she does.",
+      "lyrics": "[Verse 1]\n\nPATIENCE\nAnything to declare?\n\nARTHUR\nNothing.\n\nPATIENCE\nCash over ten?\n\nARTHUR\nNothing.\n\nPATIENCE\nTobacco, alcohol, meat, dairy, seeds?\n\nARTHUR\nNothing. And nothing. And nothing again.\n\n[Verse 2]\n\nPATIENCE\nAnd the purpose of travel?\n\nARTHUR\nA family matter.\n\nPATIENCE\n(writing)\n\"A family matter.\" How long were you gone?\n\nARTHUR\nEleven days.\n\nPATIENCE\nAnd you're bringing back nothing at all?\n\nARTHUR\n(a beat too long)\nNothing you'd want.\n\n[Chorus — simultaneous]\n\nPATIENCE\nIt's nothing. It's nothing.\nThey all say it's nothing.\nAnd the nothing's a something in here every time.\n\nARTHUR\nIt's nothing. It's nothing.\nI promise, it's nothing.\nIt's nothing to anyone. Nothing but hers.\n\n[Verse 3]\n\nPATIENCE\nWould you open the bag, please.\n\nARTHUR\nI've a train.\n\nPATIENCE\nWould you open the bag.\n\nARTHUR\nIt isn't —\n\nPATIENCE\nSir.\n\nHe opens it. Inside, wrapped in a cardigan, a jam jar. Two pounds of dry grey soil. A screwed-down lid with a strip of tape across it.\n\n[Tag]\n\nPATIENCE\n(a long moment)\nThat's soil.\n\nARTHUR\nIt's a bit of a garden.\n\nPATIENCE\nThat's soil, Mr Vele.\n"
+    },
+    {
+      "type": "beat",
+      "act": "2A",
+      "title": "Two things at once",
+      "min": 0.5,
+      "note": "The screw-turn, double-loaded. Keeling's voice on the radio loads the safe door (transfer at eight, clean sheet). Then Arthur says what the soil is, which loads the costly one. Both scales, then the songs.",
+      "lyrics": "The radio on her shoulder clicks.\n\nKEELING\n(over the radio)\nPatience. Your transfer's on my desk. I need you upstairs at eight to sign it, and I'd rather not be signing an incident on the same morning.\n\nPATIENCE\n(into the radio, eyes on the jar)\nUnderstood.\n\nKEELING\n(over the radio)\nClean shift, Officer.\n\nPATIENCE\nClean shift.\n\nThe radio clicks off. Neither of them has moved. ARTHUR is looking at the jar, not at her.\n\nARTHUR\nIt's from under the lemon tree.\n\nPATIENCE\n(pause)\nWhat?\n\nARTHUR\nYou asked me what it was. It's from under the lemon tree. In my mother's garden.\n(beat)\nI buried her on the Tuesday.\n\nMusic.\n"
+    },
+    {
+      "type": "song",
+      "act": "2B",
+      "title": "A Lemon Tree in January",
+      "fn": "iwant",
+      "voicing": "ARTHUR",
+      "min": 2.25,
+      "status": "lyric",
+      "purpose": "The second character gets a want, not a lesson. He is not here to teach her about compassion — he wants a specific thing in a specific pot before a specific frost, and the piece is only as strong as the case for the side that loses.",
+      "note": "The five-song variant's extra number, in the crisis gap between the screw-turn and the decision. Kept wry for three verses (the security queue, the cardigan) so the four earnest lines at the end are affordable.",
+      "lyrics": "[Verse 1]\n\nARTHUR\nThere was a tree by the kitchen wall.\nShe put it in the year I came.\nIt gave twelve lemons in a good warm year\nand dropped half of those all the same.\n\n[Verse 2]\n\nARTHUR\nI never once helped her with it.\nI was seventeen and gone.\nAnd I rang on the Sundays I remembered\nand I let the rest go on.\n\n[Chorus]\n\nARTHUR\nSo I took a jar from under her sink\nand I filled it from where the tree stood\nand I taped down the lid on the flight over here.\nThat's the whole of the crime. That's the lot.\nIt's not a tree. It's not even a seed.\nIt's two pounds of the ground where she was.\n\n[Verse 3]\n\nARTHUR\nYour colleague in the blue took my belt and my shoes\nand my mother's reading glasses went through twice,\nand a girl of about nineteen with a wand and a badge\nasked me twice if the cardigan was mine.\nAnd nobody once said, what's in the jar, sir.\nNot till you.\n\n[Bridge]\n\nARTHUR\nAnd I know what a lemon tree needs.\nI looked it up. It wants ten degrees\nand a south-facing wall and a hundred years\nand a country that isn't this one.\n~\nI'm not a stupid man. I know it won't take.\n\n[Final]\n\nARTHUR\nI've a pot on a balcony in Catford\nand a Thursday, and a forecast for frost.\nThe ground goes hard by the weekend.\nI'd like to get it in before it does.\n"
+    },
+    {
+      "type": "song",
+      "act": "2B",
+      "title": "The Red Channel",
+      "fn": "eleven",
+      "voicing": "PATIENCE",
+      "min": 2.75,
+      "status": "lyric",
+      "purpose": "The decision sung as it happens rather than reported after. She doesn't put the jar down and she doesn't sing about having chosen — she walks, and the music locks in on the move.",
+      "note": "Crisis to decision. Stripped and rubato at the top; the rule gets its full and genuine case (it is not a stupid rule) before the second door is freshly sweetened — he could simply walk out and she would never know. The choice is the walk to the red channel, declaring it in her own name so the note lands on her instead of him.",
+      "lyrics": "[Recitative]\n\nPATIENCE\n(the jar in both hands)\nTwo pounds of soil.\nUndeclared. In the green.\nThat's a seizure and a fine and a note on his name.\nAnd it's the right call. And it's clean.\n\n[Verse 1]\n\nPATIENCE\nBecause here's what they taught us in week one of six —\nit isn't the soil, it's what's in the soil.\nIt's a spore you can't see with a name you can't say\nand an orchard four hundred miles away\nthat was fine on the Monday and gone by the spring.\n~\nSo it isn't unkindness. It's simply the thing.\n\n[Verse 2]\n\nPATIENCE\nAnd Keeling's upstairs with my transfer signed\nand a desk and a window and a chair that reclines,\nand the whole of the shift has been nothing at all,\nand it's seven-fifteen, and there's no one in the hall,\nand he could walk out with it. He could just go.\nAnd in forty-five minutes I'd never know.\n~\nAnd in forty-five minutes I'd never know.\n\n[The turn]\n\nPATIENCE\n(she does not put the jar down)\n...Mr Vele.\nCome with me.\n\nARTHUR\nI've a —\n\nPATIENCE\n(walking — not to the bin, and not to the door)\nRed channel. Second desk. Bring the bag.\nI'm declaring it.\n\nARTHUR\nYou're what?\n\nPATIENCE\nI'm declaring it. Now. In my name.\nBecause you didn't, and one of us has to,\nand if it's mine it's an error and not a crime.\n\n[Chorus]\n\nPATIENCE\nIt's the red channel.\nIt's the red channel.\nTwenty-two years and I've never walked down it,\nand I'm walking it now with an hour to spare\nand a jar of a garden and a form to fill in\nand something — at last — to declare.\n"
+    },
+    {
+      "type": "beat",
+      "act": "2B",
+      "title": "The form",
+      "min": 0.5,
+      "note": "Consequence, landed and left alone. The soil goes in the bin because it was always going to; Keeling washes and dries the jar without comment, which is the only kindness available to her; the note goes on Patience.",
+      "lyrics": "The red channel. A steel table under a hard light. SUPERVISOR NEVE KEELING has come down, which she did not have to do, and watches from the end of it.\n\nKEELING\nOn your last morning.\n\nPATIENCE\n(filling in the form, not looking up)\nOn my last morning.\n\nKEELING\nYou could have not seen it.\n\nPATIENCE\nI did see it.\n\nKEELING\n(a long look)\n...Prohibited goods. Soil. Two kilos. Officer declaration. Sign there.\n\nPATIENCE signs. KEELING takes the jar, tips it out into the yellow bin, and then — after a moment, and without any particular expression — rinses the jar at the little steel sink and dries it on a blue paper towel before she hands it back. Nobody comments on this.\n\nKEELING\nEight o'clock. My office.\n(to ARTHUR, not unkindly)\nYou're free to go, sir. There's no fine. There's a note.\n\nARTHUR\nOn me?\n\nKEELING\nOn her.\n\nKEELING goes. ARTHUR is left holding a very clean, very empty jar.\n"
+    },
+    {
+      "type": "song",
+      "act": "3",
+      "title": "Something to Declare",
+      "fn": "reprise",
+      "voicing": "PATIENCE, ARTHUR",
+      "min": 2.0,
+      "status": "idea",
+      "purpose": "Same melody, new context, reversed meaning — the cheapest honest proof that someone has changed. The solo comes back as a duet, which is the relationship change made audible rather than explained.",
+      "note": "Button. Title reversal pays off: the sign over her channel is the one thing she can no longer say. The tiny concrete action is two handfuls of dirt out of the terminal planter — abstract endings can't be staged, six-word ones can.",
+      "lyrics": "[Verse 1]\n\nPATIENCE\nThe shutters come down at a quarter past eight.\nThe hall empties out like a tide.\nTwenty-two years and one incident logged\non the very last morning. Signed. Filed.\n\n[Verse 2]\n\nARTHUR\n(the empty jar in both hands)\nThey took it.\n\nPATIENCE\nThey took it. They had to. It's the rule.\n\nARTHUR\n(turning it to the light)\nIt's a very clean jar.\n\nPATIENCE\nIt's a very clean jar.\n\n[Bridge]\n\nShe crosses to the sad municipal planter by the automatic doors — the one with the single surviving spider plant — and fills the jar with two handfuls of airport dirt. Screws the lid down. Hands it back.\n\nARTHUR\nThat isn't her garden.\n\nPATIENCE\nNo.\nIt's where you landed.\n\n[Final Chorus]\n\nPATIENCE & ARTHUR\nSomething to declare.\nSomething to declare.\nIt's two pounds of nothing off a terminal floor\nand a pot on a balcony and a tree that won't grow\nand a Thursday, and a man with a train to go,\nand something — at last — to declare.\n\nPATIENCE\n(to the empty hall, to the sign, to nobody)\nNothing to declare.\n(she picks up her cup and goes)\nNot any more.\n"
+    }
+  ],
+  "characters": {
+    "PATIENCE": {
+      "voiceType": "Mezzo-soprano",
+      "desc": "Officer Patience Okoro. Twenty-two years on the green channel and ninety minutes left on it — the transfer upstairs is signed at eight. She is not a hard woman and not a soft one; she is a woman who believes the line is the reason the whole thing works, and she has never once been wrong about anybody. The protagonist, because she is the only one who hasn't decided yet.",
+      "note": ""
+    },
+    "ARTHUR": {
+      "voiceType": "Baritone",
+      "desc": "Arthur Vele, seventies, eleven days into a good coat, home from burying his mother. He committed before the curtain — the jar is already taped, already through security, already in the green channel — which makes him pressure rather than protagonist. His want is a specific plant in a specific pot before Saturday's frost, and it has no pedagogical content whatsoever.",
+      "note": ""
+    },
+    "KEELING": {
+      "voiceType": "Alto",
+      "desc": "Supervisor Neve Keeling. Heard on the radio at the screw-turn and seen once, at the climax, because a decision made in front of someone is bigger than the same decision made alone. She does not soften and she does not gloat; she washes the jar.",
+      "note": ""
+    },
+    "TANNOY": {
+      "voiceType": "Recorded announcement",
+      "desc": "The building's own voice. Two notes and a sentence about unattended baggage — the diegetic source for the score's first cell, and the whole of the world outside these two people.",
+      "note": ""
+    }
+  },
+  "titlePage": {
+    "subtitle": "A musical in five songs",
+    "authors": "",
+    "draftLine1": "First draft",
+    "draftLine2": "August 2026",
+    "contactName": "",
+    "contactAddress": "",
+    "contactPhone": "",
+    "contactEmail": "",
+    "representedBy": "",
+    "settings": [
+      "An airport arrivals hall — the green channel",
+      "06:40 to 08:15, continuous"
+    ],
+    "productionNotes": "An example show — made to be opened, pulled apart and rewritten, not preserved. It is laid out on the Five-Song Short template's clock exactly (14:15: four spoken beats totalling 2:15, five numbers totalling 12:00), so it can be read next to that template to see what the seats look like once they have a story in them.\n\nThe form's rules, and where this piece keeps them. One event: a bag on a bench. Continuous time and one location: ninety-five minutes of a single shift, no jumps. Two characters, with the third — Keeling — spent deliberately and only at the climax, because the choice needs a witness. The hook lands in the first spoken beat and detonates in the second number. The screw-turn is double-loaded: the radio pushes toward the safe door, the lemon tree pulls toward the costly one. The decision is sung as an action in present tense, and the piece ends on a gesture small enough to stage.\n\nTwo things worth arguing with. First, the sincerity budget is spent twice — four earnest lines at the end of the third number and then the real spend in the last two — where the form says one late window. It is affordable here because the first two numbers are comic and the fourth gives the rule its full honest case, but it is a departure and it is the first thing to cut if the piece drags. Second, the antagonist is a good rule. The soil genuinely cannot come in; Patience is right for the whole show. If that ever starts to feel like a technicality rather than a real competing good, the piece has lost the thing holding it up.\n\nNo score exists. Song statuses are set at different stages on purpose, so the board has something to look like.",
+    "acknowledgements": "",
+    "include": {
+      "contact": false,
+      "cast": true,
+      "settings": true,
+      "songs": true,
+      "productionNotes": true,
+      "acknowledgements": false,
+      "rule": false,
+      "subtitle": true,
+      "draft": true
+    }
+  },
+  "scriptHeader": {
+    "enabled": true,
+    "format": "{title} – {date} – {page}.",
+    "revisionDate": "August 2026",
+    "alignment": "right",
+    "firstPage": true
+  }
+}

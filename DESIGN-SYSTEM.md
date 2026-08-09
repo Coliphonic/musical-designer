@@ -131,8 +131,15 @@ on purpose. They collapse into five **roles** — pick the role, not the numbers
 | Name | UI 13 / 650 / 0.015em | card titles |
 | Rail | UI 11 / 650 / 0.09em caps | act labels, scene spines |
 | Numeral | UI 10.5 / 600 tabular | % badges, card foot |
-| Caps label | UI 10 / 650 / 0.12em | function markers, MIDPOINT and
-INTERMISSION, stat keys |
+| Caps label | UI 10 / 650 / 0.12em | function markers, MIDPOINT /
+INTERMISSION / THE TURN, stat keys |
+
+The lane divider says what the length actually has: **INTERMISSION** for a
+two-act, **MIDPOINT** for a one-act, and **THE TURN** for a ten-minute piece,
+whose 2A|2B boundary sits at 60% of the clock — after the screw-turn, before
+the decision — and so is not a midpoint. At that length the four lane rails
+also drop their act numbers for the short form's own slot names (SETUP,
+COLLISION, DECISION, BUTTON); see TEMPLATE-PLAN §8.
 
 Three rules keep it that way:
 

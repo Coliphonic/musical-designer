@@ -42,11 +42,14 @@ const DEFAULT_TEMPLATE = [
 //   id      — stable key; stored nowhere, only passed to createProject
 //   label   — the name on the shelf card (mixed case)
 //   sub     — one-line blurb in the reference shelf's `teaches` voice
-//   mode    — 'full' | 'oneact'; filters the modal's select and sets the show's
-//             act model. One-act templates carry NO act finale (measured at
-//             0 of 223 one-act songs) and no villain (1 of 223).
-//   basis   — the measured numbers the shape encodes, shown in the preview banner
+//   mode    — 'full' | 'oneact' | 'ten'; filters the modal's select and sets the
+//             show's act model. One-act templates carry NO act finale (measured
+//             at 0 of 223 one-act songs) and no villain (1 of 223). A null mode
+//             means "every length" — only Blank, at the bottom of this list.
+//   basis   — the numbers the shape encodes, shown in the preview banner
 //   cards   — the existing template card shape; songs-only (§4 scaffold deferred)
+//             EXCEPT the ten-minute shapes, where the spoken beats between the
+//             songs are the structure and ship as beat cards (see §8).
 // Minutes are the cohort ballpark nudged by at most ±0.5 so each template's
 // Act-1 song-minute share (lanes 1+2A vs 2B+3) lands on its cohort's measured
 // share; the deviations are noted per template.
@@ -319,6 +322,85 @@ const TEMPLATES = [
       { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: 'Solo',    min: 5   },
       { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Duet',    min: 4   },
     ],
+  },
+  // ---- The ten-minute wing (TEMPLATE-PLAN §8) ------------------------------
+  // These two are the only templates in the library NOT cut from the corpus —
+  // the corpus has no ten-minute cohort to measure, so their basis is a craft
+  // guide (Colin's "The 10-Minute Musical: A Structural Field Guide v2") and
+  // their `basis` lines say so rather than quoting numbers they haven't earned.
+  // They are also the only shapes that ship BEATS: at this length the spoken
+  // beats between the songs are named slots with jobs, not connective tissue,
+  // so each carries the guide's instruction in its Beatline. Minutes are the
+  // guide's clock exactly, so the board's percentage badges read as the clock.
+  {
+    id: 'ten-mean',
+    label: 'Ten-Minute Musical',
+    sub: 'One event, one room, four songs — and the decision sung as it happens, not reported after.',
+    mode: 'ten',
+    basis: 'Field guide §2 · four songs · ~7:45 sung / ~2:15 spoken · one event, continuous time, two voices',
+    // 8 cards · 10:00 exactly. Lane split 3:15 / 2:45 / 2:30 / 1:30 — the turn
+    // lands at 60%, right before the decision number, which is where a ten
+    // actually hinges (a midpoint marker would be a lie about this form).
+    cards: [
+      // ── Setup (0:00–3:15): voice, want, and the obstacle through the door ──────
+      { act: '1',  type: 'beat', title: 'Cold open',  beatFn: 'Image', min: 0.5,
+        note: 'Music first, not a scene. Thirty seconds before anyone speaks — the first sung line sets voice and tone.' },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',  voicing: 'Solo', min: 2 },
+      { act: '1',  type: 'beat', title: 'Dialogue A', beatFn: 'Hook',  min: 0.75,
+        note: 'Enter late — the first spoken line is already mid-transaction. Personify the opposition, land the hook, name the stakes, hand Song 2 its ignition.' },
+      // ── Collision (3:15–6:00): the two wants meet, then both scales load ───────
+      { act: '2A', type: 'song', title: '', fn: 'drive',  voicing: 'Duet', min: 2.25 },
+      { act: '2A', type: 'beat', title: 'Dialogue B', beatFn: 'Turn',  min: 0.5,
+        note: 'The screw-turn, double-loaded: one institutional pressure toward the safe door, one human pull toward the costly one. Load both, then sing.' },
+      // ── Decision (6:00–8:30): the engine room, and the world answering ─────────
+      { act: '2B', type: 'song', title: '', fn: 'eleven', voicing: 'Solo', min: 2 },
+      { act: '2B', type: 'beat', title: 'Dialogue C', beatFn: 'Consequence', min: 0.5,
+        note: 'The world responds to the choice — granted, opened, withdrawn. Land it and get out; resolving here is the rushed-prose ending.' },
+      // ── Button (8:30–10:00): same melody, new context, reversed meaning ────────
+      { act: '3',  type: 'song', title: '', fn: 'reprise', voicing: 'Duet', min: 1.5 },
+    ],
+  },
+  {
+    id: 'ten-five',
+    label: 'Five-Song Short (13–15 min)',
+    sub: 'The extra minutes buy exactly one thing: the second character’s own want, spent in the crisis gap.',
+    mode: 'ten',
+    basis: 'Field guide §2 variant · five songs · ~14 min · never a second location, a third thread, or a time jump',
+    // 9 cards · 14:15. The added seat is the guide's first-listed spend and the
+    // cure for the form's commonest disease — a second character who knows
+    // things instead of wanting them — so it is an I Want, not a lesson.
+    cards: [
+      // ── Setup ─────────────────────────────────────────────────────────────────
+      { act: '1',  type: 'beat', title: 'Cold open',  beatFn: 'Image', min: 0.5,
+        note: 'Music first, not a scene. The first sung line sets voice and tone.' },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',  voicing: 'Solo', min: 2.25 },
+      { act: '1',  type: 'beat', title: 'Dialogue A', beatFn: 'Hook',  min: 0.75,
+        note: 'Enter late, mid-transaction. Personify the opposition, land the hook, plant the hard stakes in one line — stakes planted after the collision feel like authorial rescue.' },
+      // ── Collision ─────────────────────────────────────────────────────────────
+      { act: '2A', type: 'song', title: '', fn: 'drive',  voicing: 'Duet', min: 2.75 },
+      { act: '2A', type: 'beat', title: 'Dialogue B', beatFn: 'Turn',  min: 0.5,
+        note: 'The screw-turn, double-loaded: a pressure toward the safe door, a pull toward the costly one.' },
+      // ── Decision: the second voice states its case, THEN the choice ───────────
+      { act: '2B', type: 'song', title: '', fn: 'iwant',  voicing: 'Solo', min: 2.25 },
+      { act: '2B', type: 'song', title: '', fn: 'eleven', voicing: 'Solo', min: 2.75 },
+      { act: '2B', type: 'beat', title: 'Dialogue C', beatFn: 'Consequence', min: 0.5,
+        note: 'The world responds to the choice. Land it and get out.' },
+      // ── Button ────────────────────────────────────────────────────────────────
+      { act: '3',  type: 'song', title: '', fn: 'reprise', voicing: 'Duet', min: 2 },
+    ],
+  },
+  {
+    id: 'blank',
+    label: 'Blank',
+    sub: 'An empty board. No seats, no shape — every card is one you put there.',
+    // No mode: Blank belongs to every length, so the new-show modal keeps it in
+    // the list whichever segment is chosen, and createProject leaves the chosen
+    // length alone (every other template's own mode overrides the segment).
+    // Kept last so it sorts to the bottom of that select, and kept off the
+    // Library shelf — an empty board is nothing to browse.
+    mode: null,
+    basis: 'No template — start from nothing',
+    cards: [],
   },
 ];
 
@@ -1721,6 +1803,47 @@ const SHOWS = {
       { lane: '3', type: 'song', title: 'Road to Hell (Reprise)', fn: 'reprise', voicing: 'Hermes, Company', min: 3 },
       { lane: '3', type: 'beat', title: 'We sing it again anyway', note: 'Hermes closes the frame by reopening it: the song is sad, we knew, and we will tell it again as though it might come out differently. The one ending available to a show that gave away its ending — and the reason the structure works.', min: 0.5 },
       { lane: '3', type: 'song', title: 'We Raise Our Cups', fn: 'finaleultimo', voicing: 'Persephone, Eurydice, Women', min: 3 },
+    ],
+  },
+  chumpstreet: {
+    title: '21 Chump Street', year: 2014, form: 'ten-minute',
+    teaches: 'The whole ten-minute form in fourteen minutes: a news item compressed to one event and two wants, a narrator carrying every scrap of exposition so the five numbers do nothing but want and collide — and a piece that deliberately withholds the decision scene, because the true story never had one',
+    // TEN-MINUTE reference (2026-08-09). The shelf's first entry at this length,
+    // and the study model behind the ten-minute templates (TEMPLATE-PLAN §8).
+    //
+    // SOURCING NOTE: the running order, the per-number performer lists, the
+    // premiere and the source episode are taken from the published record
+    // (Wikipedia's entry and the 2014 cast EP), not from memory. Minutes are the
+    // EP's track times, which is why they carry decimals the rest of the shelf
+    // doesn't — at this length a quarter minute is 5% of the show. No beat cards:
+    // the narration lives INSIDE the numbers (Miranda's narrator is credited on
+    // all five), so there is no spoken connective tissue to card, and inventing
+    // some would both fabricate structure and double-count the running time.
+    // No lyrics reproduced.
+    characters: {
+      'NARRATOR': { voiceType: 'Rapped narration', desc: 'Direct address, and the single reason the form works here — he swallows the entire backstory (the sting, the school, the law) in seconds so the five numbers never have to stop and explain anything. He is also the distance that lets a bleak ending stay bearable.' },
+      'JUSTIN LABOY': { voiceType: 'Tenor', desc: 'A high school student with no record and no plan, who wants the new girl to notice him. His want is ordinary and his obstacle is invisible to him — the audience can see the trap the whole time, which is where the dread comes from.' },
+      'NAOMI RODRIGUEZ': { voiceType: 'Mezzo-soprano', desc: 'The new girl, and an undercover police officer working a narcotics sting inside the school. The second character with a real, defensible want of her own — a job to do, a quota to meet — rather than a lesson to deliver. She is never written as a villain, which is what makes the piece hurt.' },
+      'TEVIN, DEREK & ANDREW': { voiceType: 'Ensemble (three men)', desc: 'Justin\'s friends, and — doubling as the cousins, the cop, the lawyer and the boy — every other voice in the world of the piece. Three actors quoting an entire school, a family phone tree and a courthouse: the compression trick the short form runs on.' },
+    },
+    titlePage: {
+      subtitle: 'A Musical in One Act',
+      authors: 'Music, lyrics and book by Lin-Manuel Miranda · Based on the second act of This American Life episode #457, “What I Did For Love,” reported by Robbie Brown',
+      settings: ['A Florida high school', 'Fourteen minutes, one continuous run'],
+      productionNotes: 'Reference study object — structural scaffold only; no lyric text is reproduced. Commissioned by This American Life and premiered 7 June 2014 at the Brooklyn Academy of Music as part of the programme\'s live show; five numbers, roughly fourteen minutes, effectively through-sung under a rapped narration. It exists on this shelf as the worked example of the ten-minute form — the templates at that length were built against it.\n\nWhat it demonstrates, in the order you meet it. First, cast compression: a reported news story with a school, a police department, a family and a court is reduced to two people onstage and three actors voicing everyone else. Nobody is cut for tidiness; the two who remain are the one making a choice and the one embodying the opposition. Second, the narrator as a licensed cheat. Exposition that would eat four of the fourteen minutes is burned in seconds of direct address, which buys the numbers the freedom to be nothing but want and collision. The cost is distance — and here the distance is the point, because it is what lets an ending this bleak stay aloft rather than curdle.\n\nThird, and most usefully, the collision is a misfire. The two leads sing the same situation meaning opposite things: he reads attention as romance, she is running a procedure, and neither of them is lying. A conflict the characters cannot see is crueller than one they can, and it costs no extra minutes to stage.\n\nThe piece is also worth studying for what it refuses. There is no deliberation number — no song in which he weighs it and chooses. The reported story did not contain one, and the show declines to invent one, so the transaction arrives as a thing that simply happens and cannot be taken back. Measured against the ten-minute template\'s decision seat, that is a departure, and an instructive one: the seat exists because most premises need it, not because every piece has it. What replaces it is consequence, and the sincerity the rest of the show has carefully withheld is spent all at once in the closing seconds — the comedy of the phone-tree scramble bought that ending the right to land.',
+    },
+    // Positions from the EP's own clock (13:48 total): the want lands at 13%,
+    // the counter-want at 36%, the transaction at 70%, the reckoning at 89%.
+    cards: [
+      // ── Setup ─────────────────────────────────────────────────────────────
+      { lane: '1',  type: 'song', title: 'What the Heck I Gotta Do', fn: 'iwant',        voicing: 'Justin, Narrator, Naomi, Tevin, Derek, Andrew', min: 3.62 },
+      // ── Collision: her want, stated straight past his ─────────────────────
+      { lane: '2A', type: 'song', title: 'One School',               fn: 'drive',        voicing: 'Naomi, Narrator, Justin',                        min: 2.78 },
+      // ── Decision: the scramble, then the point of no return ───────────────
+      { lane: '2B', type: 'song', title: 'Cousin',                   fn: 'comedy',       voicing: 'Cousin 1, Cousin 2, Justin, Narrator, Naomi',    min: 2.32 },
+      { lane: '2B', type: 'song', title: 'The Money',                fn: 'eleven',       voicing: 'Naomi, Justin, Narrator, Tevin, Derek, Andrew',  min: 1.98 },
+      // ── Button: the bill comes ────────────────────────────────────────────
+      { lane: '3',  type: 'song', title: 'Epilogue',                 fn: 'finaleultimo', voicing: 'Narrator, Naomi, Justin, Cop, Lawyer, Boy',      min: 3.10 },
     ],
   },
 };

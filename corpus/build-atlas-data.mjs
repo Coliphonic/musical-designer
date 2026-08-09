@@ -120,6 +120,13 @@ const voiceClass = (v) => {
   return parts.length >= 3 ? 'group' : parts.length === 2 ? 'duet' : 'solo';
 };
 for (const show of Object.values(SHOWS)) {
+  // A ten-minute piece is a different form, not a short musical. Its handful of
+  // numbers would join the all-corpus census — the same census whose function
+  // positions and act ratios the long-form templates cite — alongside two-hour
+  // shows, and shift every mean it touched. The shelf carries it as a study
+  // model; the Atlas leaves it out entirely (this is stricter than `kind:
+  // 'other'`, which still counts toward the totals). See TEMPLATE-PLAN §8.
+  if (/^ten-minute/.test(show.form || '')) continue;
   const cards = (show.cards || []).filter(c => LANES.includes(c.lane || c.act));
   if (!cards.some(c => c.type === 'song')) continue;
   const total = cards.reduce((s, c) => s + (c.min || 0), 0);

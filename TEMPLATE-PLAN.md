@@ -28,9 +28,12 @@ so a show may appear in exactly one. Promoting a show from data-only to carded
 means deleting its corpus row; `build-atlas-data.mjs` enforces this by refusing
 any corpus row whose title is already on the shelf.
 
-- **Fully carded shelf (16):** Fiddler · Gypsy · Newsies · DEH · Hamilton ·
-  Wicked · Chicago · Legally Blonde · Little Mermaid · Hunchback · Frozen ·
-  Spelling Bee · Kimberly Akimbo · Maybe Happy Ending · Hercules · Hadestown
+- **Fully carded shelf (16 in the corpus):** Fiddler · Gypsy · Newsies · DEH ·
+  Hamilton · Wicked · Chicago · Legally Blonde · Little Mermaid · Hunchback ·
+  Frozen · Spelling Bee · Kimberly Akimbo · Maybe Happy Ending · Hercules ·
+  Hadestown
+  *(A 17th carded show, 21 Chump Street, sits on the shelf but is deliberately
+  excluded from the corpus — see §8f.)*
 - **Winners 2018–26 + picks (11):** Band's Visit · Moulin Rouge! ·
   A Strange Loop · The Outsiders · Schmigadoon! · Phantom · School of Rock ·
   Book of Mormon · In the Heights · The Notebook · Encanto *(film)*
@@ -444,3 +447,151 @@ scale.
       one-act mean.
 - [ ] Preview strips (mini distribution strip per template card, Atlas
       language) — phase-2 polish, not in the first build.
+
+---
+
+## 8 · The ten-minute wing (shipped 2026-08-09, v262)
+
+Colin asked for a third **length**, seeded from *The 10-Minute Musical: A
+Structural Field Guide (v2)* — his own craft doc, not a corpus cut. That
+distinction is the governing constraint for this section: every other template
+in the library cites measured numbers, and these two must not borrow that
+authority. Their `basis` lines say "Field guide §2", never "n=".
+
+### 8a · Why a mode and not just a template
+
+`state.mode` was a two-value flag ('full' | 'oneact') that decides three things:
+the board's lane divider, whether the manuscript and Fountain exports emit
+`ACT ONE` / `INTERMISSION`, and the Library card's length badge. A ten-minute
+piece answers all three differently from a one-act, so a template alone would
+have produced a show that called its first three minutes "Act 1" and printed an
+act header over a piece with no acts. Hence `MODES = ['full','oneact','ten']`
+plus `normMode()`, which is now the single place an unrecognized stored mode
+resolves (to 'full').
+
+### 8b · The lane mapping
+
+The four lanes are untouched — same keys, same drag targets, so a show can be
+switched between lengths without moving a card. Only the **labels** change,
+and only at this length:
+
+| Lane | Two-act / one-act | Ten-minute | The guide's clock |
+|---|---|---|---|
+| `1`  | Act 1   | **Setup**      | 0:00–3:15 — cold open, Song 1, Dialogue A |
+| `2A` | Act 2A  | **Collision**  | 3:15–6:00 — Song 2, Dialogue B |
+| `2B` | Act 2B  | **Decision**   | 6:00–8:30 — Song 3, Dialogue C |
+| `3`  | Act 3   | **Button**     | 8:30–10:00 — Song 4 |
+
+The 2A|2B divider reads **"The turn"**, not "Midpoint": it lands at 60% of the
+clock, immediately after the screw-turn and immediately before the decision
+number. That is where a ten actually hinges, and calling it a midpoint would be
+a lie about the form. `Intermission` (two-act) and `Midpoint` (one-act) are
+unchanged.
+
+### 8c · The two shapes
+
+Both ship **beat cards**, the first templates in the library to do so. At this
+length the spoken beats are named slots with jobs — the guide devotes a numbered
+section to each — so each beat carries its slot name as the title, a one-word
+`beatFn` pill, and the guide's instruction in its Beatline note.
+
+**`ten-mean` — "Ten-Minute Musical"** · 4 songs + 4 beats · 10:00 exactly ·
+7:45 sung / 2:15 spoken (the guide's "roughly 8:00 sung, 2:00 spoken"):
+
+- Setup: `Cold open` (Image, 0:30) · **iwant Solo 2:00** · `Dialogue A` (Hook, 0:45)
+- Collision: **drive Duet 2:15** · `Dialogue B` (Turn, 0:30)
+- Decision: **eleven Solo 2:00** · `Dialogue C` (Consequence, 0:30)
+- Button: **reprise Duet 1:30**
+
+Function choices worth defending: Song 1 is `iwant`, not `opening` — the guide's
+pass test and every one of its failure modes are about the want, and the opening's
+tone job is folded into the same 90 seconds. Song 3 is `eleven`, not `soliloquy` —
+it is the decision number, and the guide's cardinal rule is that the choice is
+sung as an action at its climax. Song 4 is `reprise`, not `finaleultimo`, because
+the reversed-meaning reprise *is* the ending in this form.
+
+**`ten-five` — "Five-Song Short (13–15 min)"** · 5 songs + 4 beats · ~14:15.
+The extra minutes buy the guide's first-listed spend and nothing else: the
+second character's own want, an `iwant Solo` placed in the crisis gap between
+the screw-turn and the decision. It is an I Want precisely because the form's
+commonest disease is a second character who knows things instead of wanting them.
+
+### 8d · Blank
+
+A twelfth entry, `id: 'blank'`, `cards: []`, and — uniquely — `mode: null`.
+A null mode means "every length": the new-show modal keeps Blank in the select
+whichever segment is lit, and `createProject` skips its usual
+"the template's mode wins" override so the **chosen length survives**
+(`if (chosen && chosen.mode)`). Blank is deliberately kept **off** the Library
+shelf: an empty board is nothing to browse and nothing to teach.
+
+### 8e · Decisions
+
+- [x] Third mode rather than a template-only shape — shipped v262.
+- [x] Lane labels and the "The turn" divider are ten-minute only; `full` and
+      `oneact` render exactly as before.
+- [x] Beats ship in these two templates only; §4's scene scaffold for the
+      long-form templates stays deferred.
+- [x] Duration stepper drops to 0.25 (15 seconds) at this length — 0.5 is the
+      right grain for a two-act and far too coarse for a ten.
+- [x] The show-settings field above the segment is now labelled **Length**
+      (was "Format", which now reads as Song Plot vs Prose Plot).
+- [x] **21 Chump Street carded as the first ten-minute reference** (2026-08-09).
+      The guide's other §10 models — *Trial by Jury*, *The Telephone*,
+      *A Hand of Bridge*, the *Into the Woods* prologue — are still uncarded.
+
+### 8f · Why the ten-minute shelf show is not in the corpus
+
+`form: 'ten-minute'` is the first shelf form that `build-atlas-data.mjs`
+**skips outright**. This is stricter than `kind: 'other'` (Encanto, a film),
+which still counts toward the all-corpus totals. The reason is arithmetic: the
+Atlas census is what the long-form templates cite for function positions and
+act ratios, and a fourteen-minute piece with five numbers is not a short
+musical but a different form. Verified by running the builder with the guard
+disabled — 87 shows / 1,581 songs, with the entry present — against 86 / 1,576
+with it in place.
+
+The consequence to remember: **a ten-minute reference teaches on the shelf and
+measures nowhere.** If a ten-minute cohort is ever wanted in the Atlas, it needs
+its own scope (a third value beside `one` and `full`), not a relaxation of this
+guard.
+
+### 8g · The reference entry
+
+Five numbers, no beat cards. The narration lives inside the numbers — Miranda's
+narrator is credited on all five — so there is no spoken connective tissue to
+card, and inventing some would both fabricate structure and double-count the
+running time against the EP's own clock. Minutes are the cast EP's track times
+(13:48 total), which is why this is the only entry on the shelf carrying
+two-decimal minutes: at this length a quarter minute is nearly 2% of the show,
+and rounding to the shelf's usual half-minutes would visibly move the badges.
+
+Measured positions, which are the entry's teaching value: the want at **13%**,
+the counter-want at **36%**, the comic scramble at **55%**, the transaction at
+**70%**, the reckoning at **89%**. Compare the ten-minute template's seats —
+the shapes agree except in one place, and that place is the point: the piece has
+**no decision number**. The reported story contained no deliberation, and the
+show declines to invent one, so the transaction simply happens. That is the
+template's decision seat left empty on purpose, and the clearest argument on the
+shelf that a seat is a default, not a law.
+
+### 8h · The worked example (`nothing-to-declare.json`)
+
+A third seed show, beside `circuits.json` and `tide-keeper.json` — an original
+five-song short (*Nothing to Declare*, an airport customs officer's last shift)
+laid out on the **Five-Song Short template's clock exactly**: 14:15, four spoken
+beats totalling 2:15, five numbers totalling 12:00, lanes 3.5 / 3.25 / 5.5 / 2.0,
+turn at 47%. Opening it next to the template is the point — it shows what the
+seats look like once a story is in them.
+
+It is a sandbox, not a reference: it lives in `app/seed-shows/` (copied into the
+data dir on first server start, never overwriting a live edit), it is fully
+editable, and its song statuses are deliberately spread across idea / lyric /
+music / demo so the board has something to look like.
+
+Two departures from the form are written into its production notes rather than
+hidden, because an example that quietly breaks its own rules teaches the wrong
+thing: the sincerity budget is spent in **two** windows rather than one late
+one, and the antagonist is a **rule that is genuinely right** for the whole
+piece — which is either the strongest thing in it or the thing that will make
+it feel like a technicality, depending on the draft.
