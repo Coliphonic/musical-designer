@@ -2,19 +2,45 @@
 
 Two kinds, because two kinds of thing break.
 
-## Unit tests — `node --test test/`
+## Unit tests — `node --test 'test/**/*.test.js'`
 
 ```
-node --test test/
+node --test 'test/**/*.test.js'
 ```
 
-`*.test.js`, run on Node's built-in runner. `load-app.js` evaluates `app/app.js`
-against a minimal DOM stub and hands back the pure functions, so these cover
-parsing, serialization, line identity and emphasis — anything that's a value in,
-value out.
+**Pass a glob, not a directory.** `node --test test/` used to work and no longer
+does: from Node 22 the runner treats its arguments as glob patterns, so a bare
+directory matches nothing, gets handed to the module loader instead, and the run
+dies with `Cannot find module '.../test'` before a single test executes. Quote
+the glob so Node expands it rather than the shell (`node --test test/*.test.js`
+works too, but only where the shell globs for you).
+
+`*.test.js`, run on Node's built-in runner. `load-app.js` evaluates `app/data.js`
+and then `app/app.js` in one sandboxed script — the same order `index.html` loads
+them in — against a stub `document`/`window`, and hands back the pure functions.
+So these cover parsing, serialization, line identity and emphasis: anything
+that's a value in, value out.
 
 They cannot cover layout: there's no layout engine behind the stub, so every
 measurement comes back zero.
+
+### If the whole file goes red but every assertion passed
+
+That is the signature of a **boot-time** failure, not a broken app. `app.js` ends
+with unguarded top-level calls, including a `loadProjects().then(...)` chain that
+falls through to `openReference('fiddler')`. It resolves long after `loadApp()`
+returns, so a throw inside it lands after the test file has finished and the
+runner reports it as `A resource generated asynchronous activity after the test
+ended`.
+
+It nearly always means the sandbox is missing something `app.js` has started
+using. Add it to `makeSandbox()` in `load-app.js`. There is no allowlist
+swallowing these any more — one used to exist, and it hid exactly this for long
+enough that four red files became the normal state of the suite.
+
+`harness.test.js` is the guard: it asserts the real `SHOWS`/`NOVELS`/`TEMPLATES`
+are in scope, and that the boot chain actually reaches its end
+(`state.showKey === 'fiddler'`) rather than dying partway.
 
 ## Layout fixture — `test/layout-click-in.html`
 

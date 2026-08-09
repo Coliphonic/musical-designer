@@ -99,8 +99,11 @@ mid-write-loop if ambitious (or just eyeball the rename logic), confirm a forced
 ## Phase 2 — A test harness for the round-trip core (no deps) — ✅ DONE 2026-07-05
 
 Shipped in commit (see git log for exact hash — added right after this line was
-written). Lives in `test/`, run with `node --test` or `node --test test/*.test.js`
-from the repo root. Zero new dependencies, zero changes to `app.js` itself.
+written). Lives in `test/`, run with `node --test 'test/**/*.test.js'` from the
+repo root — a **glob, not a directory**: Node 22+ reads the runner's arguments as
+glob patterns, so the `node --test test/` written here originally now fails to
+resolve before any test runs. Zero new dependencies, zero changes to `app.js`
+itself.
 
 - `test/load-app.js` — the "load-and-extract shim" from the option below. Splits
   `app.js`'s source right before the unguarded boot tail (`initControls();` onward),
@@ -173,8 +176,8 @@ What to actually test (in value order):
 5. `countWords` strips markup (a `**bold**` word counts once).
 6. `migrateLegacyIds` re-mints colliding `c`-prefixed note/revision ids.
 
-Put tests in `test/` at repo root, runnable as `node --test test/`. Add nothing to
-package.json (there isn't one; don't create one).
+Put tests in `test/` at repo root, runnable as `node --test 'test/**/*.test.js'`.
+Add nothing to package.json (there isn't one; don't create one).
 
 </details>
 

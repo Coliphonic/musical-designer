@@ -20,6 +20,15 @@ const path = require('path');
 const vm = require('vm');
 
 const APP_JS_PATH = path.join(__dirname, '..', 'app', 'app.js');
+// data.js is evaluated ahead of app.js in the same script, so SHOWS, NOVELS,
+// TEMPLATES, FN and the rest are the REAL ones. This used to be a two-key
+// `SHOWS` stub on the sandbox, which meant every global data.js declares was
+// one boot-path reference away from a ReferenceError — and that is exactly
+// what happened: openReference() gained a NOVELS lookup, the boot tail's
+// fallback hit it asynchronously (past the try/catch), and all four test files
+// went red on teardown while every assertion in them passed. Loading the file
+// costs a few ms and removes the whole category.
+const DATA_JS_PATH = path.join(__dirname, '..', 'app', 'data.js');
 
 // Any DOM-ish call chain (document.getElementById(...).classList.toggle(...),
 // element.style.display = 'none', etc.) resolves through this without
@@ -66,13 +75,10 @@ function makeSandbox() {
     btoa: (s) => Buffer.from(s, 'binary').toString('base64'),
     atob: (s) => Buffer.from(s, 'base64').toString('binary'),
     escape, unescape,
-    // data.js/lyric.js aren't loaded here (nothing under test needs their real
-    // content) — but app.js's boot tail falls back to openReference('fiddler')
-    // when there are no projects, which touches SHOWS unconditionally. A
-    // minimal empty show avoids that becoming an async ReferenceError that
-    // surfaces (as an unhandled rejection) after the test file has finished.
-    SHOWS: { fiddler: { title: 'Fiddler (stub)', numbers: [] } },
-    LYRIC: { load: () => {}, ready: () => true, inDict: () => true, lineSyll: () => 0 },
+    // data.js is loaded for real (see DATA_JS_PATH). lyric.js is not: it fetches
+    // a 2MB pronunciation dictionary at runtime, so it stays a stub, and nothing
+    // under test needs a real syllable count.
+    LYRIC: { load: () => {}, ready: () => true, inDict: () => true, lineSyll: () => 0, setStrip: () => {} },
   };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
@@ -86,28 +92,33 @@ const EXPORTS = [
   'mergeLineIds', 'stampRevisions', 'emphToHtml', 'emphFromNode', 'escHtml',
   'migrateDna', 'migrateLegacyIds', 'cardFromStored', 'serialize', 'applyShowData',
   'cardBodyField', 'b64encode', 'b64decode',
+  // From data.js, so a test can assert the harness really loaded it rather than
+  // running against stubs (see harness.test.js).
+  'SHOWS', 'NOVELS', 'TEMPLATES',
 ];
 
-// The synchronous try/catch around `boot` (below) can't reach async leftovers:
-// app.js's tail kicks off loadProjects().then(...), which — against our fake
-// fetch reporting zero projects — falls through to openReference('fiddler'),
-// referencing the real reference-show data (SHOWS) that we deliberately don't
-// load here. That throw surfaces as an unhandled rejection well after
-// vm.runInContext has already returned what we need, so it's harmless noise
-// for our purposes; swallow it rather than let it crash the test process.
+// app.js's boot tail kicks off loadProjects().then(...) — an async chain that
+// finishes long after vm.runInContext has returned, and therefore outside the
+// synchronous try/catch around `boot` below. There is deliberately NO allowlist
+// here: an unhandled rejection out of the boot path means the sandbox is missing
+// something app.js now needs, which is a fact about the harness worth failing
+// on. The previous version swallowed anything matching /SHOWS|LYRIC/, which is
+// how a real gap (openReference's NOVELS lookup) sat unnoticed behind four red
+// test files whose assertions were all passing.
 let _rejectionGuardInstalled = false;
 function installRejectionGuard() {
   if (_rejectionGuardInstalled) return;
   _rejectionGuardInstalled = true;
   process.on('unhandledRejection', (err) => {
-    if (err && /SHOWS|LYRIC/.test(String(err.message))) return; // expected boot leftover
-    throw err; // anything else is a real problem — don't hide it
+    throw new Error('load-app.js: app.js boot rejected — the sandbox is missing '
+      + 'something app.js needs. Add it to makeSandbox(). Cause: ' + (err && err.stack || err));
   });
 }
 
 function loadApp() {
   installRejectionGuard();
   const src = fs.readFileSync(APP_JS_PATH, 'utf8');
+  const data = fs.readFileSync(DATA_JS_PATH, 'utf8');
 
   // Split right before the unguarded boot section (initControls(); and the
   // fetch/navigateTo/loadProjects calls after it) so a throw in there can't
@@ -122,7 +133,12 @@ function loadApp() {
     EXPORTS.map((n) => '  ' + n + ": (typeof " + n + " !== 'undefined' ? " + n + ' : undefined),').join('\n') +
     '\n};\n';
 
-  const wrapped = declarations + '\ntry {' + boot + '\n} catch (_) { /* boot-time DOM calls; irrelevant to extracted functions */ }' + footer;
+  // data.js first, in the same script so its top-level `const`s (SHOWS, NOVELS,
+  // TEMPLATES, FN, DEFAULT_TEMPLATE…) are in scope for app.js exactly as they
+  // are in the browser, where index.html loads them as two plain script tags.
+  const wrapped = data + '\n' + declarations
+    + '\ntry {' + boot + '\n} catch (_) { /* boot-time DOM calls; irrelevant to extracted functions */ }'
+    + footer;
 
   const context = vm.createContext(makeSandbox());
   vm.runInContext(wrapped, context, { filename: 'app.js (sandboxed for tests)' });
