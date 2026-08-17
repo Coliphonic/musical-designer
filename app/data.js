@@ -68,7 +68,7 @@ const TEMPLATES = [
     label: 'Golden Age',
     sub: 'Frontloaded Act One, love secured before the break, a company blowout at the curtain.',
     mode: 'full',
-    basis: 'Pre-1990 cohort (n=29) · ratio 1.42 · A1 59% · charm skews Act 1, 126 of 171',
+    basis: 'Pre-1990 cohort (n=29) · ratio 1.42 · A1 59% · charm skews Act 1, 38 of 49',
     // 17 songs · 10/7 · A1 share 61.6% (target ~61%) — minutes as written in §7b.
     cards: [
       // ── Act 1: the world, wide and generous — two charm spots and a big number ──
@@ -99,7 +99,7 @@ const TEMPLATES = [
     label: 'Modern Pop',
     sub: 'Two I Wants for two leads, an anthem where the villain was, and a solo transformation at the break.',
     mode: 'full',
-    basis: '1990+ cohort (n=48) · ratio 1.26 · A1 56% · 11 of 104 shows run dual I Wants',
+    basis: '1990+ cohort (n=48) · ratio 1.26 · A1 56% · 9 of 48 shows run dual I Wants',
     // 16 songs · 9/7 · A1 share 57.5% (target ~57%) — minutes as written in §7b.
     cards: [
       // ── Act 1: want before world-building finishes — the modern cold-ish open ──
@@ -129,7 +129,7 @@ const TEMPLATES = [
     label: 'Sung-Through',
     sub: 'No book to frontload: a motif planted early, developed at the midpoint, paid off as the 11 o’clock.',
     mode: 'full',
-    basis: 'West End tradition (n=12) · ratio 1.17 · A1 54% · 83 of 113 reprises land in Act 2',
+    basis: 'West End tradition (n=12) · ratio 1.17 · A1 54% · every reprise lands in Act 2 (8 of 8)',
     // 20 songs · 11/9 · A1 share 54.5% (target ~54%). Four ±0.5 nudges buy the
     // flat British split: Act-1 production and the 2A anthem come down 0.5, the
     // 2B drive and the Act-3 soliloquy go up 0.5.
