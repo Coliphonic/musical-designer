@@ -11,10 +11,20 @@ Corpus data + analyzers live in `corpus/` (plain .mjs, runnable with node).
 
 ## 1 · The corpus
 
-**86 shows · 70 two-act · 15 one-act · 1 film · 1,576 classified songs —
+**104 shows · 77 two-act · 15 one-act · 12 film · 1,809 classified songs —
 including a 5-show flop control group** (see MUSICAL-BEAT-MAP.md §6).
 37 Best Musical Tony winners, plus Olivier winners, the foundational Golden
 Age canon, the West End mega-musicals, and two continental landmarks.
+Batch 9 (2026-08-17) added the Disney wing: seven stage shows (Beauty and
+the Beast, The Lion King, Aida, Mary Poppins, Tarzan, Aladdin, Anastasia)
+and eleven film musicals carded with a ' (film)' title suffix, so stage and
+screen versions of one title can be read side by side in the Atlas picker
+(e.g. The Little Mermaid vs The Little Mermaid (film)). Films take
+form 'film' → kind 'other': in totals and the picker, out of both sides of
+the one-act/full-length filter, and never tagged 'finale' (no interval —
+the one-act rule). The four cohort basis lines in data.js (mean, pre-1990,
+1990+, West End) were refreshed to the post-batch-9 analyzer output
+(77 two-act · ratio 1.32 · A1 57%).
 
 `form` is now carried through to `ATLAS_SHOWS.kind` ('one' | 'full' | 'other')
 so the Atlas can filter one-acts against full-lengths. Two findings fell straight

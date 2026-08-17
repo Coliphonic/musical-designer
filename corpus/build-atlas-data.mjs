@@ -31,6 +31,16 @@ const NAMES = {
   oncethisisland:'Once on This Island',titleofshow:'[title of show]',
   ordinarydays:'Ordinary Days',ridethecyclone:'Ride the Cyclone',
   rockyhorror:'The Rocky Horror Show',
+  // batch9 — the Disney wing. ' (film)' suffixes are LOAD-BEARING: they keep
+  // these rows clear of the shelf-title veto (stage Little Mermaid, Frozen,
+  // Newsies, Hunchback and Hercules are carded shelf shows).
+  beautybeast:'Beauty and the Beast',lionking:'The Lion King',aida:'Aida',
+  marypoppins:'Mary Poppins',tarzan:'Tarzan',aladdin:'Aladdin',anastasia:'Anastasia',
+  marypoppinsfilm:'Mary Poppins (film)',littlemermaidfilm:'The Little Mermaid (film)',
+  beautybeastfilm:'Beauty and the Beast (film)',aladdinfilm:'Aladdin (film)',
+  newsiesfilm:'Newsies (film)',lionkingfilm:'The Lion King (film)',
+  hunchbackfilm:'The Hunchback of Notre Dame (film)',herculesfilm:'Hercules (film)',
+  anastasiafilm:'Anastasia (film)',tarzanfilm:'Tarzan (film)',frozenfilm:'Frozen (film)',
 };
 
 // One-act vs full-length, for the Atlas form filter. 'other' is the escape hatch
