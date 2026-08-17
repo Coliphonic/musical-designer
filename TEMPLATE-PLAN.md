@@ -336,7 +336,7 @@ const TEMPLATES = [ { id, label, sub, mode: 'full'|'oneact', basis, cards } ]
 - Prose Plot untouched (`PROSE_TEMPLATE` as-is; templates shelf is Song Plot
   only).
 
-### 7b · The nine
+### 7b · The nine (ten since 2026-08-17 — Family Spectacle is 7½)
 
 Seat lists are the deliverable; minutes may shift ±0.5 at build time to hit
 each cohort's measured A1 share (noted per template).
@@ -401,6 +401,33 @@ dark bookend.
 - 2B: diegetic 3 (A2 opener) · reprise 1.5 · ballad Solo 3.5 (the frame cracks) · drive 3
 - 3: eleven Solo 4 (the title number as reckoning) · reprise 2 (dark reprise of the welcome) · finaleultimo Company 2.5
 (16 songs, 9/7, A1 share target ~57%)
+
+**7½ · Family Spectacle** (`full-family`, added 2026-08-17 with batch 9) — the
+twelve-show family-spectacle cohort: the seven batch-9 stage titles (Beauty and
+the Beast, The Lion King, Aida, Mary Poppins, Tarzan, Aladdin, Anastasia) plus
+the five already carded on the shelf (The Little Mermaid, Hunchback, Frozen,
+Newsies, Hercules). 19.9 songs and 58.9 song-minutes per show, ratio 1.33, A1
+share 58%, voicing 51% group.
+
+Seats are the cohort's own function shares × 18 by **largest remainder**, not
+hand-picked — reprise/ballad/charm/production take two each, thirteen functions
+take one, and the eighteenth seat goes to `establishing` (0.38) over a second
+villain (0.36). The villain keeps a guaranteed single seat: 18 of 239 songs
+(7.5%) is roughly four times the all-corpus rate, but two seats would read 11%
+and overshoot by more than one seat undershoots.
+
+**No eleven o'clock seat** — 4 of 239 songs (1.7%), under a tenth of a seat.
+This is the shape's signature the way zero production numbers are the chamber
+template's: the late heat goes into the lane-3 reprise and production number,
+not a showstopper. Every other full-length template carries an eleven.
+- 1: opening Company 4 · establishing Company 2.5 · iwant Solo 3.5 · charm 2.5 · villain 3
+- 2A: charm 2.5 · ballad Solo 3.5 · love Duet 3.5 · production Company 4 · finale Company 4.5
+- 2B: comedy 3 · reprise 2 · drive 3 · soliloquy Solo 3.5 (the reprise lane — 2.6/show peaks here)
+- 3: ballad 3.5 · production Company 4 · reprise 2 · finaleultimo Company 3.5
+(18 songs — the largest in the library · 10/8 · 58 min · A1 share 57.8%,
+target 58%. Lane minute-shares 27/31/20/22 against a measured 27/30/19/24;
+lane 3 runs ~2 points light because the cohort's transformation sequences are
+longer than a template should presume.)
 
 **8 · One-Act — the mean** (`oneact-mean`) — the 15-one-act census (§ Atlas
 2026-07-29): 14.9 songs/show, **50/50 split**, no act finale (0/223), no

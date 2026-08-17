@@ -258,6 +258,56 @@ const TEMPLATES = [
     ],
   },
   {
+    id: 'full-family',
+    label: 'Family Spectacle',
+    sub: 'The biggest score here, and no eleven o’clock number — the late heat goes into a reprise and a transformation instead.',
+    mode: 'full',
+    basis: 'Family-spectacle cohort (n=12) · 19.9 songs per show · villain 18 of 239 songs, ~4× the corpus rate · only 4 are an eleven o’clock',
+    // 18 songs — the largest template in the library, because the cohort really
+    // is bigger: 19.9 songs and 58.9 song-minutes per show against a 17.4-song
+    // corpus mean. 10/8 · A1 share 57.8% (target 58%). Lane minute-shares land
+    // 27/31/20/22 against a measured 27/30/19/24; lane 3 runs ~2 points light
+    // because the cohort's lane-3 spectacle (transformation sequences) is longer
+    // than a template should presume.
+    //
+    // Seats are the cohort's own function shares × 18 by largest remainder, NOT
+    // hand-picked: reprise/ballad/charm/production take 2 each, thirteen more
+    // take 1, and the last seat goes to `establishing` (0.38) over a second
+    // villain (0.36). Two villain seats would read 11% against a measured 7.5%,
+    // so the villain gets one guaranteed seat — still notable, since 7.5% is
+    // roughly four times the all-corpus rate.
+    //
+    // NO eleven seat. 4 of 239 songs (1.7%) is under a tenth of a seat, and the
+    // absence is this shape's signature the way zero production numbers are the
+    // chamber template's: the late heat goes into the lane-3 reprise and the
+    // production number, not a showstopper. Every other full-length template
+    // here carries an eleven; this one deliberately does not.
+    cards: [
+      // ── Act 1: world, rules, want, and the threat — all four before the break ──
+      { act: '1',  type: 'song', title: '', fn: 'opening',      voicing: 'Company', min: 4   },
+      { act: '1',  type: 'song', title: '', fn: 'establishing', voicing: 'Company', min: 2.5 },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 3.5 },
+      { act: '1',  type: 'song', title: '', fn: 'charm',        voicing: '',        min: 2.5 },
+      { act: '1',  type: 'song', title: '', fn: 'villain',      voicing: '',        min: 3   },
+      // ── Act 2A: the showpiece, love, and a company curtain ────────────────────
+      { act: '2A', type: 'song', title: '', fn: 'charm',        voicing: '',        min: 2.5 },
+      { act: '2A', type: 'song', title: '', fn: 'ballad',       voicing: 'Solo',    min: 3.5 },
+      { act: '2A', type: 'song', title: '', fn: 'love',         voicing: 'Duet',    min: 3.5 },
+      { act: '2A', type: 'song', title: '', fn: 'production',   voicing: 'Company', min: 4   },
+      { act: '2A', type: 'song', title: '', fn: 'finale',       voicing: 'Company', min: 4.5 },
+      // ── Act 2B: the reprise lane — this cohort's 2.6 reprises/show peak here ───
+      { act: '2B', type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 3   },
+      { act: '2B', type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 2   },
+      { act: '2B', type: 'song', title: '', fn: 'drive',        voicing: '',        min: 3   },
+      { act: '2B', type: 'song', title: '', fn: 'soliloquy',    voicing: 'Solo',    min: 3.5 },
+      // ── Act 3: the title ballad, the spectacle, the theme returned, the curtain ─
+      { act: '3',  type: 'song', title: '', fn: 'ballad',       voicing: '',        min: 3.5 },
+      { act: '3',  type: 'song', title: '', fn: 'production',   voicing: 'Company', min: 4   },
+      { act: '3',  type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 2   },
+      { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Company', min: 3.5 },
+    ],
+  },
+  {
     id: 'oneact-mean',
     label: 'One-Act — the mean',
     sub: 'No intermission, no act finale, no villain — the ballad at the midpoint is the breath.',
