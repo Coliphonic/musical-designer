@@ -624,6 +624,30 @@ function buildLibraryPage() {
   const refKeys = Object.keys(refs).sort((a, b) =>
     (refs[a].year || 0) - (refs[b].year || 0) || refs[a].title.localeCompare(refs[b].title));
   if (refKeys.length) host.appendChild(libSection('Reference', refKeys.map((k) => () => libRefCard(k))));
+
+  // Corpus instruments. Song Plot only — the corpus is musicals, and Prose
+  // Plot's shelf is novels (same partition rule as Templates above).
+  if (!isProseLib && typeof ATLAS_SHOWS !== 'undefined' && ATLAS_SHOWS.length) {
+    host.appendChild(libSection('Corpus', [() => libFieldCard()]));
+  }
+}
+
+// Entry point for the Score Field. A shelf card rather than a nav tab: the
+// field is something you go and look at, not a room you work in.
+function libFieldCard() {
+  const card = el('div', { class: 'lib-card lib-card-field' });
+  card.addEventListener('click', () => { closeCardMenu(); navigateTo('field'); });
+  const top = el('div', { class: 'lib-card-top' });
+  top.appendChild(el('span', { class: 'lib-card-title', text: 'The Score Field' }));
+  card.appendChild(top);
+  const meta = el('div', { class: 'lib-card-meta' });
+  meta.appendChild(el('span', { class: 'lib-fmt', text: ATLAS_SHOWS.length + ' shows' }));
+  meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
+  meta.appendChild(el('span', { text: ATLAS_DATA.length.toLocaleString() + ' songs' }));
+  card.appendChild(meta);
+  card.appendChild(el('div', { class: 'lib-teaches',
+    text: 'Every show in the corpus as one strip, sorted by how hard it frontloads — the whole form as a single image.' }));
+  return card;
 }
 
 function libRefCard(key) {
@@ -5713,6 +5737,203 @@ function buildStoryDnaPage() {
   buildDnaAtlas(host);
 }
 
+// ── The Score Field ─────────────────────────────────────────────────────────
+// The corpus as one image: one strip per show, each tick a song in its measured
+// position, sorted by how hard the show frontloads. The Atlas superimposes all
+// 104 shows into a single dial and necessarily loses which show is which; this
+// keeps them apart, so the act-balance gradient can simply be read down the page
+// instead of quoted from a table.
+//
+// Read-only, like the Atlas: it reads ATLAS_DATA/ATLAS_SHOWS and the open
+// board, and never writes to either.
+const SF_SORTS = [['share', 'Frontloading'], ['year', 'Year'], ['title', 'Title']];
+const SF_FORMS = [[null, 'All'], ['one', 'One-act'], ['full', 'Full-length'], ['film', 'Film']];
+// Sort and filter live on `state` rather than in module-local `let`s: it is the
+// app's own convention for view state, and it is the only way anything outside
+// this file — the test harness included — can drive the page through its
+// branches. sfPinned stays local because it holds a live row object, which has
+// no business anywhere near a serializable state bag.
+let sfPinned = null;
+
+// The open project drawn into the field on the corpus's own terms: position on
+// the full card timeline, A1 share from song minutes only — exactly what
+// corpus/build-atlas-data.mjs does for a shelf show, so the row is comparable
+// rather than merely adjacent.
+function sfOwnRow() {
+  if (!state.projectId || state.readonly || state.format === 'prose') return null;
+  const cards = (state.cards || []).filter((c) => LANE_KEYS.indexOf(c.act) >= 0);
+  const songs = cards.filter((c) => c.type === 'song' && c.fn);
+  if (songs.length < 2) return null;
+  const total = cards.reduce((a, c) => a + (c.min || 0), 0);
+  if (!total) return null;
+  const songTot = songs.reduce((a, c) => a + (c.min || 0), 0);
+  if (!songTot) return null;
+  const a1 = songs.reduce((a, c) => a + (c.act === '1' || c.act === '2A' ? (c.min || 0) : 0), 0);
+  let cum = 0;
+  const out = [];
+  for (const c of cards) {
+    if (c.type === 'song' && c.fn) out.push({ fn: c.fn, pos: (cum + (c.min || 0) / 2) / total });
+    cum += c.min || 0;
+  }
+  return {
+    show: state.title || 'This show', songs: out, mine: true, key: null,
+    a1share: a1 / songTot, n: out.length, year: null,
+    kind: state.mode === 'oneact' ? 'one' : state.mode === 'ten' ? 'ten' : 'full',
+  };
+}
+
+function buildScoreFieldPage() {
+  const host = document.getElementById('page-field');
+  if (!host) return;
+  host.innerHTML = '';
+  if (typeof ATLAS_DATA === 'undefined' || !ATLAS_DATA.length) {
+    host.appendChild(el('div', { class: 'ch-empty', text: 'Corpus data unavailable.' }));
+    return;
+  }
+
+  // Read once per build; the segment handlers write back to state and rebuild.
+  const sfSort = SF_SORTS.some((s) => s[0] === state.sfSort) ? state.sfSort : 'share';
+  const sfForm = SF_FORMS.some((f) => f[0] === state.sfForm) ? state.sfForm : null;
+
+  // ── toolbar ──
+  const bar = el('div', { class: 'ch-toolbar ribbon' });
+  const back = el('button', { class: 'sf-back', text: '← Library' });
+  back.addEventListener('click', () => navigateTo('library'));
+  bar.appendChild(back);
+  bar.appendChild(el('span', { class: 'ch-toolbar-title', text: 'The Score Field' }));
+  bar.appendChild(el('span', { style: 'flex:1' }));
+  host.appendChild(bar);
+
+  const wrap = el('div', { class: 'sf-wrap' });
+  host.appendChild(wrap);
+
+  // ── controls: the Atlas's own vocabulary, so the two instruments are siblings ──
+  const ctl = el('div', { class: 'sf-controls' });
+  const mkSeg = (group, val, label, cur, onPick) => {
+    const b = el('button', { class: 'atlas-form-seg' + (cur === val ? ' on' : ''), text: label });
+    b.addEventListener('click', () => { onPick(val); });
+    group.appendChild(b);
+    return b;
+  };
+  const sortG = el('div', { class: 'atlas-form' });
+  sortG.appendChild(el('span', { class: 'atlas-form-lab', text: 'Sort' }));
+  SF_SORTS.forEach(([v, l]) => mkSeg(sortG, v, l, sfSort, (x) => { state.sfSort = x; buildScoreFieldPage(); }));
+  ctl.appendChild(sortG);
+  const formG = el('div', { class: 'atlas-form' });
+  formG.appendChild(el('span', { class: 'atlas-form-lab', text: 'Form' }));
+  SF_FORMS.forEach(([v, l]) => mkSeg(formG, v, l, sfForm, (x) => { state.sfForm = x; sfPinned = null; buildScoreFieldPage(); }));
+  ctl.appendChild(formG);
+  wrap.appendChild(ctl);
+
+  const readout = el('div', { class: 'sf-readout' });
+  wrap.appendChild(readout);
+
+  // ── rows ──
+  const byShow = new Map();
+  for (const r of ATLAS_DATA) {
+    if (!byShow.has(r.show)) byShow.set(r.show, []);
+    byShow.get(r.show).push(r);
+  }
+  const titleToKey = new Map();
+  for (const [k, s] of Object.entries(SHOWS)) titleToKey.set(s.title, k);
+
+  let rows = ATLAS_SHOWS.map((m) => ({
+    show: m.show, a1share: m.a1share, year: m.year, n: m.n, kind: m.kind,
+    key: titleToKey.get(m.show) || null, mine: false,
+    songs: (byShow.get(m.show) || []).slice().sort((a, b) => a.pos - b.pos),
+  })).filter((r) => r.songs.length);
+  const own = sfOwnRow();
+  if (own) rows.push(own);
+  if (sfForm) rows = rows.filter((r) => r.kind === sfForm);
+  rows.sort(
+    sfSort === 'year' ? (a, b) => (a.year || 9999) - (b.year || 9999) || a.show.localeCompare(b.show)
+    : sfSort === 'title' ? (a, b) => a.show.localeCompare(b.show)
+    : (a, b) => b.a1share - a.a1share);
+
+  // Same terse create-set-append the Atlas uses; both are function-local there,
+  // so this mirrors the idiom rather than hoisting a third global.
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (parent, tag, attrs, txt) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in (attrs || {})) e.setAttribute(k, attrs[k]);
+    if (txt != null) e.textContent = txt;
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+
+  const LEFT = 168, RW = 700, RH = 7, GAP = 1.7, TOP = 20;
+  const H = TOP + rows.length * (RH + GAP) + 8;
+  const scroll = el('div', { class: 'sf-scroll' });
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + (LEFT + RW + 46) + ' ' + H);
+  svg.setAttribute('class', 'sf-svg');
+  scroll.appendChild(svg);
+  wrap.appendChild(scroll);
+
+  const ax = sv(svg, 'g', { class: 'sf-ax' });
+  [0, 25, 50, 75, 100].forEach((p) => {
+    sv(ax, 'text', { x: LEFT + RW * p / 100, y: 11, 'text-anchor': 'middle' }).textContent = p + '%';
+    sv(svg, 'line', { x1: LEFT + RW * p / 100, y1: TOP - 4, x2: LEFT + RW * p / 100, y2: H - 6, class: 'sf-grid' });
+  });
+
+  const setReadout = (r) => {
+    readout.innerHTML = '';
+    if (!r) {
+      readout.appendChild(el('span', { class: 'sf-hint',
+        text: rows.length + ' shows · sorted by ' + (SF_SORTS.find((s) => s[0] === sfSort) || [, ''])[1].toLowerCase()
+          + ' · tap a row for its numbers' }));
+      return;
+    }
+    const kindWord = r.kind === 'one' ? 'One-act' : r.kind === 'film' ? 'Film' : r.kind === 'ten' ? 'Ten-minute' : 'Two-act';
+    readout.appendChild(el('b', { text: r.show }));
+    readout.appendChild(el('span', { text: ' · ' + kindWord + (r.year ? ' · ' + r.year : '')
+      + ' · ' + r.n + ' songs · first half ' + Math.round(r.a1share * 100) + '% of the score' }));
+    if (r.key) {
+      const open = el('button', { class: 'sf-open', text: 'Open reference →' });
+      open.addEventListener('click', (e) => { e.stopPropagation(); openReference(r.key); navigateTo('board'); });
+      readout.appendChild(open);
+    }
+  };
+
+  rows.forEach((r, i) => {
+    const y = TOP + i * (RH + GAP);
+    const g = sv(svg, 'g', { class: 'sf-row' + (r.mine ? ' mine' : '') + (r.key ? ' carded' : '') });
+    // a wide invisible target so a 7px row is still tappable on a phone
+    sv(g, 'rect', { x: 0, y: y - GAP / 2, width: LEFT + RW + 46, height: RH + GAP, class: 'sf-hit' });
+    sv(g, 'rect', { x: LEFT, y, width: RW, height: RH, class: 'sf-lane' });
+    // The act break, where the form has one. Films and ten-minute pieces have
+    // no interval, so drawing a curtain line for them would invent a structure.
+    if (r.kind !== 'film' && r.kind !== 'ten') {
+      sv(g, 'rect', { x: (LEFT + RW * r.a1share - 0.5).toFixed(1), y: y - 1, width: 1, height: RH + 2, class: 'sf-brk' });
+    }
+    for (const s of r.songs) {
+      sv(g, 'rect', { x: (LEFT + RW * s.pos - 1.4).toFixed(1), y, width: 2.8, height: RH,
+        fill: r.mine ? 'var(--sage)' : atlasFamVar(s.fn), opacity: r.mine ? 1 : 0.93 });
+    }
+    const lbl = r.show.length > 27 ? r.show.slice(0, 26) + '…' : r.show;
+    sv(g, 'text', { x: LEFT - 7, y: y + RH - 0.6, 'text-anchor': 'end', class: 'sf-lbl' }).textContent = lbl;
+    sv(g, 'text', { x: LEFT + RW + 7, y: y + RH - 0.6, class: 'sf-pct' }).textContent = Math.round(r.a1share * 100);
+    g.addEventListener('mouseenter', () => { if (!sfPinned) setReadout(r); });
+    g.addEventListener('mouseleave', () => { if (!sfPinned) setReadout(null); });
+    g.addEventListener('click', () => {
+      // Click selects and pins rather than navigating: only 16 of the 104 rows
+      // have a carded reference behind them, so a click that sometimes jumps
+      // and sometimes does nothing would read as broken. The readout carries
+      // the open action instead, which also keeps the row inspectable on a
+      // phone, where there is no hover.
+      sfPinned = sfPinned === r ? null : r;
+      svg.querySelectorAll('.sf-row.sel').forEach((n) => n.classList.remove('sel'));
+      if (sfPinned) g.classList.add('sel');
+      setReadout(sfPinned);
+    });
+  });
+  setReadout(sfPinned && rows.indexOf(sfPinned) >= 0 ? sfPinned : (sfPinned = null));
+
+  wrap.appendChild(el('div', { class: 'sf-foot',
+    text: 'each tick a song in its measured position, coloured by function · the hairline is the act break · '
+      + 'titles in full contrast have a carded reference behind them' + (own ? ' · your show is the sage row' : '') }));
+}
+
 // ── Story DNA · Atlas ("the Astrolabe") ─────────────────────────────────────
 // A read-only instrument: the whole 81-show corpus (ATLAS_DATA) rendered as a
 // dial of stars, with the user's own songs laid on it. It reads the board and
@@ -5861,19 +6082,35 @@ function buildDnaAtlas(host) {
     const p = P(ta, R - 6), q = P(tb, R - 6);
     sv(chordsG, 'path', { d: `M${p.x.toFixed(1)} ${p.y.toFixed(1)} Q ${cx} ${cy - 40} ${q.x.toFixed(1)} ${q.y.toFixed(1)}`, fill: 'none', stroke: 'var(--atlas-chord)', 'stroke-width': 1.1, 'stroke-dasharray': '3 5' });
   };
-  const stripRep = (t) => t.replace(/\s*\((?:rep|reprise)[^)]*\)\s*$/i, '').trim();
+  // Title normalization mirroring corpus/reprise-links.mjs — the rules that
+  // resolved 108 of the corpus's 113 reprises. DUPLICATED, like voiceClass:
+  // that file is an ESM module the analyzers import, and app.js is a plain
+  // script the browser loads, so they cannot share. Change both together.
+  const stripRep = (t) => String(t || '').toLowerCase().replace(/[’']/g, "'")
+    .replace(/\((?:[a-z]+\s+)?(?:rep|reprise)(?:\s*(?:\d+|i{1,3}))?\)/gi, ' ')
+    .replace(/\bpart\s*\d+\b|\bpt\.?\s*\d+\b/gi, ' ')
+    .replace(/\s*\([^)]*\)\s*/g, ' ')
+    .replace(/[^a-z0-9' ]/g, ' ').replace(/\s+/g, ' ').trim();
   if (mine.length) {
-    // (a) each reprise → nearest earlier song whose title it contains
+    // (a) each reprise → the song it reprises. A compound title ("Still / The
+    //     Neva Flows (Rep)") names more than one source, so each side is
+    //     matched separately — the corpus has two such reprises and drawing
+    //     only one of their edges would misreport the shape.
     mine.forEach((m, i) => {
       if (m.fn !== 'reprise') return;
-      const base = stripRep(m.title).toLowerCase();
-      if (!base) return;
-      let best = null;
-      for (let j = 0; j < i; j++) {
-        const o = mine[j].title.toLowerCase();
-        if (o && (base.startsWith(o) || o.startsWith(base))) { if (!best || mine[j].pos > best.pos) best = mine[j]; }
+      const parts = String(m.title || '').split('/').map((s) => stripRep(s)).filter(Boolean);
+      for (const base of (parts.length ? parts : [stripRep(m.title)])) {
+        if (base.length < 3) continue;
+        let best = null;
+        for (let j = 0; j < i; j++) {
+          if (mine[j].fn === 'reprise') continue;      // point at the source, never another reprise
+          const o = stripRep(mine[j].title);
+          if (o && (base === o || (base.length >= 6 && o.startsWith(base)) || (o.length >= 6 && base.startsWith(o)))) {
+            if (!best || mine[j].pos > best.pos) best = mine[j];
+          }
+        }
+        if (best) drawChord(best.pos, m.pos);
       }
-      if (best) drawChord(best.pos, m.pos);
     });
     // (b) I Want ↔ eleven
     const iw = mine.find((m) => m.fn === 'iwant'), el11 = mine.find((m) => m.fn === 'eleven');
@@ -5903,7 +6140,7 @@ function buildDnaAtlas(host) {
     mine.length ? `your ${mine.length === 1 ? 'song' : mine.length + ' songs'} on the dial of the whole tradition`
                 : 'your songs will appear here as you write them');
 
-  sec.appendChild(el('div', { class: 'atlas-foot', text: 'the dial is the night — 8:00 curtain at the left foot, eleven o’clock where it belongs · chords are the chiasmus: reprise → source, I Want → eleven, the bookend.' }));
+  sec.appendChild(el('div', { class: 'atlas-foot', text: 'the dial is the night — 8:00 curtain at the left foot, eleven o’clock where it belongs · chords are the chiasmus: reprise → source, I Want → eleven, the bookend · isolate a show to see its motif web, each dotted line a reprise drawn back to the song it reprises.' }));
 
   // ── three filter axes: function (active), form (activeForm) and single show
   //    (activeShow). Function and form COMPOSE — "where do ballads sit in
@@ -5948,6 +6185,29 @@ function buildDnaAtlas(host) {
       idxs.forEach((i, k) => { dd += (k ? 'L' : '') + starPos[i].x.toFixed(1) + ' ' + starPos[i].y.toFixed(1) + ' '; });
       sv(spineG, 'path', { d: dd, fill: 'none', stroke: 'var(--sage)', 'stroke-width': 1.2, opacity: .5, 'stroke-linejoin': 'round' });
     }
+    // The show's MOTIF WEB: a real edge from each reprise back to the song it
+    // reprises. `of` is built by corpus/reprise-links.mjs and carries positions,
+    // not titles — 108 of the corpus's 113 reprises resolve; the rest are
+    // reprises whose source was never carded, and they simply draw nothing
+    // rather than being guessed at. Drawn into spineG so it clears with the
+    // spine. Curved the opposite way from the user's chiasmus chords, so on a
+    // board that has both you can tell "the corpus did this" from "you did".
+    idxs.forEach((i) => {
+      const row = ATLAS_DATA[i];
+      if (!row.of || !row.of.length) return;
+      for (const srcPos of row.of) {
+        const j = idxs.find((k) => ATLAS_DATA[k].pos === srcPos);
+        if (j == null || j === i) continue;
+        const a = starPos[j], b = starPos[i];
+        sv(spineG, 'path', {
+          d: `M${a.x.toFixed(1)} ${a.y.toFixed(1)} Q ${cx} ${cy + 30} ${b.x.toFixed(1)} ${b.y.toFixed(1)}`,
+          fill: 'none', stroke: 'var(--fam-gray)', 'stroke-width': 1.1,
+          opacity: .55, 'stroke-dasharray': '2 4', class: 'atlas-motif',
+        });
+        sv(spineG, 'circle', { cx: b.x.toFixed(1), cy: b.y.toFixed(1), r: 2.6,
+          fill: 'var(--fam-gray)', opacity: .8 });
+      }
+    });
   }
   function chipHighlight() {
     [...chipsEl.children].forEach((c) => {
@@ -6465,6 +6725,7 @@ function navigateTo(page, sceneId) {
   if (page === 'characters') buildCharactersPage();
   if (page === 'storydna') buildStoryDnaPage();
   if (page === 'admin') buildAdminPage();
+  if (page === 'field') buildScoreFieldPage();
 }
 
 function exportShow() {
