@@ -2862,14 +2862,39 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
   border: 1px solid var(--line); border-radius: 20px; padding: 1px 8px;
 }
 .lib-empty { color: var(--muted); font-size: 14px; padding: 24px 0; }
-.lib-card-ref { opacity: 0.92; }
-.lib-card-ref:hover { opacity: 1; }
-.lib-ref-badge { color: var(--muted); }
-/* Template shelf cards: same read-only card as a reference, but the badge is
-   sage (the scope/action accent) because these are shapes you build FROM, and
-   the hover border follows so the whole card agrees with its badge. */
-.lib-tpl-badge { color: var(--sage); border-color: var(--sage-line); background: var(--sage-bg); }
-.lib-card-tpl:hover { border-color: var(--sage); }
+/* ── Shelf rows ─────────────────────────────────────────────────────────────
+   Templates, References and the corpus instruments are things you BROWSE, so
+   they get rows; only your own shows keep a card (see .lib-card below). The
+   tile they replaced spent 171px to carry 86px of text and gave thirty study
+   entries the same weight as six working shows.
+
+   Two columns from 900px up: the titles are short and the blurbs elastic, so
+   one column would waste the right half of the page the tiles already wasted.
+   The stamp (form · year, or form · songs) is right-aligned in its own cell so
+   the titles stay a clean readable column no matter how long the blurbs run. */
+.lib-rows { display: grid; grid-template-columns: 1fr; gap: 1px 26px; }
+@media (min-width: 900px) { .lib-rows { grid-template-columns: 1fr 1fr; } }
+.lib-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 12px;
+  padding: 7px 10px; border-radius: 7px; cursor: pointer;
+  border: 1px solid transparent; transition: background 0.1s, border-color 0.1s;
+}
+.lib-row:hover { background: var(--hover); border-color: var(--line); }
+.lib-row:focus-visible { outline: 2px solid var(--energy); outline-offset: -2px; }
+.lib-row-tpl:hover { border-color: var(--sage); }
+/* The title must never be the thing that shrinks: the blurb gives way first,
+   which is why only .lib-row-sub carries the min-width:0 that lets a grid
+   child shrink below its content. */
+.lib-row-main { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.lib-row-t { font-size: 13.5px; font-weight: 600; color: var(--ink); white-space: nowrap; flex-shrink: 0; }
+.lib-row-sub {
+  font-size: 12px; color: var(--muted); min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.lib-row-meta { font-size: 11px; color: var(--faint); white-space: nowrap; font-variant-numeric: tabular-nums; }
+/* An instrument is a place, not a document — the accent marks it as somewhere
+   to go, matching how the three pages present themselves. */
+.lib-row-instr .lib-row-t { color: var(--energy); }
 .lib-card {
   position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
   padding: 16px 16px 14px; cursor: pointer; transition: border-color 0.12s, box-shadow 0.12s, transform 0.06s;
@@ -2886,7 +2911,6 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
 .lib-card-dots:hover { background: var(--hover); color: var(--ink); }
 .lib-card-meta { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: var(--muted); }
 .lib-dot { opacity: 0.6; }
-.lib-teaches { font-size: 12px; line-height: 1.4; color: var(--muted); margin-top: 7px; }
 .lib-card-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
 .lib-badge {
   font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;

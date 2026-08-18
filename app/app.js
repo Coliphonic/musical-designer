@@ -574,6 +574,42 @@ function libSection(name, builders) {
   return sec;
 }
 
+// A shelf laid out as rows rather than tiles. Your own shows keep the card —
+// they are what you came to open, and a card carries the ••• menu and the
+// status badge. Everything you merely BROWSE (templates, references, corpus
+// instruments) is a row: the tile spent 171px to show 86px of text, and gave
+// thirty study entries the same weight as six working shows.
+function libRowSection(name, builders) {
+  const sec = el('div', { class: 'lib-section' });
+  const head = el('div', { class: 'lib-section-head' });
+  head.appendChild(el('span', { class: 'lib-folder-ico', text: '▸' }));
+  head.appendChild(el('span', { class: 'lib-section-name', text: name }));
+  head.appendChild(el('span', { class: 'lib-section-count', text: builders.length }));
+  sec.appendChild(head);
+  const list = el('div', { class: 'lib-rows' });
+  builders.forEach((fn) => list.appendChild(fn()));
+  sec.appendChild(list);
+  return sec;
+}
+
+// One shelf row. `blurb` is the teaching line, clipped to whatever the column
+// gives it — the full text stays in the title attribute so nothing is lost to
+// a hover, and the row opens the thing anyway. `stamp` is the right-aligned
+// form/year pair, which stays on its own so the titles form a clean column.
+function libRow(opts) {
+  const row = el('div', { class: 'lib-row' + (opts.cls ? ' ' + opts.cls : ''), title: opts.blurb || '' });
+  row.tabIndex = 0;
+  const go = () => { closeCardMenu(); opts.onOpen(); };
+  row.addEventListener('click', go);
+  row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+  const main = el('div', { class: 'lib-row-main' });
+  main.appendChild(el('span', { class: 'lib-row-t', text: opts.title }));
+  if (opts.blurb) main.appendChild(el('span', { class: 'lib-row-sub', text: opts.blurb }));
+  row.appendChild(main);
+  if (opts.stamp) row.appendChild(el('span', { class: 'lib-row-meta', text: opts.stamp }));
+  return row;
+}
+
 function buildLibraryPage() {
   const host = document.getElementById('lib-grid');
   if (!host) return;
@@ -611,7 +647,7 @@ function buildLibraryPage() {
   // it lives in the new-show modal's select only, not on the browsable shelf.
   if (!isProseLib && typeof TEMPLATES !== 'undefined') {
     const shelf = TEMPLATES.filter((t) => t.cards.length);
-    host.appendChild(libSection('Templates', shelf.map((t) => () => libTemplateCard(t))));
+    host.appendChild(libRowSection('Templates', shelf.map((t) => () => libTemplateRow(t))));
   }
 
   // Reference library — read-only study examples, always in their own
@@ -623,105 +659,61 @@ function buildLibraryPage() {
   const refs = state.currentApp === 'song' ? SHOWS : NOVELS;
   const refKeys = Object.keys(refs).sort((a, b) =>
     (refs[a].year || 0) - (refs[b].year || 0) || refs[a].title.localeCompare(refs[b].title));
-  if (refKeys.length) host.appendChild(libSection('Reference', refKeys.map((k) => () => libRefCard(k))));
+  if (refKeys.length) host.appendChild(libRowSection('Reference', refKeys.map((k) => () => libRefRow(k))));
 
   // Corpus instruments. Song Plot only — the corpus is musicals, and Prose
   // Plot's shelf is novels (same partition rule as Templates above).
   if (!isProseLib && typeof ATLAS_SHOWS !== 'undefined' && ATLAS_SHOWS.length) {
-    host.appendChild(libSection('Corpus', [() => libFieldCard(), () => libRidgeCard(), () => libAtlasCard()]));
+    host.appendChild(libRowSection('Corpus', LIB_INSTRUMENTS.map((a) => () => libInstrumentRow(a[0], a[1], a[2], a[3]))));
   }
 }
 
-// Entry point for the Score Field. A shelf card rather than a nav tab: the
-// field is something you go and look at, not a room you work in.
-function libFieldCard() {
-  const card = el('div', { class: 'lib-card lib-card-field' });
-  card.addEventListener('click', () => { closeCardMenu(); navigateTo('field'); });
-  const top = el('div', { class: 'lib-card-top' });
-  top.appendChild(el('span', { class: 'lib-card-title', text: 'The Score Field' }));
-  card.appendChild(top);
-  const meta = el('div', { class: 'lib-card-meta' });
-  meta.appendChild(el('span', { class: 'lib-fmt', text: ATLAS_SHOWS.length + ' shows' }));
-  meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
-  meta.appendChild(el('span', { text: ATLAS_DATA.length.toLocaleString() + ' songs' }));
-  card.appendChild(meta);
-  card.appendChild(el('div', { class: 'lib-teaches',
-    text: 'Every show in the corpus as one strip, sorted by how hard it frontloads — the whole form as a single image.' }));
-  return card;
+// The three corpus instruments. A shelf row apiece rather than a card: they
+// are three fixed places you click into, so what a row cannot show — the
+// counts — belongs in the stamp, and the blurb says what the instrument is for.
+// Rows rather than nav tabs because these are things you go and look at, not
+// rooms you work in.
+const LIB_INSTRUMENTS = [
+  ['field', 'The Score Field',
+    'Every show in the corpus as one strip, sorted by how hard it frontloads — the whole form as a single image.',
+    () => ATLAS_SHOWS.length + ' shows · ' + ATLAS_DATA.length.toLocaleString() + ' songs'],
+  ['ridge', 'The Function Ridgeline',
+    'Where each function lives: every density at once, ordered by median — which functions own their slot, and which drift.',
+    () => '18 functions · ' + ATLAS_DATA.length.toLocaleString() + ' songs'],
+  ['atlas', 'The Atlas',
+    'The whole tradition as one dial of stars — isolate a function, a form or a single show and read its motif web.',
+    () => ATLAS_SHOWS.length + ' shows · ' + ATLAS_DATA.length.toLocaleString() + ' songs'],
+];
+
+function libInstrumentRow(page, title, blurb, stamp) {
+  return libRow({ cls: 'lib-row-instr', title, blurb, stamp: stamp(), onOpen: () => navigateTo(page) });
 }
 
-// The Field's sibling on the shelf: shows kept apart there, functions here.
-function libRidgeCard() {
-  const card = el('div', { class: 'lib-card lib-card-field' });
-  card.addEventListener('click', () => { closeCardMenu(); navigateTo('ridge'); });
-  const top = el('div', { class: 'lib-card-top' });
-  top.appendChild(el('span', { class: 'lib-card-title', text: 'The Function Ridgeline' }));
-  card.appendChild(top);
-  const meta = el('div', { class: 'lib-card-meta' });
-  meta.appendChild(el('span', { class: 'lib-fmt', text: new Set(ATLAS_DATA.map((r) => atlasCanon(r.fn))).size + ' functions' }));
-  meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
-  meta.appendChild(el('span', { text: ATLAS_DATA.length.toLocaleString() + ' songs' }));
-  card.appendChild(meta);
-  card.appendChild(el('div', { class: 'lib-teaches',
-    text: 'Where each function lives: every density at once, ordered by median — which functions own their slot, and which drift.' }));
-  return card;
-}
-
-// The Atlas as a place to study rather than a mirror: the same dial Story DNA
-// carries, with the comparison to the open show left off.
-function libAtlasCard() {
-  const card = el('div', { class: 'lib-card lib-card-field' });
-  card.addEventListener('click', () => { closeCardMenu(); navigateTo('atlas'); });
-  const top = el('div', { class: 'lib-card-top' });
-  top.appendChild(el('span', { class: 'lib-card-title', text: 'The Atlas' }));
-  card.appendChild(top);
-  const meta = el('div', { class: 'lib-card-meta' });
-  meta.appendChild(el('span', { class: 'lib-fmt', text: ATLAS_SHOWS.length + ' shows' }));
-  meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
-  meta.appendChild(el('span', { text: ATLAS_DATA.length.toLocaleString() + ' songs' }));
-  card.appendChild(meta);
-  card.appendChild(el('div', { class: 'lib-teaches',
-    text: 'The whole tradition as one dial of stars — isolate a function, a form or a single show and read its motif web.' }));
-  return card;
-}
-
-function libRefCard(key) {
+function libRefRow(key) {
   const r = SHOWS[key] || NOVELS[key];
-  const card = el('div', { class: 'lib-card lib-card-ref' });
-  card.addEventListener('click', () => { closeCardMenu(); openReference(key); navigateTo('board'); });
-  const top = el('div', { class: 'lib-card-top' });
-  top.appendChild(el('span', { class: 'lib-card-title', text: r.title }));
-  card.appendChild(top);
-  const meta = el('div', { class: 'lib-card-meta' });
-  meta.appendChild(el('span', { class: 'lib-fmt', text: r.form === 'two-act' ? 'Two-act' : r.form === 'one-act-90' ? 'One-act' : r.form === 'ten-minute' ? 'Ten-minute' : (r.form ? r.form.replace(/-/g, ' ') : 'Reference') }));
-  if (r.year) { meta.appendChild(el('span', { class: 'lib-dot', text: '·' })); meta.appendChild(el('span', { text: String(r.year) })); }
-  card.appendChild(meta);
-  if (r.teaches) card.appendChild(el('div', { class: 'lib-teaches', text: r.teaches }));
-  const tags = el('div', { class: 'lib-card-tags' });
-  tags.appendChild(el('span', { class: 'lib-badge lib-ref-badge', text: 'Reference' }));
-  card.appendChild(tags);
-  return card;
+  const form = r.form === 'two-act' ? 'Two-act' : r.form === 'one-act-90' ? 'One-act'
+    : r.form === 'ten-minute' ? 'Ten-minute' : (r.form ? r.form.replace(/-/g, ' ') : 'Reference');
+  return libRow({
+    cls: 'lib-row-ref',
+    title: r.title,
+    blurb: r.teaches || '',
+    stamp: form + (r.year ? ' · ' + r.year : ''),
+    onOpen: () => { openReference(key); navigateTo('board'); },
+  });
 }
 
-// A shelf card for one template, in libRefCard's voice: the name, the act model
-// and the shape's size, and the `sub` blurb where a reference card carries its
-// `teaches` line. Clicking previews it read-only on the board.
-function libTemplateCard(t) {
-  const card = el('div', { class: 'lib-card lib-card-ref lib-card-tpl' });
-  card.addEventListener('click', () => { closeCardMenu(); openTemplatePreview(t.id); navigateTo('board'); });
-  const top = el('div', { class: 'lib-card-top' });
-  top.appendChild(el('span', { class: 'lib-card-title', text: t.label }));
-  card.appendChild(top);
-  const meta = el('div', { class: 'lib-card-meta' });
-  meta.appendChild(el('span', { class: 'lib-fmt', text: t.mode === 'oneact' ? 'One-act' : t.mode === 'ten' ? 'Ten-minute' : 'Two-act' }));
-  meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
-  meta.appendChild(el('span', { text: templateSongCount(t) + ' songs · ~' + Math.round(templateMinutes(t)) + ' min' }));
-  card.appendChild(meta);
-  if (t.sub) card.appendChild(el('div', { class: 'lib-teaches', text: t.sub }));
-  const tags = el('div', { class: 'lib-card-tags' });
-  tags.appendChild(el('span', { class: 'lib-badge lib-tpl-badge', text: 'Template' }));
-  card.appendChild(tags);
-  return card;
+// One template as a shelf row, in libRefRow's voice: the name, the `sub` blurb
+// where a reference carries its `teaches` line, and the act model plus the
+// shape's size as the stamp. Clicking previews it read-only on the board.
+function libTemplateRow(t) {
+  return libRow({
+    cls: 'lib-row-tpl',
+    title: t.label,
+    blurb: t.sub || '',
+    stamp: (t.mode === 'oneact' ? 'One-act' : t.mode === 'ten' ? 'Ten-minute' : 'Two-act')
+      + ' · ' + templateSongCount(t) + ' songs · ~' + Math.round(templateMinutes(t)) + ' min',
+    onOpen: () => { openTemplatePreview(t.id); navigateTo('board'); },
+  });
 }
 
 function libCard(p) {
