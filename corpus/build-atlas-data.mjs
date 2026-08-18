@@ -43,10 +43,17 @@ const NAMES = {
   anastasiafilm:'Anastasia (film)',tarzanfilm:'Tarzan (film)',frozenfilm:'Frozen (film)',
 };
 
-// One-act vs full-length, for the Atlas form filter. 'other' is the escape hatch
-// for anything that is neither (currently just Encanto, a film) — it must be
-// excluded from BOTH sides of the filter rather than lumped into one.
-const formKind = (f) => !f ? null : /^one-act/.test(f) ? 'one' : f === 'two-act' ? 'full' : 'other';
+// The Atlas form filter's three cohorts. 'film' is named explicitly rather than
+// folded into 'other' so the filter can label it honestly: 'other' still exists
+// as the escape hatch for a form that is none of the three (a revue, a song
+// cycle), and anything landing there drops out of ALL the filter's sides rather
+// than padding one. Until 2026-08-17 films WERE 'other', because there was one
+// (Encanto); the batch-9 wing made them a cohort of twelve worth filtering to.
+const formKind = (f) => !f ? null
+  : /^one-act/.test(f) ? 'one'
+  : f === 'two-act' ? 'full'
+  : f === 'film' ? 'film'
+  : 'other';
 const out = [];
 
 // Shelf shows are read FIRST, before the corpus batches, only so their titles can

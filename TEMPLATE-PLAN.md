@@ -20,18 +20,23 @@ the Beast, The Lion King, Aida, Mary Poppins, Tarzan, Aladdin, Anastasia)
 and eleven film musicals carded with a ' (film)' title suffix, so stage and
 screen versions of one title can be read side by side in the Atlas picker
 (e.g. The Little Mermaid vs The Little Mermaid (film)). Films take
-form 'film' → kind 'other': in totals and the picker, out of both sides of
-the one-act/full-length filter, and never tagged 'finale' (no interval —
-the one-act rule). The four cohort basis lines in data.js (mean, pre-1990,
+form 'film' → kind 'film', which since 2026-08-17 is its own **Film** segment
+in the Atlas form filter beside One-act and Full-length (it was folded into
+'other' while there was only one film, Encanto). Films are never tagged
+'finale' — no interval, the same reasoning as the one-act rule. The four cohort basis lines in data.js (mean, pre-1990,
 1990+, West End) were refreshed to the post-batch-9 analyzer output
 (77 two-act · ratio 1.32 · A1 57%).
 
-`form` is now carried through to `ATLAS_SHOWS.kind` ('one' | 'full' | 'other')
-so the Atlas can filter one-acts against full-lengths. Two findings fell straight
-out of it: one-acts split their score **50/50** where full-lengths front-load to
-**57/43**, and the **act finale simply does not exist** in a one-act (0 of 223
-songs) — the only function in the taxonomy that is structurally unavailable to
-half the form.
+`form` is now carried through to `ATLAS_SHOWS.kind`
+('one' | 'full' | 'film' | 'other') so the Atlas can filter the three cohorts
+against each other; 'other' remains the escape hatch for a form that is none of
+them (a revue, a song cycle) and drops out of every side rather than padding
+one. Three findings fell straight out of it: one-acts split their score
+**50/50** where full-lengths front-load to **57/43** and films front-load
+hardest at **63/37**; and the **act finale simply does not exist** in either a
+one-act (0 of 223 songs) or a film (0 of 101) — the only function in the
+taxonomy that is structurally unavailable to a form, and unavailable for the
+same reason both times: no interval to hang a cliff on.
 
 Shelf and corpus are **disjoint by design** — every consumer reads both sets,
 so a show may appear in exactly one. Promoting a show from data-only to carded
@@ -580,8 +585,9 @@ shelf: an empty board is nothing to browse and nothing to teach.
 ### 8f · Why the ten-minute shelf show is not in the corpus
 
 `form: 'ten-minute'` is the first shelf form that `build-atlas-data.mjs`
-**skips outright**. This is stricter than `kind: 'other'` (Encanto, a film),
-which still counts toward the all-corpus totals. The reason is arithmetic: the
+**skips outright**. This is stricter than any `kind` — films (`kind: 'film'`)
+and the unclassifiable (`kind: 'other'`) both still count toward the
+all-corpus totals; a ten-minute show does not enter the census at all. The reason is arithmetic: the
 Atlas census is what the long-form templates cite for function positions and
 act ratios, and a fourteen-minute piece with five numbers is not a short
 musical but a different form. Verified by running the builder with the guard

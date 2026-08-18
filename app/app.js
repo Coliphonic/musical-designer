@@ -5915,8 +5915,9 @@ function buildDnaAtlas(host) {
   const showsCount = (typeof ATLAS_SHOWS !== 'undefined' ? ATLAS_SHOWS.length : new Set(ATLAS_DATA.map((s) => s.show)).size);
   const statDefault = `All functions · ${ATLAS_DATA.length.toLocaleString()} songs · ${showsCount} shows, 1943–2026`;
   statEl.textContent = statDefault;
-  // show title -> 'one' | 'full' | 'other'. 'other' (a film) belongs to neither
-  // side, so it drops out of both filters instead of padding one.
+  // show title -> 'one' | 'full' | 'film' | 'other'. 'other' is the escape hatch
+  // for a form that is none of the three (a revue, a song cycle); it belongs to
+  // no cohort, so it drops out of every side rather than padding one.
   const KIND = new Map(typeof ATLAS_SHOWS !== 'undefined' ? ATLAS_SHOWS.map((s) => [s.show, s.kind]) : []);
   let active = null, activeShow = null, activeForm = null;
   function clearPin() { if (curMineG) curMineG.classList.remove('ring'); curStar = null; curMineG = null; pinned = false; setPinnedCue(false); }
@@ -5964,20 +5965,22 @@ function buildDnaAtlas(host) {
       (!active || atlasCanon(s.fn) === active) &&
       (!activeForm || KIND.get(s.show) === activeForm));
   }
-  const FORM_WORD = { one: 'One-act', full: 'Full-length' };
+  const FORM_WORD = { one: 'One-act', full: 'Full-length', film: 'Film' };
+  const FORM_PLURAL = { one: 'one-acts', full: 'full-lengths', film: 'films' };
+  const FORM_CORPUS = { one: 'the one-act corpus', full: 'the full-length corpus', film: 'the film corpus' };
   // repaint band + readout for the current (function × form) scope
   function renderScope() {
     chipHighlight(); formHighlight(); applyStars();
     zoneG.innerHTML = '';
     const rows = scopeRows();
-    const scopeNote = activeForm ? ` · ${activeForm === 'one' ? 'one-acts' : 'full-lengths'} only` : '';
+    const scopeNote = activeForm ? ` · ${FORM_PLURAL[activeForm] || activeForm} only` : '';
     if (active) {
       const ps = rows.map((s) => s.pos).sort((a, b) => a - b);
       const label = (ATLAS_CHIPS.find((c) => c[0] === active) || [active, active])[1];
       if (!ps.length) {
         // a real answer, not an empty state: one-acts have no act finale by
         // definition, and saying so is more use than a blank readout.
-        statEl.innerHTML = `<b>${label}</b>${scopeNote} · <b>no songs</b> — this function does not appear in ${activeForm === 'one' ? 'the one-act corpus' : 'the full-length corpus'}`;
+        statEl.innerHTML = `<b>${label}</b>${scopeNote} · <b>no songs</b> — this function does not appear in ${FORM_CORPUS[activeForm] || 'this corpus'}`;
         return;
       }
       const lo = ps[Math.floor(ps.length * .1)], hi = ps[Math.min(ps.length - 1, Math.floor(ps.length * .9))];
@@ -5994,8 +5997,13 @@ function buildDnaAtlas(host) {
       const shares = (typeof ATLAS_SHOWS !== 'undefined' ? ATLAS_SHOWS : [])
         .filter((s) => s.kind === activeForm && s.a1share != null).map((s) => s.a1share);
       const avgShare = shares.length ? shares.reduce((a, b) => a + b, 0) / shares.length : null;
-      statEl.innerHTML = `<b>${FORM_WORD[activeForm]}</b> · ${rows.length.toLocaleString()} songs · ${nShows} shows`
-        + (avgShare != null ? ` · first half averages <b>${pct(avgShare)}</b> of the score` : '');
+      // For one-acts and films the split is an editorial threshold rather than a
+      // curtain, so the film readout says so instead of implying an act break.
+      const halfNote = avgShare == null ? ''
+        : activeForm === 'film'
+          ? ` · <b>${pct(avgShare)}</b> of the score lands before the midpoint — screen musicals frontload`
+          : ` · first half averages <b>${pct(avgShare)}</b> of the score`;
+      statEl.innerHTML = `<b>${FORM_WORD[activeForm]}</b> · ${rows.length.toLocaleString()} songs · ${nShows} shows` + halfNote;
     } else statEl.textContent = statDefault;
   }
   function setFilter(fn) {
@@ -6056,10 +6064,13 @@ function buildDnaAtlas(host) {
     formEl.appendChild(b);
     return b;
   };
-  formEl.appendChild(el('span', { class: 'atlas-form-lab', text: 'Length' }));
+  // "Form", not "Length" — it read as a length while the axis held two act
+  // structures, but a film is a medium, not a running time.
+  formEl.appendChild(el('span', { class: 'atlas-form-lab', text: 'Form' }));
   mkForm(null, 'All');
   mkForm('one', 'One-act');
   mkForm('full', 'Full-length');
+  mkForm('film', 'Film');
 
   // ── show picker: type-ahead + year-sorted browse; isolates one show's spine ──
   const pickWrap = el('div', { class: 'atlas-pick' });
