@@ -2946,7 +2946,12 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
   cursor: pointer; margin-right: 10px;
 }
 .sf-back:hover { color: var(--ink); border-color: var(--muted); }
-#page-field { --sf-bar: 44px; }
+/* scrollbar-gutter: stable closes an oscillation loop. The field SVG is
+   width:100% with height:auto, so its height follows the container's WIDTH —
+   if the vertical scrollbar appears it narrows the container, which shortens
+   the SVG, which can remove the scrollbar, which widens it again. Reserving the
+   gutter means the width never moves. */
+#page-field { --sf-bar: 44px; scrollbar-gutter: stable; }
 #page-field .ch-toolbar { position: sticky; top: 0; z-index: 4; }
 .sf-wrap { padding: 0 18px 40px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .sf-controls { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px 26px; align-items: center; }
@@ -3002,9 +3007,31 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
 /* Sweep-to-identify readout: the row you are on, then the song under the
    pointer. Two lines with a reserved height so naming a song never reflows the
    field below it. */
-.sf-readout { flex-direction: column; align-items: flex-start; gap: 2px; min-height: 40px; }
-.sf-ro-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.sf-ro-song { font-size: 12.5px; color: var(--muted); min-height: 18px; }
+/* HEIGHT IS FIXED, not min-height. Every pointermove rewrites this text, and
+   show titles differ in length — with a min-height the line wraps for some
+   shows and not others, so the whole 900px field below jitters up and down as
+   you sweep. A fixed box with overflow hidden makes identification cost zero
+   layout. Long text truncates instead, which is the right trade: the readout is
+   glanced at, not read. */
+.sf-readout {
+  flex-direction: column; align-items: stretch; gap: 2px;
+  /* 7+8 padding + 1 border + 26 row + 2 gap + 18 song = 62. The row line is
+     26 because the Open/Release pills are ~25px tall and must not clip. */
+  height: 62px; min-height: 62px; overflow: hidden;
+}
+.sf-ro-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+  min-width: 0; height: 26px;
+}
+/* The text collapses; the buttons never do. */
+.sf-ro-row > b, .sf-ro-row > span {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0;
+}
+.sf-ro-row > button { flex: 0 0 auto; }
+.sf-ro-song {
+  font-size: 12.5px; color: var(--muted); height: 18px; line-height: 18px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .sf-ro-song b { color: var(--ink); font-weight: 600; }
 /* Locked to one show. Clicking a row freezes identification onto it, so the
    pointer's y stops mattering and the strip can be scrubbed freehand; the other
