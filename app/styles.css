@@ -3006,3 +3006,16 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
 .sf-ro-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sf-ro-song { font-size: 12.5px; color: var(--muted); min-height: 18px; }
 .sf-ro-song b { color: var(--ink); font-weight: 600; }
+/* Locked to one show. Clicking a row freezes identification onto it, so the
+   pointer's y stops mattering and the strip can be scrubbed freehand; the other
+   103 rows drop back so the one you are reading is unmistakable. They stay
+   clickable — clicking another row moves the lock there — and lift slightly on
+   hover to say so. */
+.sf-svg.sf-locked .sf-row:not(.sel) { opacity: .22; }
+.sf-svg.sf-locked .sf-row:not(.sel):hover { opacity: .5; }
+.sf-svg.sf-locked .sf-row.sel .sf-lbl { fill: var(--ink); font-weight: 600; }
+.sf-lock {
+  background: var(--sage-bg); border: 1px solid var(--sage-line); color: var(--sage);
+  font: inherit; font-size: 12px; padding: 2px 9px; border-radius: 999px; cursor: pointer;
+}
+.sf-lock:hover { border-color: var(--sage); }

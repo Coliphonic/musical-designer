@@ -5890,9 +5890,10 @@ function buildScoreFieldPage() {
     if (!r) {
       roRow.appendChild(el('span', { class: 'sf-hint',
         text: rows.length + ' shows · sorted by ' + (SF_SORTS.find((s) => s[0] === sfSort) || [, ''])[1].toLowerCase()
-          + ' · sweep a row to name its songs, tap to keep it' }));
+          + ' · sweep a row to name its songs, click one to lock onto it' }));
       return;
     }
+    const locked = sfPinned === r;
     const kindWord = r.kind === 'one' ? 'One-act' : r.kind === 'film' ? 'Film' : r.kind === 'ten' ? 'Ten-minute' : 'Two-act';
     roRow.appendChild(el('b', { text: r.show }));
     roRow.appendChild(el('span', { text: ' · ' + kindWord + (r.year ? ' · ' + r.year : '')
@@ -5901,6 +5902,20 @@ function buildScoreFieldPage() {
       const open = el('button', { class: 'sf-open', text: 'Open reference →' });
       open.addEventListener('click', (e) => { e.stopPropagation(); openReference(r.key); navigateTo('board'); });
       roRow.appendChild(open);
+    }
+    if (locked) {
+      // An explicit release, because "click the row again" is a rule you have to
+      // be told, and the row is 7px tall.
+      const rel = el('button', { class: 'sf-lock', text: '🔒 Locked — release' });
+      rel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sfPinned = null;
+        svg.querySelectorAll('.sf-row.sel').forEach((n) => n.classList.remove('sel'));
+        svg.classList.remove('sf-locked');
+        clearTick();
+        setReadout(null);
+      });
+      roRow.appendChild(rel);
     }
   };
 
@@ -5920,9 +5935,17 @@ function buildScoreFieldPage() {
     if (!ctm) return;
     const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
     const l = pt.matrixTransform(ctm.inverse());
-    const idx = Math.floor((l.y - TOP) / (RH + GAP));
-    if (idx < 0 || idx >= rows.length || l.x < LEFT - 30 || l.x > LEFT + RW + 30) { clearTick(); return; }
-    const r = rows[idx];
+    if (l.x < LEFT - 30 || l.x > LEFT + RW + 30) { clearTick(); return; }
+    // Locked to one show: the pointer's y stops mattering entirely, so you can
+    // scrub left and right anywhere over the field without a 7px row's worth of
+    // vertical drift throwing you onto a neighbour. This is the whole point of
+    // the lock — at this density, tracking one strip freehand is not possible.
+    let r = sfPinned && rows.indexOf(sfPinned) >= 0 ? sfPinned : null;
+    if (!r) {
+      const idx = Math.floor((l.y - TOP) / (RH + GAP));
+      if (idx < 0 || idx >= rows.length) { clearTick(); return; }
+      r = rows[idx];
+    }
     let best = -1, bd = Infinity;
     r.songs.forEach((s, k) => { const d = Math.abs(LEFT + RW * s.pos - l.x); if (d < bd) { bd = d; best = k; } });
     // No snap radius. The Atlas caps its search because it is choosing among
@@ -5977,10 +6000,23 @@ function buildScoreFieldPage() {
       sfPinned = sfPinned === r ? null : r;
       svg.querySelectorAll('.sf-row.sel').forEach((n) => n.classList.remove('sel'));
       if (sfPinned) g.classList.add('sel');
+      svg.classList.toggle('sf-locked', !!sfPinned);   // dims the other 103 rows
+      clearTick();
       setReadout(sfPinned);
     });
+    r._g = g;
   });
-  setReadout(sfPinned && rows.indexOf(sfPinned) >= 0 ? sfPinned : (sfPinned = null));
+  // A lock survives a re-render (changing the sort rebuilds the page but should
+  // not drop what you were reading), so the cue has to be restored onto the
+  // FRESH elements — otherwise identification stays locked with nothing on
+  // screen saying so. If the row filtered out from under the lock, release it.
+  if (sfPinned && rows.indexOf(sfPinned) >= 0) {
+    if (sfPinned._g) sfPinned._g.classList.add('sel');
+    svg.classList.add('sf-locked');
+  } else {
+    sfPinned = null;
+  }
+  setReadout(sfPinned);
 
   wrap.appendChild(el('div', { class: 'sf-foot',
     text: 'each tick a song in its measured position, coloured by function · the hairline is the act break · '
