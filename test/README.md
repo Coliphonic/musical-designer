@@ -15,14 +15,31 @@ dies with `Cannot find module '.../test'` before a single test executes. Quote
 the glob so Node expands it rather than the shell (`node --test test/*.test.js`
 works too, but only where the shell globs for you).
 
-`*.test.js`, run on Node's built-in runner. `load-app.js` evaluates `app/data.js`
-and then `app/app.js` in one sandboxed script — the same order `index.html` loads
-them in — against a stub `document`/`window`, and hands back the pure functions.
-So these cover parsing, serialization, line identity and emphasis: anything
-that's a value in, value out.
+`*.test.js`, run on Node's built-in runner. `load-app.js` evaluates
+`app/data.js`, then `app/atlas-data.js`, then `app/app.js` in one sandboxed
+script — the same order `index.html` loads them in — against a stub
+`document`/`window`, and hands back the pure functions. So these cover parsing,
+serialization, line identity and emphasis: anything that's a value in, value
+out.
 
 They cannot cover layout: there's no layout engine behind the stub, so every
 measurement comes back zero.
+
+### Smoke-testing a page builder
+
+`atlas-data.js` is loaded so corpus-driven UI can be run against the **real**
+1,809-song arrays rather than guarding out on a missing global and silently
+testing nothing. `score-field.test.js` uses this: it calls the actual
+`buildScoreFieldPage()` across all twelve sort × filter combinations, which
+says nothing about how the page *looks* but does catch the reference errors and
+bad assumptions that take a whole page down — the failure mode that page is
+most exposed to, being ~120 lines of data preparation.
+
+For this to work, view state must be reachable from outside `app.js`. The Score
+Field keeps its sort and filter on `state` (`state.sfSort`, `state.sfForm`) for
+exactly that reason; a module-local `let` cannot be driven by a test, and the
+first version of this test set a key that touched nothing, so twelve iterations
+silently re-ran the default.
 
 ### If the whole file goes red but every assertion passed
 
