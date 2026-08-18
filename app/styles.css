@@ -2946,12 +2946,24 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
   cursor: pointer; margin-right: 10px;
 }
 .sf-back:hover { color: var(--ink); border-color: var(--muted); }
-.sf-wrap { padding: 14px 18px 40px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.sf-controls { display: flex; flex-wrap: wrap; gap: 8px 26px; align-items: center; }
+#page-field { --sf-bar: 44px; }
+#page-field .ch-toolbar { position: sticky; top: 0; z-index: 4; }
+.sf-wrap { padding: 0 18px 40px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.sf-controls { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px 26px; align-items: center; }
 .sf-controls .atlas-form { margin-bottom: 0; }
+/* The field is ~900px tall, so a readout that scrolls with it is useless
+   exactly when it is being used — you sweep a row near the bottom and the
+   naming happens off-screen. The toolbar and the readout therefore pin to the
+   top of the page's scroll box. The sort/filter controls between them do NOT
+   pin: they are set once and then just cost height, which is scarce on a
+   phone. --sf-bar is the toolbar's own min-height, shared so the readout's
+   offset cannot drift away from it. */
 .sf-readout {
   min-height: 22px; font-size: 13px; color: var(--muted);
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  position: sticky; top: var(--sf-bar); z-index: 3;
+  background: var(--bg); border-bottom: 1px solid var(--line);
+  margin: 0 -18px; padding: 7px 18px 8px;
 }
 .sf-readout b { color: var(--ink); font-weight: 600; }
 .sf-hint { opacity: .8; }
@@ -2980,8 +2992,12 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
 .sf-row.sel .sf-lbl { fill: var(--ink); }
 .sf-foot { font-size: 11.5px; color: var(--muted); opacity: .75; max-width: 78ch; line-height: 1.5; }
 @media (max-width: 640px) {
-  .sf-wrap { padding: 12px 12px 32px; }
+  /* Narrower gutters, and the full-bleed negative margins have to follow them
+     or the pinned readout sits inset from the field it describes. */
+  .sf-wrap { padding: 0 12px 32px; }
   .sf-scroll { margin: 0 -12px; padding: 0 12px; }
+  .sf-readout { margin: 0 -12px; padding: 7px 12px 8px; }
+  .sf-controls { margin-top: 12px; }
 }
 /* Sweep-to-identify readout: the row you are on, then the song under the
    pointer. Two lines with a reserved height so naming a song never reflows the
