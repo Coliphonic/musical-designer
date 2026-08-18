@@ -5772,7 +5772,7 @@ function sfOwnRow() {
   let cum = 0;
   const out = [];
   for (const c of cards) {
-    if (c.type === 'song' && c.fn) out.push({ fn: c.fn, pos: (cum + (c.min || 0) / 2) / total });
+    if (c.type === 'song' && c.fn) out.push({ fn: c.fn, t: c.title || '(untitled)', pos: (cum + (c.min || 0) / 2) / total });
     cum += c.min || 0;
   }
   return {
@@ -5876,24 +5876,76 @@ function buildScoreFieldPage() {
     sv(svg, 'line', { x1: LEFT + RW * p / 100, y1: TOP - 4, x2: LEFT + RW * p / 100, y2: H - 6, class: 'sf-grid' });
   });
 
+  // Two lines, because the page answers two questions and they should not
+  // fight: the row line is the show you are pointing at (persists when pinned,
+  // and carries the Open action), the song line is whichever song is nearest
+  // the pointer as you sweep.
+  const roRow = el('div', { class: 'sf-ro-row' });
+  const roSong = el('div', { class: 'sf-ro-song' });
+  readout.appendChild(roRow);
+  readout.appendChild(roSong);
+
   const setReadout = (r) => {
-    readout.innerHTML = '';
+    roRow.innerHTML = '';
     if (!r) {
-      readout.appendChild(el('span', { class: 'sf-hint',
+      roRow.appendChild(el('span', { class: 'sf-hint',
         text: rows.length + ' shows · sorted by ' + (SF_SORTS.find((s) => s[0] === sfSort) || [, ''])[1].toLowerCase()
-          + ' · tap a row for its numbers' }));
+          + ' · sweep a row to name its songs, tap to keep it' }));
       return;
     }
     const kindWord = r.kind === 'one' ? 'One-act' : r.kind === 'film' ? 'Film' : r.kind === 'ten' ? 'Ten-minute' : 'Two-act';
-    readout.appendChild(el('b', { text: r.show }));
-    readout.appendChild(el('span', { text: ' · ' + kindWord + (r.year ? ' · ' + r.year : '')
+    roRow.appendChild(el('b', { text: r.show }));
+    roRow.appendChild(el('span', { text: ' · ' + kindWord + (r.year ? ' · ' + r.year : '')
       + ' · ' + r.n + ' songs · first half ' + Math.round(r.a1share * 100) + '% of the score' }));
     if (r.key) {
       const open = el('button', { class: 'sf-open', text: 'Open reference →' });
       open.addEventListener('click', (e) => { e.stopPropagation(); openReference(r.key); navigateTo('board'); });
-      readout.appendChild(open);
+      roRow.appendChild(open);
     }
   };
+
+  // ── sweep to identify, the Atlas's idiom ──────────────────────────────────
+  // A tick is 2.8 units wide in a 914-unit viewBox — three pixels on screen and
+  // nothing at all under a fingertip — so hit-testing the rects themselves
+  // would be unusable. Instead the pointer's x maps to a position on the show's
+  // clock and the NEAREST song wins, which also means a single drag across a
+  // row reads its running order out loud.
+  let curTick = null;
+  const clearTick = () => {
+    if (curTick) { curTick.removeAttribute('stroke'); curTick.removeAttribute('stroke-width'); curTick = null; }
+    roSong.textContent = '';
+  };
+  const identify = (e) => {
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const l = pt.matrixTransform(ctm.inverse());
+    const idx = Math.floor((l.y - TOP) / (RH + GAP));
+    if (idx < 0 || idx >= rows.length || l.x < LEFT - 30 || l.x > LEFT + RW + 30) { clearTick(); return; }
+    const r = rows[idx];
+    let best = -1, bd = Infinity;
+    r.songs.forEach((s, k) => { const d = Math.abs(LEFT + RW * s.pos - l.x); if (d < bd) { bd = d; best = k; } });
+    // No snap radius. The Atlas caps its search because it is choosing among
+    // stars in two dimensions; here the row is already known, so the nearest
+    // song is unambiguous and a cap only creates dead air. Measured: a 26-unit
+    // cap would have left gaps on 62 of the 104 rows — a seven-song film has
+    // 138 units between numbers, so most of that strip would name nothing.
+    if (best < 0) { clearTick(); return; }
+    const s = r.songs[best], tick = (r._ticks || [])[best];
+    if (tick === curTick) return;
+    clearTick();
+    curTick = tick || null;
+    if (curTick) { curTick.setAttribute('stroke', 'var(--ink)'); curTick.setAttribute('stroke-width', '1'); }
+    const fnKey = atlasCanon(s.fn);
+    const label = (ATLAS_CHIPS.find((c) => c[0] === fnKey) || [null, (FN[fnKey] || {}).label || s.fn])[1];
+    roSong.innerHTML = '';
+    roSong.appendChild(el('b', { text: s.t || s.title || '(untitled)' }));
+    roSong.appendChild(el('span', { text: ' · ' + label + ' · ' + Math.round(s.pos * 100) + '% of the show'
+      + (r.mine ? '' : ' · ' + r.show) }));
+  };
+  svg.addEventListener('pointermove', identify);
+  svg.addEventListener('pointerdown', identify);   // touch: a tap names the song under the finger
+  svg.addEventListener('pointerleave', clearTick);
 
   rows.forEach((r, i) => {
     const y = TOP + i * (RH + GAP);
@@ -5906,10 +5958,11 @@ function buildScoreFieldPage() {
     if (r.kind !== 'film' && r.kind !== 'ten') {
       sv(g, 'rect', { x: (LEFT + RW * r.a1share - 0.5).toFixed(1), y: y - 1, width: 1, height: RH + 2, class: 'sf-brk' });
     }
-    for (const s of r.songs) {
-      sv(g, 'rect', { x: (LEFT + RW * s.pos - 1.4).toFixed(1), y, width: 2.8, height: RH,
-        fill: r.mine ? 'var(--sage)' : atlasFamVar(s.fn), opacity: r.mine ? 1 : 0.93 });
-    }
+    // Kept per row so sweep-to-identify can ring the nearest one.
+    r._ticks = r.songs.map((s) => sv(g, 'rect', {
+      x: (LEFT + RW * s.pos - 1.4).toFixed(1), y, width: 2.8, height: RH,
+      fill: r.mine ? 'var(--sage)' : atlasFamVar(s.fn), opacity: r.mine ? 1 : 0.93,
+    }));
     const lbl = r.show.length > 27 ? r.show.slice(0, 26) + '…' : r.show;
     sv(g, 'text', { x: LEFT - 7, y: y + RH - 0.6, 'text-anchor': 'end', class: 'sf-lbl' }).textContent = lbl;
     sv(g, 'text', { x: LEFT + RW + 7, y: y + RH - 0.6, class: 'sf-pct' }).textContent = Math.round(r.a1share * 100);

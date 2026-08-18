@@ -2983,3 +2983,10 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
   .sf-wrap { padding: 12px 12px 32px; }
   .sf-scroll { margin: 0 -12px; padding: 0 12px; }
 }
+/* Sweep-to-identify readout: the row you are on, then the song under the
+   pointer. Two lines with a reserved height so naming a song never reflows the
+   field below it. */
+.sf-readout { flex-direction: column; align-items: flex-start; gap: 2px; min-height: 40px; }
+.sf-ro-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.sf-ro-song { font-size: 12.5px; color: var(--muted); min-height: 18px; }
+.sf-ro-song b { color: var(--ink); font-weight: 600; }
