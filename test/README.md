@@ -41,6 +41,11 @@ exactly that reason; a module-local `let` cannot be driven by a test, and the
 first version of this test set a key that touched nothing, so twelve iterations
 silently re-ran the default.
 
+`ridgeline.test.js` is the same pattern for `buildRidgelinePage()`
+(`state.rgForm`), plus a data guard: every fn key in the corpus must resolve to
+an `FN` entry, or a future corpus batch could silently render a grey ridge
+labelled with a raw key.
+
 ### If the whole file goes red but every assertion passed
 
 That is the signature of a **boot-time** failure, not a broken app. `app.js` ends

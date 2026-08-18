@@ -628,7 +628,7 @@ function buildLibraryPage() {
   // Corpus instruments. Song Plot only — the corpus is musicals, and Prose
   // Plot's shelf is novels (same partition rule as Templates above).
   if (!isProseLib && typeof ATLAS_SHOWS !== 'undefined' && ATLAS_SHOWS.length) {
-    host.appendChild(libSection('Corpus', [() => libFieldCard()]));
+    host.appendChild(libSection('Corpus', [() => libFieldCard(), () => libRidgeCard()]));
   }
 }
 
@@ -647,6 +647,23 @@ function libFieldCard() {
   card.appendChild(meta);
   card.appendChild(el('div', { class: 'lib-teaches',
     text: 'Every show in the corpus as one strip, sorted by how hard it frontloads — the whole form as a single image.' }));
+  return card;
+}
+
+// The Field's sibling on the shelf: shows kept apart there, functions here.
+function libRidgeCard() {
+  const card = el('div', { class: 'lib-card lib-card-field' });
+  card.addEventListener('click', () => { closeCardMenu(); navigateTo('ridge'); });
+  const top = el('div', { class: 'lib-card-top' });
+  top.appendChild(el('span', { class: 'lib-card-title', text: 'The Function Ridgeline' }));
+  card.appendChild(top);
+  const meta = el('div', { class: 'lib-card-meta' });
+  meta.appendChild(el('span', { class: 'lib-fmt', text: new Set(ATLAS_DATA.map((r) => atlasCanon(r.fn))).size + ' functions' }));
+  meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
+  meta.appendChild(el('span', { text: ATLAS_DATA.length.toLocaleString() + ' songs' }));
+  card.appendChild(meta);
+  card.appendChild(el('div', { class: 'lib-teaches',
+    text: 'Where each function lives: every density at once, ordered by median — which functions own their slot, and which drift.' }));
   return card;
 }
 
@@ -6023,6 +6040,373 @@ function buildScoreFieldPage() {
       + 'titles in full contrast have a carded reference behind them' + (own ? ' · your show is the sage row' : '') }));
 }
 
+// ── The Function Ridgeline ──────────────────────────────────────────────────
+// The corpus's other axis: the Score Field keeps shows apart and superimposes
+// functions; this keeps FUNCTIONS apart and superimposes shows. Each function's
+// positional density across the whole corpus, drawn as one overlapping mountain
+// range ordered by median — so the page reads as a single diagonal cascade from
+// opening (a spike at the far left) down to finale ultimo (a spike at the far
+// right). Which functions own a slot and which merely drift is the finding.
+//
+// Read-only, like its siblings; shares the Score Field's page furniture
+// (toolbar, sticky fixed-height readout, sweep/lock idiom) and the Atlas's
+// segment controls. Form filter lives on `state` (state.rgForm) for the same
+// reason as state.sfForm: the test harness has to be able to drive it.
+// The lock is remembered by fn KEY, not by row object — rows are rebuilt on
+// every filter change, and a key either resolves in the new cohort or the lock
+// releases itself.
+let rgPinnedFn = null;
+
+function buildRidgelinePage() {
+  const host = document.getElementById('page-ridge');
+  if (!host) return;
+  host.innerHTML = '';
+  if (typeof ATLAS_DATA === 'undefined' || !ATLAS_DATA.length) {
+    host.appendChild(el('div', { class: 'ch-empty', text: 'Corpus data unavailable.' }));
+    return;
+  }
+
+  const rgForm = SF_FORMS.some((f) => f[0] === state.rgForm) ? state.rgForm : null;
+
+  // ── toolbar ──
+  const bar = el('div', { class: 'ch-toolbar ribbon' });
+  const back = el('button', { class: 'sf-back', text: '← Library' });
+  back.addEventListener('click', () => navigateTo('library'));
+  bar.appendChild(back);
+  bar.appendChild(el('span', { class: 'ch-toolbar-title', text: 'The Function Ridgeline' }));
+  bar.appendChild(el('span', { style: 'flex:1' }));
+  host.appendChild(bar);
+
+  const wrap = el('div', { class: 'sf-wrap' });
+  host.appendChild(wrap);
+
+  const ctl = el('div', { class: 'sf-controls' });
+  const formG = el('div', { class: 'atlas-form' });
+  formG.appendChild(el('span', { class: 'atlas-form-lab', text: 'Form' }));
+  SF_FORMS.forEach(([v, l]) => {
+    const b = el('button', { class: 'atlas-form-seg' + (rgForm === v ? ' on' : ''), text: l });
+    b.addEventListener('click', () => { state.rgForm = v; buildRidgelinePage(); });
+    formG.appendChild(b);
+  });
+  ctl.appendChild(formG);
+  wrap.appendChild(ctl);
+
+  const readout = el('div', { class: 'sf-readout' });
+  wrap.appendChild(readout);
+
+  // ── cohort ──
+  const kindOf = new Map(ATLAS_SHOWS.map((s) => [s.show, s.kind]));
+  const pool = rgForm ? ATLAS_DATA.filter((r) => kindOf.get(r.show) === rgForm) : ATLAS_DATA;
+
+  const byFn = new Map();
+  for (const r of pool) {
+    const k = atlasCanon(r.fn);
+    if (!byFn.has(k)) byFn.set(k, []);
+    byFn.get(k).push(r);
+  }
+
+  // The open show's songs, sweepable on their function's ridge. Same cohort
+  // rule as the Score Field's own row: only when the show's form matches the
+  // filter, so your one-act is never read against the full-length mountains.
+  const own = sfOwnRow();
+  const mineByFn = new Map();
+  if (own && (!rgForm || own.kind === rgForm)) {
+    for (const s of own.songs) {
+      const k = atlasCanon(s.fn);
+      if (!mineByFn.has(k)) mineByFn.set(k, []);
+      mineByFn.get(k).push({ t: s.t, pos: s.pos, mine: true });
+    }
+  }
+
+  // Below this a density curve is an overclaim — six points make a shape, three
+  // make an accident. Dropped functions are named in the footer rather than
+  // silently absent, because "no act finale among the films" IS a finding.
+  const RG_MIN_N = 6;
+  const rows = [], dropped = [];
+  for (const [fn, list] of byFn) {
+    const meta = FN[fn] || {};
+    if (list.length < RG_MIN_N) { dropped.push({ label: meta.label || fn, n: list.length }); continue; }
+    const ps = list.map((r) => r.pos).sort((a, b) => a - b);
+    const q = (t) => ps[Math.min(ps.length - 1, Math.floor(ps.length * t))];
+    rows.push({
+      fn, label: meta.label || fn, fam: meta.fam || 'gray', ps,
+      songs: list.slice().sort((a, b) => a.pos - b.pos),
+      mine: (mineByFn.get(fn) || []).sort((a, b) => a.pos - b.pos),
+      n: ps.length, med: q(0.5), q1: q(0.25), q3: q(0.75),
+    });
+  }
+  rows.sort((a, b) => a.med - b.med || a.label.localeCompare(b.label));
+  if (!rows.length) {
+    wrap.appendChild(el('div', { class: 'ch-empty', text: 'Too few songs in this cohort to draw.' }));
+    return;
+  }
+
+  // Kernel density, normalized to each ridge's own peak: the ridgeline shows
+  // each function's SHAPE, and prints n instead of pretending a shared scale —
+  // production's 217 songs would flatten eleven's 60 into a floorboard.
+  const KN = 160, KH = 0.042;
+  for (const r of rows) {
+    const d = [];
+    for (let k = 0; k < KN; k++) {
+      const x = k / (KN - 1);
+      let s = 0;
+      for (const p of r.ps) s += Math.exp(-((x - p) ** 2) / (2 * KH * KH));
+      d.push(s);
+    }
+    const mx = Math.max(...d);
+    r.dens = d.map((v) => v / mx);
+  }
+
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (parent, tag, attrs, txt) => {
+    const e = document.createElementNS(NS, tag);
+    for (const k in (attrs || {})) e.setAttribute(k, attrs[k]);
+    if (txt != null) e.textContent = txt;
+    if (parent) parent.appendChild(e);
+    return e;
+  };
+
+  // AMP deliberately exceeds two row pitches: the overlap is what turns
+  // eighteen small charts into one range, and the opaque ground fill under each
+  // ridge gives true occlusion — a nearer mountain hides the one behind it.
+  const LEFT = 168, RW = 700, P = 30, AMP = 64, Y0 = 92;
+  const lastBase = Y0 + (rows.length - 1) * P;
+  const H = lastBase + 34, W = LEFT + RW + 46;
+  const X = (pos) => LEFT + RW * pos;
+
+  const scroll = el('div', { class: 'sf-scroll' });
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  svg.setAttribute('class', 'rg-svg');
+  scroll.appendChild(svg);
+  wrap.appendChild(scroll);
+
+  // One vertical gradient per family: the ridge body is strong at the crest
+  // and fades into the ground toward the baseline. Stop colours go through
+  // style, not attributes — var() only resolves in CSS. The colour itself is
+  // --rgf-*, the saturated body tone (see styles.css: the --fam-* inks fill
+  // like tinted grey in light mode).
+  const defs = sv(svg, 'defs', {});
+  [...new Set(rows.map((r) => r.fam))].forEach((fam) => {
+    const gr = sv(defs, 'linearGradient', { id: 'rgg-' + fam, x1: 0, y1: 0, x2: 0, y2: 1 });
+    const s1 = sv(gr, 'stop', { offset: '0%', 'stop-opacity': 0.85 });
+    s1.style.setProperty('stop-color', 'var(--rgf-' + fam + ')');
+    const s2 = sv(gr, 'stop', { offset: '100%', 'stop-opacity': 0.24 });
+    s2.style.setProperty('stop-color', 'var(--rgf-' + fam + ')');
+  });
+
+  const ax = sv(svg, 'g', { class: 'sf-ax' });
+  [0, 25, 50, 75, 100].forEach((p) => {
+    sv(ax, 'text', { x: X(p / 100), y: 11, 'text-anchor': 'middle' }, p + '%');
+    sv(svg, 'line', { x1: X(p / 100), y1: 16, x2: X(p / 100), y2: H - 10, class: 'sf-grid' });
+  });
+
+  // The cohort's median act break, dashed behind the range the way each show
+  // carries its own hairline on the Score Field. Films play without an
+  // interval, so the film cohort gets no curtain line — same rule as there.
+  if (rgForm !== 'film') {
+    const staged = ATLAS_SHOWS.filter((s) => (rgForm ? s.kind === rgForm : s.kind !== 'film'));
+    if (staged.length) {
+      const shares = staged.map((s) => s.a1share).sort((a, b) => a - b);
+      const mid = shares[Math.floor(shares.length / 2)];
+      sv(svg, 'line', { x1: X(mid), y1: 16, x2: X(mid), y2: H - 10, class: 'rg-brk' });
+      sv(svg, 'text', { x: X(mid), y: H - 2, 'text-anchor': 'middle', class: 'rg-brk-lbl' }, 'median act break');
+    }
+  }
+
+  // Ridges draw top row first so each lower (nearer) ridge occludes the ones
+  // behind it — and every one of a row's marks (baseline, quartile spine,
+  // median dot, own-show ticks) lives INSIDE its row group, so a nearer
+  // mountain covers them exactly like it covers the curve they annotate. The
+  // first cut drew the marks in a top layer so nothing could swallow them, and
+  // it read as broken depth: an amber spine slicing across the purple peak in
+  // front of it. Nothing is lost — the readout carries the median and quartiles
+  // for whichever ridge is hot, so a partially buried spine still reports.
+  // Only the labels and counts live outside the row groups: they sit in the
+  // margins, where no ridge can reach them, and the label column must not dim
+  // with the range when a lock is held or the page loses its index.
+  const ridgeG = sv(svg, 'g', {});
+  const lblG = sv(svg, 'g', {});
+  rows.forEach((r, i) => {
+    const yb = Y0 + i * P;
+    r.yb = yb;
+    let crest = '';
+    r.dens.forEach((v, k) => {
+      crest += (k ? 'L' : 'M') + (LEFT + RW * k / (KN - 1)).toFixed(1) + ' ' + (yb - v * AMP).toFixed(1);
+    });
+    // Same curve, closed down to the baseline so it can take the ground fill.
+    const closed = 'M' + LEFT + ' ' + yb + 'L' + crest.slice(1) + 'L' + (LEFT + RW) + ' ' + yb + 'Z';
+    const fam = 'var(--fam-' + r.fam + ')';
+    const g = sv(ridgeG, 'g', { class: 'rg-ridge' });
+    sv(g, 'path', { d: closed, class: 'rg-ground' });
+    sv(g, 'path', { d: closed, class: 'rg-fill', fill: 'url(#rgg-' + r.fam + ')' });
+    sv(g, 'path', { d: crest, class: 'rg-crest', stroke: fam });
+    sv(g, 'line', { x1: LEFT, y1: yb, x2: LEFT + RW, y2: yb, class: 'rg-base', stroke: fam });
+    // The middle half of the function's songs, thickened along the baseline;
+    // the dot is the median. Shape above, precision below, same ink.
+    sv(g, 'rect', { x: X(r.q1).toFixed(1), y: yb - 1.25, width: Math.max(X(r.q3) - X(r.q1), 2).toFixed(1), height: 2.5, rx: 1.25, class: 'rg-spine', fill: fam });
+    sv(g, 'circle', { cx: X(r.med).toFixed(1), cy: yb, r: 2.8, class: 'rg-med', fill: fam });
+    r.mine.forEach((s) => sv(g, 'rect', { x: (X(s.pos) - 0.8).toFixed(1), y: yb - 9, width: 1.6, height: 9, class: 'rg-mine' }));
+    const o = sv(lblG, 'g', { class: 'rg-margin' });
+    sv(o, 'text', { x: LEFT - 7, y: yb - 1, 'text-anchor': 'end', class: 'rg-lbl', fill: fam }, r.label);
+    sv(o, 'text', { x: LEFT + RW + 7, y: yb - 1, class: 'rg-n' }, r.n);
+    r._g = g; r._o = o;
+  });
+
+  // Pointer furniture on top of everything: a playhead through the whole range
+  // (one position, every function at once) and a marker for the named song.
+  const cursor = sv(svg, 'line', { y1: 16, y2: H - 10, class: 'rg-cursor', visibility: 'hidden' });
+  const marker = sv(svg, 'circle', { r: 3, class: 'rg-marker', visibility: 'hidden' });
+
+  const roRow = el('div', { class: 'sf-ro-row' });
+  const roSong = el('div', { class: 'sf-ro-song' });
+  readout.appendChild(roRow);
+  readout.appendChild(roSong);
+
+  const pinned = () => (rgPinnedFn ? rows.find((r) => r.fn === rgPinnedFn) || null : null);
+  const pc = (x) => Math.round(x * 100) + '%';
+
+  const setReadout = (r) => {
+    roRow.innerHTML = '';
+    if (!r) {
+      roRow.appendChild(el('span', { class: 'sf-hint',
+        text: rows.length + ' functions · ' + pool.length.toLocaleString()
+          + ' songs · sweep to name them, click a ridge to lock onto it' }));
+      return;
+    }
+    const b = el('b', { text: r.label });
+    b.style.color = 'var(--fam-' + r.fam + ')';
+    roRow.appendChild(b);
+    roRow.appendChild(el('span', { text: ' · ' + r.n + ' songs · median ' + pc(r.med)
+      + ' · middle half ' + pc(r.q1) + '–' + pc(r.q3) }));
+    if (rgPinnedFn === r.fn) {
+      const rel = el('button', { class: 'sf-lock', text: '🔒 Locked — release' });
+      rel.addEventListener('click', (e) => {
+        e.stopPropagation();
+        rgPinnedFn = null;
+        applyLock();
+        clearSweep();
+        setReadout(null);
+      });
+      roRow.appendChild(rel);
+    }
+  };
+
+  // Hot changes STYLE only — saturation, opacity, crest weight. Nothing
+  // changes paint order on hover: lifting the whole ridge, and then lifting
+  // just its marks, were both tried and rejected as jarring. A buried mark
+  // ghosts through the translucent ground and reads in full via the readout;
+  // the terrain itself never rearranges under the pointer.
+  let hotRow = null;
+  const setHot = (r) => {
+    if (hotRow === r) return;
+    if (hotRow) { hotRow._g.classList.remove('hot'); hotRow._o.classList.remove('hot'); }
+    hotRow = r;
+    if (hotRow) { hotRow._g.classList.add('hot'); hotRow._o.classList.add('hot'); }
+  };
+  const applyLock = () => {
+    const p = pinned();
+    svg.classList.toggle('rg-locked', !!p);
+    rows.forEach((r) => {
+      r._g.classList.toggle('sel', r === p);
+      r._o.classList.toggle('sel', r === p);
+    });
+    if (!p) rgPinnedFn = null;
+  };
+
+  const clearSweep = () => {
+    cursor.setAttribute('visibility', 'hidden');
+    marker.setAttribute('visibility', 'hidden');
+    roSong.textContent = '';
+  };
+
+  // Sweep to identify, the Score Field's idiom — but the ridge under the
+  // pointer is the one you can SEE there. Rows scan nearest-first (bottom up),
+  // the same order the paint stacks them, and the first mountain whose filled
+  // area contains the pointer wins; open sky between mountains falls back to
+  // the nearest baseline so flat stretches still sweep the row you expect.
+  // The first cut used nearest-baseline everywhere, and pointing at the bulge
+  // of I Want's peak lit Opening, two tracks above — the hover has to agree
+  // with the occlusion or the depth reads as a lie. Locked, y stops mattering
+  // entirely and one function can be scrubbed freehand.
+  let rawRow = null;
+  const identify = (e) => {
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return;
+    const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+    const l = pt.matrixTransform(ctm.inverse());
+    if (l.x < LEFT - 30 || l.x > LEFT + RW + 30 || l.y < Y0 - AMP - 10 || l.y > lastBase + 22) {
+      rawRow = null;
+      clearSweep();
+      if (!pinned()) { setHot(null); setReadout(null); }
+      return;
+    }
+    const lx = Math.max(LEFT, Math.min(LEFT + RW, l.x));
+    const kx = Math.max(0, Math.min(KN - 1, Math.round((lx - LEFT) / RW * (KN - 1))));
+    rawRow = null;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const cand = rows[i];
+      // Inside this row's mountain at this x: below its baseline's grace edge,
+      // above where its curve sits (a few units of crest tolerance).
+      if (l.y <= cand.yb + 2 && l.y >= cand.yb - cand.dens[kx] * AMP - 3) { rawRow = cand; break; }
+    }
+    if (!rawRow) rawRow = rows[Math.max(0, Math.min(rows.length - 1, Math.round((l.y - Y0) / P)))];
+    const r = pinned() || rawRow;
+    setHot(r);
+    if (!pinned()) setReadout(r);
+    // Nearest song along x, the open show's included. No snap radius, for the
+    // Score Field's measured reason: the row is already known, so a cap only
+    // manufactures dead air between sparse numbers.
+    let best = null, bd = Infinity;
+    for (const s of r.songs) { const d = Math.abs(X(s.pos) - lx); if (d < bd) { bd = d; best = s; } }
+    for (const s of r.mine) { const d = Math.abs(X(s.pos) - lx); if (d < bd) { bd = d; best = s; } }
+    cursor.setAttribute('x1', lx); cursor.setAttribute('x2', lx);
+    cursor.setAttribute('visibility', 'visible');
+    if (!best) { marker.setAttribute('visibility', 'hidden'); roSong.textContent = ''; return; }
+    marker.setAttribute('cx', X(best.pos).toFixed(1));
+    marker.setAttribute('cy', r.yb);
+    marker.setAttribute('visibility', 'visible');
+    marker.classList.toggle('mine', !!best.mine);
+    roSong.innerHTML = '';
+    roSong.appendChild(el('b', { text: best.t || '(untitled)' }));
+    roSong.appendChild(el('span', { text: ' · ' + (best.mine ? 'your show' : best.show) + ' · ' + pc(best.pos) + ' of the show' }));
+  };
+  svg.addEventListener('pointermove', identify);
+  svg.addEventListener('pointerdown', identify);   // touch: a tap names the song under the finger
+  svg.addEventListener('pointerleave', () => {
+    rawRow = null;
+    clearSweep();
+    if (!pinned()) { setHot(null); setReadout(null); }
+  });
+  svg.addEventListener('click', () => {
+    if (!rawRow) return;
+    rgPinnedFn = rgPinnedFn === rawRow.fn ? null : rawRow.fn;
+    applyLock();
+    setReadout(pinned() || rawRow);
+  });
+
+  // A lock survives a filter change when its function does; otherwise it
+  // releases itself (applyLock clears the stale key).
+  applyLock();
+  setHot(pinned());
+  setReadout(pinned());
+
+  // Functions the cohort does not have AT ALL are named, not just the ones too
+  // thin to draw: "films have no act finale and no eleven o'clock" is a corpus
+  // finding, and a ridge that silently is not there does not report it.
+  const absent = rgForm
+    ? [...new Set(ATLAS_DATA.map((r) => atlasCanon(r.fn)))].filter((fn) => !byFn.has(fn))
+      .map((fn) => (FN[fn] || {}).label || fn).sort((a, b) => a.localeCompare(b))
+    : [];
+  wrap.appendChild(el('div', { class: 'sf-foot',
+    text: 'each mountain is one function’s positional density across the cohort, scaled to its own peak and ordered by median '
+      + '— the dot — with the thicker spine spanning the middle half of its songs'
+      + (mineByFn.size ? ' · your songs are the sage ticks' : '')
+      + (dropped.length ? ' · left off — too few songs in this cohort for a shape: '
+        + dropped.sort((a, b) => a.label.localeCompare(b.label)).map((d) => d.label + ' (' + d.n + ')').join(', ') : '')
+      + (absent.length ? ' · this cohort has none at all: ' + absent.join(', ') : '') }));
+}
+
 // ── Story DNA · Atlas ("the Astrolabe") ─────────────────────────────────────
 // A read-only instrument: the whole 81-show corpus (ATLAS_DATA) rendered as a
 // dial of stars, with the user's own songs laid on it. It reads the board and
@@ -6815,6 +7199,7 @@ function navigateTo(page, sceneId) {
   if (page === 'storydna') buildStoryDnaPage();
   if (page === 'admin') buildAdminPage();
   if (page === 'field') buildScoreFieldPage();
+  if (page === 'ridge') buildRidgelinePage();
 }
 
 function exportShow() {

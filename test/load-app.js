@@ -102,7 +102,10 @@ const EXPORTS = [
   // running against stubs (see harness.test.js).
   'SHOWS', 'NOVELS', 'TEMPLATES',
   // From atlas-data.js, plus the corpus-driven page builders they feed.
-  'ATLAS_DATA', 'ATLAS_SHOWS', 'buildScoreFieldPage', 'navigateTo',
+  'ATLAS_DATA', 'ATLAS_SHOWS', 'buildScoreFieldPage', 'buildRidgelinePage', 'navigateTo',
+  // FN maps every card function key to its family colour + label; the
+  // Ridgeline test asserts the corpus never outgrows it.
+  'FN',
 ];
 
 // app.js's boot tail kicks off loadProjects().then(...) — an async chain that
