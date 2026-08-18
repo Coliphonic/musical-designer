@@ -52,6 +52,42 @@ if (!SECRET) {
   try { fs.writeFileSync(SECRET_FILE, SECRET, { mode: 0o600 }); } catch (_) { /* best effort */ }
 }
 
+// ---- Local development sign-in bypass ------------------------------------
+// MD_DEV_USER=<existing user id> lets a local dev server skip the login page:
+// a request with no valid session is treated as that user. It exists so an
+// agent or a script can drive the local app end to end without anyone typing a
+// password, and it is built to be hostile to switching on anywhere real:
+//
+//   · OFF unless MD_DEV_USER is in the environment. Nothing in the repo, and no
+//     config file, can set it — it has to be typed on a command line.
+//   · REFUSED when SHOWS_DIR is set. That is exactly how the deployed server is
+//     configured (data dir outside the repo, /home/ubuntu/musical-designer-data)
+//     and never how local dev runs, so an inherited env var cannot open up
+//     production even if one were somehow exported there.
+//   · REFUSED when USE_REMOTE_DATA is on, so it can never combine with a
+//     REMOTE_TOKEN pointed at live data.
+//   · It does NOT create a user and it does NOT grant anything: the id must
+//     already exist in the local users.json, disabled accounts are still
+//     refused, and every owner/collaborator check below runs unchanged. It is
+//     a session shortcut, not a superuser.
+//
+// A refusal or an activation both print at boot, so a server running this way
+// can never be mistaken for a normal one.
+const DEV_USER = (() => {
+  const id = (process.env.MD_DEV_USER || '').trim();
+  if (!id) return '';
+  const refuse = (why) => {
+    console.error('\n  !! MD_DEV_USER=' + id + ' IGNORED — ' + why + '.\n'
+      + '     The sign-in bypass is local-development only.\n');
+    return '';
+  };
+  if (process.env.SHOWS_DIR) return refuse('SHOWS_DIR is set, so this looks like a deployed server');
+  if (USE_REMOTE) return refuse('USE_REMOTE_DATA is on');
+  console.warn('\n  ** SIGN-IN BYPASS ACTIVE — every unauthenticated request is treated as "' + id + '".\n'
+    + '     Local development only. Never run a public server this way.\n');
+  return id;
+})();
+
 const TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -258,7 +294,10 @@ function cookies(req) {
 }
 function currentUser(req) {
   const id = parseToken(cookies(req).md_session);
-  if (!id) return null;
+  // Local dev only: with no valid session, fall through to DEV_USER (see the
+  // gates where it is defined). A real session always wins, so signing in
+  // normally still behaves normally.
+  if (!id) return DEV_USER ? (loadUsers().find((u) => u.id === DEV_USER && !u.disabled) || null) : null;
   const u = loadUsers().find((u) => u.id === id) || null;
   if (u && u.disabled) return null; // disabled accounts are logged out immediately, even with a valid cookie
   return u;
