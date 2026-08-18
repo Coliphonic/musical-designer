@@ -4,7 +4,8 @@
 
 The default template (the blank song cards every new musical project starts
 with) was written before the reference shelf existed. This plan checks it
-against an **81-show corpus spanning 1943–2026** and proposes a revision.
+against a corpus spanning 1943–2026 (81 shows when this plan was written; **104
+now** — see §1) and proposes a revision.
 Corpus data + analyzers live in `corpus/` (plain .mjs, runnable with node).
 
 ---
@@ -83,6 +84,14 @@ shows: full card timeline).
 ---
 
 ## 2 · Findings
+
+> **Note (2026-08-17).** The tables in this section are the analysis *as it was
+> run*, at n=1,126 songs / 69 two-act shows — they are kept as the record of
+> what the template revision was actually decided on. The corpus has since grown
+> to 1,809 songs / 77 two-act shows (§1). The findings held: act balance moved
+> 1.33 → 1.32 and the A1 share 58% → 57%, and every function's position is
+> unchanged to within a couple of points. Current figures live in the `basis:`
+> line of each template in `data.js`, which is regenerated from the analyzers.
 
 ### ⭐ Act balance: era and region both matter
 
@@ -341,7 +350,7 @@ const TEMPLATES = [ { id, label, sub, mode: 'full'|'oneact', basis, cards } ]
 - Prose Plot untouched (`PROSE_TEMPLATE` as-is; templates shelf is Song Plot
   only).
 
-### 7b · The nine (ten since 2026-08-17 — Family Spectacle is 7½)
+### 7b · The nine (eleven since 2026-08-17 — Contemporary is 3½, Family Spectacle 7½)
 
 Seat lists are the deliverable; minutes may shift ±0.5 at build time to hit
 each cohort's measured A1 share (noted per template).
@@ -406,6 +415,47 @@ dark bookend.
 - 2B: diegetic 3 (A2 opener) · reprise 1.5 · ballad Solo 3.5 (the frame cracks) · drive 3
 - 3: eleven Solo 4 (the title number as reckoning) · reprise 2 (dark reprise of the welcome) · finaleultimo Company 2.5
 (16 songs, 9/7, A1 share target ~57%)
+
+**3½ · Contemporary Book Musical** (`full-contemporary`, added 2026-08-17) —
+cut from Colin's *Book Musical — Structure Card Grid (v3)*, which encodes the
+Viertel sequence (the noise, the tent pole, the candy dish, the Main Event)
+over a Snyder causal chain. Every song card in that grid was tested against the
+77 two-act shows; this template keeps what the corpus backs and drops what it
+doesn't.
+
+**Confirmed, and what the template is anchored on:**
+- Act One finale at **54%** — the grid's card 32 hits the corpus median exactly.
+  Show by show: Wicked 56%, Dear Evan Hansen 52%, Book of Mormon 50%, Hairspray
+  52%, Legally Blonde 56%, In the Heights 53%, Rent 52%, Next to Normal 60%,
+  Shucked 62%, The Outsiders 46%. Ten for ten inside 46–62%.
+- Eleven o'clock at **~88%**, inside the measured 83–95% band.
+- Dark-night soliloquy ~72% against a measured 68%.
+- Act One carrying ~56% of the song minutes (1990+ cohort).
+
+**Refuted, and therefore not claimed:** the grid presents the Act-Two "false
+peak" love duet as *the big contemporary move*. It is a real shape but not a
+new one — shows deferring their love song entirely to Act Two run **35%
+pre-1990 against 31% from 1990 on**, slightly *down*, and four of the eleven
+post-1990 cases are the Disney titles added the same day (strip them and it is
+23%). Individual love songs did drift later (34% → 46% in Act Two, median 43% →
+49%), but the per-show pattern the grid describes is perennial, not
+generational. The love seat still sits late here because it is a good option
+about a third of writers take in every era; move it into 2A for the Golden Age
+placement without leaving the norm.
+
+**Contradicted outright:** the grid's early antagonist number (card 8, ~13%)
+against a villain median of 42% and a 18–78% band. The seat is kept at the top
+of lane 1 because the grid's *reason* is sound — establish the opposing pole
+before the threshold — and one `villain` tag may be averaging a real early
+subtype away. It is the seat to distrust first.
+- 1: opening Company 4 · iwant Solo 3.5 · villain 2.5 · drive 2.5
+- 2A: production Company 4.5 (the noise) · charm Duet 2.5 (meet-spark) · comedy 3 (second couple) · production Company 3 (tent pole) · villain 3 (dark turn) · finale Company 4.5
+- 2B: comedy Company 2.5 (candy dish) · comedy 3 · love Duet 3.5 (false peak) · soliloquy Solo 3.5 (dark night)
+- 3: anthem Company 3.5 (rally) · eleven Solo 4.5 · reprise 2 · finaleultimo Company 3
+(18 songs · 4/6/4/4 · 10/8 ratio 1.25 — the grid's own figure, measured 1990+
+is 1.22 · 58.5 min · A1 share 56.4%, target 56%. The three-pillar density
+signature is in the minutes: noise 4.5 → tent pole 3, which must not outgun the
+curtain → act finale 4.5.)
 
 **7½ · Family Spectacle** (`full-family`, added 2026-08-17 with batch 9) — the
 twelve-show family-spectacle cohort: the seven batch-9 stage titles (Beauty and

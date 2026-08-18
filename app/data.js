@@ -125,6 +125,69 @@ const TEMPLATES = [
     ],
   },
   {
+    id: 'full-contemporary',
+    label: 'Contemporary Book Musical',
+    sub: 'The Viertel sequence — the noise, the tent pole, the candy dish — hung on the three positions the corpus actually fixes.',
+    mode: 'full',
+    basis: 'Card grid × 1990+ cohort (n=48) · act finale 54% and 11 o’clock 88–91%, both corpus-confirmed · 18 seats at ratio 1.25 (measured 1.22)',
+    // Cut from Colin's Book Musical card grid (v3) where the corpus BACKS it,
+    // which is most but not all of it. Positions were tested against the 77
+    // two-act shows / 1,485 songs; what survived:
+    //
+    //   · Act One finale at 54% — the grid's card 32 hits the corpus median
+    //     exactly, and every named exemplar held lands 46–62% (Wicked 56,
+    //     Dear Evan Hansen 52, Book of Mormon 50, Hairspray 52, Rent 52).
+    //   · Eleven o'clock at ~88% — card 51 sits inside the 83–95% band.
+    //   · Dark-night soliloquy ~72% against a measured 68%.
+    //   · Act One carrying ~56% of the song minutes (1990+ cohort).
+    //
+    // What did NOT survive, and is therefore NOT claimed here: the grid calls
+    // the Act-Two "false peak" love duet *the big contemporary move*. It is a
+    // real shape but not a new one — shows deferring their love song entirely
+    // to Act 2 run 35% pre-1990 against 31% from 1990 on, i.e. slightly DOWN.
+    // The love seat sits late in this template because it is a good option
+    // (about a third of shows, in every era), not because the era demands it;
+    // move it into 2A for the Golden Age placement without leaving the norm.
+    //
+    // Also unclaimed: the grid's early antagonist number (its card 8, ~13%) is
+    // the one position the corpus contradicts outright — villain songs measure
+    // a median 42% with a 18–78% band. The villain seat below sits at the top
+    // of lane 1 anyway, because the grid's *reason* (establish the opposing
+    // pole before the threshold) is sound and the corpus may simply be
+    // averaging a real early subtype away under one villain tag. It is the
+    // seat to distrust first.
+    //
+    // 18 songs · 4/6/4/4 · 10 A1 / 8 A2 (ratio 1.25, the grid's own figure;
+    // measured 1990+ is 1.22) · 58.5 min · A1 share 56.4% (target 56%).
+    // The three-pillar density signature is encoded in the minutes: the noise
+    // 4.5 → the tent pole 3 (it must not outgun the curtain) → the act finale
+    // 4.5.
+    cards: [
+      // ── Act 1: ordinary world, the want, the opposing pole, the commitment ─────
+      { act: '1',  type: 'song', title: '', fn: 'opening',      voicing: 'Company', min: 4   },
+      { act: '1',  type: 'song', title: '', fn: 'iwant',        voicing: 'Solo',    min: 3.5 },
+      { act: '1',  type: 'song', title: '', fn: 'villain',      voicing: '',        min: 2.5 },
+      { act: '1',  type: 'song', title: '', fn: 'drive',        voicing: '',        min: 2.5 },
+      // ── Act 2A: the new world — its noise, its people, its curtain ────────────
+      { act: '2A', type: 'song', title: '', fn: 'production',   voicing: 'Company', min: 4.5 },
+      { act: '2A', type: 'song', title: '', fn: 'charm',        voicing: 'Duet',    min: 2.5 },
+      { act: '2A', type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'production',   voicing: 'Company', min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'villain',      voicing: '',        min: 3   },
+      { act: '2A', type: 'song', title: '', fn: 'finale',       voicing: 'Company', min: 4.5 },
+      // ── Act 2B: the treat, the comedy, the last warm light, the bottom ────────
+      { act: '2B', type: 'song', title: '', fn: 'comedy',       voicing: 'Company', min: 2.5 },
+      { act: '2B', type: 'song', title: '', fn: 'comedy',       voicing: '',        min: 3   },
+      { act: '2B', type: 'song', title: '', fn: 'love',         voicing: 'Duet',    min: 3.5 },
+      { act: '2B', type: 'song', title: '', fn: 'soliloquy',    voicing: 'Solo',    min: 3.5 },
+      // ── Act 3: the turn, the internal climax, the melody returned ─────────────
+      { act: '3',  type: 'song', title: '', fn: 'anthem',       voicing: 'Company', min: 3.5 },
+      { act: '3',  type: 'song', title: '', fn: 'eleven',       voicing: 'Solo',    min: 4.5 },
+      { act: '3',  type: 'song', title: '', fn: 'reprise',      voicing: '',        min: 2   },
+      { act: '3',  type: 'song', title: '', fn: 'finaleultimo', voicing: 'Company', min: 3   },
+    ],
+  },
+  {
     id: 'full-sungthrough',
     label: 'Sung-Through',
     sub: 'No book to frontload: a motif planted early, developed at the midpoint, paid off as the 11 o’clock.',
