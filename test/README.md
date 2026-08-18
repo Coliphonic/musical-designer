@@ -46,6 +46,14 @@ silently re-ran the default.
 an `FN` entry, or a future corpus batch could silently render a grey ridge
 labelled with a raw key.
 
+`atlas-page.test.js` covers the Library's Atlas — `buildDnaAtlas` called with
+`{corpusOnly: true}`, which skips the board read entirely. It builds with no
+project, with an empty board, and with a **prose** project (the show-level dial
+returns early for prose; the corpus page must not inherit that, since the
+corpus is musicals no matter what is open). Every own-show block in that
+function is guarded on `mine.length`; this test is what stops an unguarded one
+being added.
+
 ### If the whole file goes red but every assertion passed
 
 That is the signature of a **boot-time** failure, not a broken app. `app.js` ends

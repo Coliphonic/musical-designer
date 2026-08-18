@@ -2955,8 +2955,12 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
    furniture below — .sf-back, .sf-wrap, .sf-readout and its fixed-height
    jitter fix, .sf-scroll, .sf-foot — so the two corpus pages cannot drift
    apart. Only the chart itself (.rg-*) is its own. */
-#page-field, #page-ridge { --sf-bar: 44px; scrollbar-gutter: stable; }
-#page-field .ch-toolbar, #page-ridge .ch-toolbar { position: sticky; top: 0; z-index: 4; }
+#page-field, #page-ridge, #page-atlas { --sf-bar: 44px; scrollbar-gutter: stable; }
+#page-field .ch-toolbar, #page-ridge .ch-toolbar, #page-atlas .ch-toolbar { position: sticky; top: 0; z-index: 4; }
+/* The Atlas page hosts the Story DNA dial verbatim, so it only needs the top
+   gap the section heading assumes when it sits under a page toolbar. */
+.atlas-page-wrap { padding-top: 16px; }
+.atlas-page-wrap .atlas { margin-top: 0; }
 .sf-wrap { padding: 0 18px 40px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .sf-controls { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 8px 26px; align-items: center; }
 .sf-controls .atlas-form { margin-bottom: 0; }

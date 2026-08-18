@@ -45,7 +45,15 @@ function makeDomStub(label) {
   const target = function domStub() {};
   const handler = {
     get(t, prop) {
-      if (prop === 'then' || prop === 'catch' || prop === 'finally' || prop === Symbol.iterator) return undefined;
+      if (prop === 'then' || prop === 'catch' || prop === 'finally') return undefined;
+      // A stub node has no children, so spreading one yields nothing —
+      // `[...el.children]`, `[...querySelectorAll(…)]` and `for…of` all work
+      // and simply iterate zero times, matching the `length: 0` below. This
+      // used to return undefined, which made any spread throw
+      // "children is not iterable" — a failure about the harness that reads
+      // like a failure in the page under test (it is how the Library Atlas
+      // first came up red).
+      if (prop === Symbol.iterator) return function* () {};
       if (prop === 'length') return 0;
       if (!(prop in t)) t[prop] = makeDomStub(label + '.' + String(prop));
       return t[prop];
@@ -102,7 +110,8 @@ const EXPORTS = [
   // running against stubs (see harness.test.js).
   'SHOWS', 'NOVELS', 'TEMPLATES',
   // From atlas-data.js, plus the corpus-driven page builders they feed.
-  'ATLAS_DATA', 'ATLAS_SHOWS', 'buildScoreFieldPage', 'buildRidgelinePage', 'navigateTo',
+  'ATLAS_DATA', 'ATLAS_SHOWS', 'buildScoreFieldPage', 'buildRidgelinePage',
+  'buildAtlasPage', 'buildDnaAtlas', 'navigateTo',
   // FN maps every card function key to its family colour + label; the
   // Ridgeline test asserts the corpus never outgrows it.
   'FN',

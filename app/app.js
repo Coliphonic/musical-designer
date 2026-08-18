@@ -628,7 +628,7 @@ function buildLibraryPage() {
   // Corpus instruments. Song Plot only — the corpus is musicals, and Prose
   // Plot's shelf is novels (same partition rule as Templates above).
   if (!isProseLib && typeof ATLAS_SHOWS !== 'undefined' && ATLAS_SHOWS.length) {
-    host.appendChild(libSection('Corpus', [() => libFieldCard(), () => libRidgeCard()]));
+    host.appendChild(libSection('Corpus', [() => libFieldCard(), () => libRidgeCard(), () => libAtlasCard()]));
   }
 }
 
@@ -664,6 +664,24 @@ function libRidgeCard() {
   card.appendChild(meta);
   card.appendChild(el('div', { class: 'lib-teaches',
     text: 'Where each function lives: every density at once, ordered by median — which functions own their slot, and which drift.' }));
+  return card;
+}
+
+// The Atlas as a place to study rather than a mirror: the same dial Story DNA
+// carries, with the comparison to the open show left off.
+function libAtlasCard() {
+  const card = el('div', { class: 'lib-card lib-card-field' });
+  card.addEventListener('click', () => { closeCardMenu(); navigateTo('atlas'); });
+  const top = el('div', { class: 'lib-card-top' });
+  top.appendChild(el('span', { class: 'lib-card-title', text: 'The Atlas' }));
+  card.appendChild(top);
+  const meta = el('div', { class: 'lib-card-meta' });
+  meta.appendChild(el('span', { class: 'lib-fmt', text: ATLAS_SHOWS.length + ' shows' }));
+  meta.appendChild(el('span', { class: 'lib-dot', text: '·' }));
+  meta.appendChild(el('span', { text: ATLAS_DATA.length.toLocaleString() + ' songs' }));
+  card.appendChild(meta);
+  card.appendChild(el('div', { class: 'lib-teaches',
+    text: 'The whole tradition as one dial of stars — isolate a function, a form or a single show and read its motif web.' }));
   return card;
 }
 
@@ -6407,6 +6425,32 @@ function buildRidgelinePage() {
       + (absent.length ? ' · this cohort has none at all: ' + absent.join(', ') : '') }));
 }
 
+// ── The Atlas, as a Library page ────────────────────────────────────────────
+// The same dial Story DNA carries, built corpus-only: the reference half with
+// nothing of the open project on it. Third card on the Corpus shelf, and the
+// page furniture is the Field's and the Ridgeline's, so all three read as one
+// set of instruments.
+function buildAtlasPage() {
+  const host = document.getElementById('page-atlas');
+  if (!host) return;
+  host.innerHTML = '';
+  if (typeof ATLAS_DATA === 'undefined' || !ATLAS_DATA.length) {
+    host.appendChild(el('div', { class: 'ch-empty', text: 'Corpus data unavailable.' }));
+    return;
+  }
+  const bar = el('div', { class: 'ch-toolbar ribbon' });
+  const back = el('button', { class: 'sf-back', text: '← Library' });
+  back.addEventListener('click', () => navigateTo('library'));
+  bar.appendChild(back);
+  bar.appendChild(el('span', { class: 'ch-toolbar-title', text: 'The Atlas' }));
+  bar.appendChild(el('span', { style: 'flex:1' }));
+  host.appendChild(bar);
+
+  const wrap = el('div', { class: 'sf-wrap atlas-page-wrap' });
+  host.appendChild(wrap);
+  buildDnaAtlas(wrap, { corpusOnly: true });
+}
+
 // ── Story DNA · Atlas ("the Astrolabe") ─────────────────────────────────────
 // A read-only instrument: the whole 81-show corpus (ATLAS_DATA) rendered as a
 // dial of stars, with the user's own songs laid on it. It reads the board and
@@ -6440,8 +6484,16 @@ function atlasVoice(v) {
   return parts.length >= 3 ? 'group' : parts.length === 2 ? 'duet' : 'solo';
 }
 
-function buildDnaAtlas(host) {
-  if (state.format === 'prose') return;                       // musical instrument
+// `opts.corpusOnly` builds the reference half alone: no board read, no stars
+// for your songs, no chiasmus chords, no Field Notes. That is the Library's
+// Atlas — a corpus instrument you go and look at, with nothing on it that
+// depends on which project happens to be open. Story DNA calls it with no
+// options and gets the full comparison as before. One function rather than
+// two, because a forked dial would drift: every corpus finding, filter and
+// sweep behaviour has to stay identical in both places.
+function buildDnaAtlas(host, opts) {
+  const corpusOnly = !!(opts && opts.corpusOnly);
+  if (state.format === 'prose' && !corpusOnly) return;        // musical instrument
   if (typeof ATLAS_DATA === 'undefined' || !Array.isArray(ATLAS_DATA) || !ATLAS_DATA.length) return;
   const dark = document.body.classList.contains('dark');
   const SVGNS_ = 'http://www.w3.org/2000/svg';
@@ -6457,8 +6509,10 @@ function buildDnaAtlas(host) {
   const pct = (x) => Math.round(x * 100) + '%';
 
   // ── read the board (lane order 1 → 2A → 2B → 3, mirroring the corpus) ──
+  // Skipped entirely in corpusOnly: `mine` stays empty, and every own-show
+  // block below is already guarded on mine.length, so they simply do not run.
   const laneCards = [];
-  LANE_KEYS.forEach((a) => state.cards.forEach((c) => { if (c.act === a) laneCards.push(c); }));
+  if (!corpusOnly) LANE_KEYS.forEach((a) => state.cards.forEach((c) => { if (c.act === a) laneCards.push(c); }));
   const total = laneCards.reduce((s, c) => s + (c.min || 0), 0);
   const songCards = laneCards.filter((c) => c.type === 'song' && c.fn);
   const mine = [];
@@ -6470,9 +6524,20 @@ function buildDnaAtlas(host) {
     }
     cum += c.min || 0;
   });
-  // dial intermission tick: cumulative card-minutes of lanes 1+2A / total
+  // dial intermission tick: cumulative card-minutes of lanes 1+2A / total.
+  // With no board to read, the tick is the CORPUS's own median act break
+  // (staged shows only — films play without an interval), so the dial still
+  // divides the night where the tradition divides it rather than at a
+  // hardcoded guess.
   const a12card = laneCards.reduce((s, c) => s + (['1', '2A'].includes(c.act) ? (c.min || 0) : 0), 0);
-  const breakClock = (songCards.length && total) ? a12card / total : 0.58;
+  const corpusBreak = () => {
+    const staged = (typeof ATLAS_SHOWS !== 'undefined' ? ATLAS_SHOWS : []).filter((s) => s.kind !== 'film');
+    if (!staged.length) return 0.58;
+    const shares = staged.map((s) => s.a1share).sort((a, b) => a - b);
+    return shares[Math.floor(shares.length / 2)];
+  };
+  const breakClock = corpusOnly ? corpusBreak()
+    : (songCards.length && total) ? a12card / total : 0.58;
   // break SHARE for Field Notes / Neighbors: A1 fraction of SONG minutes only
   // (matches ATLAS_SHOWS.a1share, so "Fiddler 68 / Gypsy 64" line up)
   const songMin = songCards.reduce((s, c) => s + (c.min || 0), 0);
@@ -6484,7 +6549,9 @@ function buildDnaAtlas(host) {
   host.appendChild(sec);
   const head = el('div', { class: 'dna-sec-head' });
   head.appendChild(el('h3', { class: 'dna-sec-title', text: 'The Atlas' }));
-  head.appendChild(el('p', { class: 'dna-sec-sub', text: 'Tap a function to isolate it, and narrow to one-acts or full-lengths to see how the shape differs · sweep to name stars, click one to pin it · your show sits on the dial, its mirrors strung across the interior.' }));
+  head.appendChild(el('p', { class: 'dna-sec-sub', text: corpusOnly
+    ? 'Tap a function to isolate it, and narrow to one-acts, full-lengths or films to see how the shape differs · sweep to name stars, click one to pin it · isolate one show to string its motif web across the interior.'
+    : 'Tap a function to isolate it, and narrow to one-acts or full-lengths to see how the shape differs · sweep to name stars, click one to pin it · your show sits on the dial, its mirrors strung across the interior.' }));
   sec.appendChild(head);
 
   // chips
@@ -6607,13 +6674,17 @@ function buildDnaAtlas(host) {
   });
 
   // center label
-  const shownTitle = (state.title || 'Your show').toUpperCase();
+  const shownTitle = corpusOnly ? 'THE TRADITION' : (state.title || 'Your show').toUpperCase();
   sv(svg, 'text', { x: cx, y: cy - 118, fill: 'var(--ink)', 'font-size': 15, 'font-weight': 600, 'text-anchor': 'middle' }, shownTitle);
   sv(svg, 'text', { x: cx, y: cy - 99, fill: 'var(--faint)', 'font-size': 10.5, 'text-anchor': 'middle' },
-    mine.length ? `your ${mine.length === 1 ? 'song' : mine.length + ' songs'} on the dial of the whole tradition`
+    corpusOnly ? ATLAS_DATA.length.toLocaleString() + ' songs across '
+      + (typeof ATLAS_SHOWS !== 'undefined' ? ATLAS_SHOWS.length : new Set(ATLAS_DATA.map((s) => s.show)).size) + ' shows'
+    : mine.length ? `your ${mine.length === 1 ? 'song' : mine.length + ' songs'} on the dial of the whole tradition`
                 : 'your songs will appear here as you write them');
 
-  sec.appendChild(el('div', { class: 'atlas-foot', text: 'the dial is the night — 8:00 curtain at the left foot, eleven o’clock where it belongs · chords are the chiasmus: reprise → source, I Want → eleven, the bookend · isolate a show to see its motif web, each dotted line a reprise drawn back to the song it reprises.' }));
+  sec.appendChild(el('div', { class: 'atlas-foot', text: 'the dial is the night — 8:00 curtain at the left foot, eleven o’clock where it belongs'
+    + (corpusOnly ? '' : ' · chords are the chiasmus: reprise → source, I Want → eleven, the bookend')
+    + ' · isolate a show to see its motif web, each dotted line a reprise drawn back to the song it reprises.' }));
 
   // ── three filter axes: function (active), form (activeForm) and single show
   //    (activeShow). Function and form COMPOSE — "where do ballads sit in
@@ -7200,6 +7271,7 @@ function navigateTo(page, sceneId) {
   if (page === 'admin') buildAdminPage();
   if (page === 'field') buildScoreFieldPage();
   if (page === 'ridge') buildRidgelinePage();
+  if (page === 'atlas') buildAtlasPage();
 }
 
 function exportShow() {
