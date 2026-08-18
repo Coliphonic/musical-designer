@@ -5,6 +5,9 @@
 // used by the Story DNA Atlas panel's "Structural Neighbors" similarity.
 // Output is a non-module global (like data.js): `const ATLAS_DATA=[...];`.
 import { readFileSync, writeFileSync, readdirSync } from 'fs';
+// Reprise -> source resolution. Emits `of: [pos, ...]` on reprise rows, so the
+// Atlas can draw a real motif edge instead of inferring one from proximity.
+import { linkReprises, unresolved, normTitle } from './reprise-links.mjs';
 
 const DIR = '/Users/colin/Documents/Claude/Musical Designer';
 const NAMES = {
@@ -92,10 +95,31 @@ for (const f of readdirSync(DIR + '/corpus').filter(f => f.startsWith('corpus-')
     const total = songs.reduce((s, x) => s + x.min, 0);
     const a1 = songs.reduce((s, x) => s + (x.act === 'A1' ? x.min : 0), 0);
     addShare(NAMES[show] || show, a1, total);
+    // Resolve each reprise to the song(s) it reprises BEFORE positions are
+    // computed, then translate those titles into positions — what the Atlas
+    // needs to draw an edge is a pair of angles, not a pair of names.
+    const linked = linkReprises(show, songs.map((s) => ({ ...s, title: s.t })));
     let cum = 0;
-    for (const s of songs) {
-      const pos = (cum + s.min / 2) / total; cum += s.min;
-      out.push({ show: NAMES[show] || show, t: s.t, fn: s.fn, pos: +pos.toFixed(3), v: s.v });
+    const posOf = new Map();
+    const rowsFor = [];
+    for (let i = 0; i < songs.length; i++) {
+      const s = songs[i];
+      const pos = +((cum + s.min / 2) / total).toFixed(3); cum += s.min;
+      // Keyed by NORMALIZED title: carded titles carry annotations the resolver
+      // never sees ("Don't Cry for Me Argentina (opens A2)"), so an exact-string
+      // lookup silently drops every hand-written override. But normalizing makes
+      // "Your Song" and "Your Song (Rep)" collide — so only a SOURCE may claim a
+      // key, first occurrence wins, or a reprise resolves to itself and the edge
+      // points forward.
+      const nk = normTitle(s.t);
+      if (s.fn !== 'reprise' && !posOf.has(nk)) posOf.set(nk, pos);
+      rowsFor.push({ show: NAMES[show] || show, t: s.t, fn: s.fn, pos, v: s.v, _of: linked[i].of });
+    }
+    for (const r of rowsFor) {
+      const src = (r._of || []).map((t) => posOf.get(normTitle(t))).filter((p) => p != null);
+      delete r._of;
+      if (src.length) r.of = src;
+      out.push(r);
     }
     songs = [];
   };
@@ -136,7 +160,8 @@ const voiceClass = (v) => {
   const parts = t.split(/\s*(?:,|\+|&|and)\s*/i).filter(Boolean);
   return parts.length >= 3 ? 'group' : parts.length === 2 ? 'duet' : 'solo';
 };
-for (const show of Object.values(SHOWS)) {
+// entries, not values: linkReprises keys its overrides by the show's data.js key
+for (const [key, show] of Object.entries(SHOWS)) {
   // A ten-minute piece is a different form, not a short musical. Its handful of
   // numbers would join the all-corpus census — the same census whose function
   // positions and act ratios the long-form templates cite — alongside two-hour
@@ -154,15 +179,30 @@ for (const show of Object.values(SHOWS)) {
   addShare(show.title, a1song, songTot);
   if (show.year) yearMap.set(show.title, show.year);
   if (show.form) formMap.set(show.title, show.form);
+  // Same two-pass reprise linking as the corpus branch above: link on titles,
+  // emit positions. Shelf cards carry scenes and beats too, so the song list is
+  // extracted first — a reprise never points at a scene.
+  const linkedShelf = linkReprises(key, songCards.map((c) => ({ title: c.title || '(untitled)', fn: c.fn })));
+  const ofByTitle = new Map();
+  linkedShelf.forEach((s, i) => { if (s.of && s.of.length) ofByTitle.set(songCards[i], s.of); });
   let cum = 0;
+  const posOfShelf = new Map();
+  const shelfRows = [];
   for (const c of cards) {
     if (c.type === 'song' && c.fn) {
-      const pos = (cum + (c.min || 0) / 2) / total;
-      out.push({ show: show.title, t: c.title || '(untitled)', fn: c.fn === 'iwant' ? 'i want' :
+      const pos = +((cum + (c.min || 0) / 2) / total).toFixed(3);
+      const nk = normTitle(c.title || '(untitled)');   // sources only — see the corpus branch
+      if (c.fn !== 'reprise' && !posOfShelf.has(nk)) posOfShelf.set(nk, pos);
+      shelfRows.push({ row: { show: show.title, t: c.title || '(untitled)', fn: c.fn === 'iwant' ? 'i want' :
         c.fn === 'finaleultimo' ? 'finale ultimo' : c.fn === 'finale' ? 'act finale' : c.fn,
-        pos: +pos.toFixed(3), v: voiceClass(c.voicing) || 'group' });
+        pos, v: voiceClass(c.voicing) || 'group' }, card: c });
     }
     cum += c.min || 0;
+  }
+  for (const { row, card } of shelfRows) {
+    const src = (ofByTitle.get(card) || []).map((t) => posOfShelf.get(normTitle(t))).filter((p) => p != null);
+    if (src.length) row.of = src;
+    out.push(row);
   }
 }
 
