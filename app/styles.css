@@ -377,6 +377,67 @@ body.dark .pill[data-fam="gray"]   { color: #a09888; }
 .hint { font-size: 12px; color: var(--muted); margin-top: 16px; line-height: 1.6; }
 .hint b { color: var(--ink); font-weight: 600; }
 
+/* ---- Board bin: cards set aside from the story ----
+   A resting pill in the corner (hidden while empty), which grows into a drop
+   well the moment any card is picked up, so it's reachable from every act
+   without scrolling. Click opens the drawer; the drawer takes drops too.
+   Sits under the lyric window (z 40) and the snapshot drawer (z 60). */
+.bin-pill {
+  position: fixed; right: 18px; bottom: 18px; z-index: 30;
+  display: flex; align-items: center; padding: 8px 14px 8px 12px;
+  border: 1px solid var(--line); border-radius: 22px; background: var(--card);
+  box-shadow: var(--shadow-pop); color: var(--muted); cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 600;
+  transition: width .14s ease, height .14s ease, border-radius .14s ease;
+}
+.bin-pill:hover { color: var(--ink); }
+.bin-pill.empty { display: none; }
+.bin-pill svg { width: 16px; height: 16px; flex-shrink: 0; }
+.bin-pill-rest { display: flex; align-items: center; gap: 8px; }
+.bin-pill-rest b { background: var(--btn); color: var(--ink); border-radius: 10px; padding: 1px 7px; font-size: 11px; font-variant-numeric: tabular-nums; }
+.bin-pill-drop { display: none; flex-direction: column; align-items: center; gap: 6px; color: var(--ink); font-size: 13px; }
+.bin-pill-drop svg { width: 22px; height: 22px; }
+.bin-pill-drop small { color: var(--muted); font-weight: 500; font-size: 11.5px; }
+body.bin-drag .bin-pill {
+  display: flex; justify-content: center; width: 250px; height: 130px; padding: 0;
+  border: 2px dashed var(--energy); border-radius: 14px;
+  background: color-mix(in srgb, var(--energy) 10%, var(--card));
+}
+body.bin-drag .bin-pill-rest { display: none; }
+body.bin-drag .bin-pill-drop { display: flex; }
+body.bin-drag .bin-pill.bin-over { background: color-mix(in srgb, var(--energy) 22%, var(--card)); }
+
+.bin-drawer {
+  position: fixed; top: 64px; right: 12px; bottom: 12px; z-index: 30;
+  width: 272px; max-width: calc(100vw - 24px);
+  display: flex; flex-direction: column;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 12px 34px #00000026; overflow: hidden;
+  animation: snapIn 0.14s ease;
+}
+.bin-drawer.bin-over { border-color: var(--energy); box-shadow: 0 0 0 2px var(--energy), 0 12px 34px #00000026; }
+.bin-drawer-head { display: flex; align-items: center; gap: 8px; padding: 14px 14px 10px; }
+.bin-drawer-title { flex: 1; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; color: var(--ink); }
+.bin-drawer-title svg { width: 17px; height: 17px; color: var(--muted); }
+.bin-drawer-sub { padding: 0 14px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.45; }
+.bin-list { flex: 1; overflow-y: auto; padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 14px; }
+.bin-item { display: flex; flex-direction: column; gap: 5px; }
+.bin-item-head { display: flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+.bin-item-head > span { flex: 1; }
+.bin-back, .bin-del { font-family: inherit; font-size: 11.5px; padding: 2px 8px; border-radius: 7px; cursor: pointer; letter-spacing: 0; text-transform: none; font-weight: 500; }
+.bin-back { border: 1px solid var(--line); background: transparent; color: var(--energy); }
+.bin-back:hover { background: var(--hover); }
+.bin-del { border: none; background: transparent; color: var(--muted); }
+.bin-del:hover { background: var(--hover); color: var(--danger); }
+.bin-card {
+  display: flex; flex-direction: column; gap: 5px; padding: 10px 11px 11px;
+  background: var(--card); border-radius: 7px; box-shadow: var(--card-shadow); cursor: grab;
+}
+.bin-card.beat { background: var(--card-beat); }
+.bin-card.dragging { opacity: 0.4; }
+.bin-card-title { font-size: 13px; font-weight: 600; color: var(--ink); }
+.bin-card-sub { font-size: 12px; line-height: 1.45; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
 /* detail drawer */
 .lwpush { border: 1px solid var(--line); background: transparent; color: var(--muted); font-size: 12px; font-weight: 500; font-family: inherit; padding: 6px 12px; border-radius: 7px; cursor: pointer; }
 .lwpush:hover { background: var(--hover); color: var(--ink); border-color: var(--ink); }

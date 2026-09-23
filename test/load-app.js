@@ -115,6 +115,9 @@ const EXPORTS = [
   // FN maps every card function key to its family colour + label; the
   // Ridgeline test asserts the corpus never outgrows it.
   'FN',
+  // The Board's bin: the card moves in and out of it, and render() for the
+  // drawer runs against the DOM stub.
+  'binCard', 'unbinCard', 'putBackCard', 'renderBin',
 ];
 
 // app.js's boot tail kicks off loadProjects().then(...) — an async chain that

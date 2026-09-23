@@ -107,6 +107,7 @@ const state = {
   page: 'board',
   sidebarOpen: (() => { try { return localStorage.getItem('md-sidebar') !== 'closed'; } catch (_) { return true; } })(),
   cards: [],
+  bin: [],           // cards set aside from the story (the Board's Bin) — see binCard
   revisions: [],     // [{id, name, color, date}] — Final Draft-style revision sets
   currentRev: null,  // id of the active revision; null = not tracking (no marks)
   pageLock: null,    // { lockedAt, date, pages:[{label, anchor}] } — frozen page boundaries (A-pages)
@@ -118,6 +119,7 @@ const state = {
   book: bookDefaults(), // Prose Plot only; see BOOK-FORMATTING-PLAN.md
   msOptions: (() => { try { return JSON.parse(localStorage.getItem('md-ms-opts') || '{}'); } catch (_) { return {}; } })(),
   dragFrom: null,
+  dragBin: null,     // index into state.bin while a binned card is being dragged
   openAct: null,
   lyricWinId: null,
   lyricWinMode: 'edit', // 'edit' | 'sheet' — lyric window pane, session-only (not persisted to disk)
@@ -281,6 +283,7 @@ function openReference(key) {
   else { const lanes = assignLanes(show.numbers); state.cards = show.numbers.map((t, i) => { const c = cardFromTuple(t); c.act = lanes[i]; return c; }); }
   // Enriched references may carry a character registry and a title page (no lyrics).
   // Plain references have neither — fall back to empty so stale project data never leaks in.
+  state.bin = [];
   state.revisions = []; state.currentRev = null; state.pageLock = null; // references aren't revised
   state.characters = show.characters ? JSON.parse(JSON.stringify(show.characters)) : {};
   state.notes = show.notes ? JSON.parse(JSON.stringify(show.notes)) : [];
@@ -361,6 +364,7 @@ function openTemplatePreview(id) {
   // slot names ("Dialogue B") that survive into created shows, and running them
   // through templateSeatLabel would retitle every one of them "Song".
   state.cards = t.cards.map((c) => { const card = cardFromObj(c); if (c.type === 'song') card.title = templateSeatLabel(c); return card; });
+  state.bin = [];
   state.revisions = []; state.currentRev = null; state.pageLock = null; // a template has no history
   state.characters = {};
   state.notes = [];
@@ -413,6 +417,7 @@ function migrateLegacyIds() {
 // Does not touch projectId/showKey/readonly or render — the caller owns those.
 function applyShowData(d) {
   state.cards = (d.cards || []).map(cardFromStored);
+  state.bin = (d.bin || []).map(cardFromStored);
   state.revisions = d.revisions || [];
   state.currentRev = d.currentRev || null;
   state.pageLock = d.pageLock || null;
@@ -484,6 +489,7 @@ function serializeData() {
     wordCountBaselineDate: state.wordCountBaselineDate || '',
     paraStyle: state.paraStyle || 'indent',
     cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
+    bin: state.bin.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
     revisions: state.revisions,
     currentRev: state.currentRev,
     pageLock: state.pageLock,
@@ -528,7 +534,7 @@ function loadProjects() {
   return fetch('/api/shows').then((r) => r.json()).then((list) => { state.projects = list || []; renderShowBtn(); if (state.page === 'library') buildLibraryPage(); }).catch(() => {});
 }
 function duplicateProject() {
-  const body = JSON.stringify({ title: state.title + ' (copy)', mode: state.mode, format: state.format || 'song', updated: Date.now(), cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }) });
+  const body = JSON.stringify({ title: state.title + ' (copy)', mode: state.mode, format: state.format || 'song', updated: Date.now(), cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }), bin: state.bin.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }) });
   fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).then((r) => r.json()).then((d) => loadProjects().then(() => openProject(d.id)));
 }
 function deleteProject() {
@@ -991,7 +997,7 @@ function doReplaceAll() {
 
 function duplicateShowById(id) {
   fetch('/api/shows/' + id).then((r) => r.json()).then((d) => {
-    const body = JSON.stringify({ title: (d.title || 'Untitled') + ' (copy)', mode: d.mode, format: d.format || 'song', status: 'draft', updated: Date.now(), cards: d.cards || [], characters: d.characters || {}, titlePage: d.titlePage, scriptHeader: d.scriptHeader, book: d.book });
+    const body = JSON.stringify({ title: (d.title || 'Untitled') + ' (copy)', mode: d.mode, format: d.format || 'song', status: 'draft', updated: Date.now(), cards: d.cards || [], bin: d.bin || [], characters: d.characters || {}, titlePage: d.titlePage, scriptHeader: d.scriptHeader, book: d.book });
     return fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
   }).then(() => loadProjects().then(buildLibraryPage));
 }
@@ -1924,16 +1930,17 @@ function wireCardDrag(card) {
   card.addEventListener('dragstart', (e) => {
     if (e.target.isContentEditable || e.target.tagName === 'SELECT') { e.preventDefault(); return; } // editing a field, not dragging
     state.dragFrom = +card.dataset.pos;
+    state.dragBin = null;
     card.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', card.dataset.pos);
+    startBinDrag();
   });
   card.addEventListener('dragend', () => {
     card.classList.add('justdragged');
     setTimeout(() => card.classList.remove('justdragged'), 0);
     card.classList.remove('dragging');
-    document.querySelectorAll('.bcard').forEach((r) => r.classList.remove('drop-before', 'drop-after'));
-    document.querySelectorAll('.actcards').forEach((a) => a.classList.remove('dragover'));
+    endBoardDrag();
   });
   card.addEventListener('dragover', (e) => {
     e.preventDefault();
@@ -1946,14 +1953,14 @@ function wireCardDrag(card) {
   card.addEventListener('drop', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const from = state.dragFrom;
     let to = +card.dataset.pos;
     const targetAct = state.cards[to].act;
     const before = e.offsetX < card.offsetWidth / 2;
-    if (from == null) return;
     to = before ? to : to + 1;
-    moveCard(from, to, targetAct);
-    state.dragFrom = null;
+    if (state.dragBin != null) unbinCard(state.dragBin, to, targetAct);
+    else if (state.dragFrom != null) moveCard(state.dragFrom, to, targetAct);
+    else return;
+    endBoardDrag();
     render();
   });
 }
@@ -1963,11 +1970,148 @@ function wireLaneDrop(lane, act) {
   lane.addEventListener('dragleave', (e) => { if (e.target === lane) lane.classList.remove('dragover'); });
   lane.addEventListener('drop', (e) => {
     e.preventDefault();
-    if (state.dragFrom == null) return;
-    moveCard(state.dragFrom, lastIndexOfAct(act) + 1, act);
-    state.dragFrom = null;
+    if (state.dragBin != null) unbinCard(state.dragBin, lastIndexOfAct(act) + 1, act);
+    else if (state.dragFrom != null) moveCard(state.dragFrom, lastIndexOfAct(act) + 1, act);
+    else return;
+    endBoardDrag();
     render();
   });
+}
+
+// ---- bin ----
+// Cards set aside from the story. They leave state.cards entirely, so nothing
+// that reads the story (runtime, percentages, the Manuscript, Story DNA, the
+// Fountain/PDF exports) has to know the bin exists. Each binned card keeps its
+// act and remembers its place within it (binPos), so Put back returns it there.
+let binOpen = false;
+
+function binCard(i) {
+  const c = state.cards[i];
+  if (!c) return;
+  c.binPos = state.cards.filter((x) => x.act === c.act).indexOf(c);
+  state.cards.splice(i, 1);
+  state.bin.unshift(c); // newest on top
+}
+function unbinCard(bi, to, act) {
+  const c = state.bin.splice(bi, 1)[0];
+  if (!c) return;
+  delete c.binPos;
+  c.act = act;
+  state.cards.splice(to, 0, c);
+}
+function putBackCard(bi) {
+  const c = state.bin[bi];
+  if (!c) return;
+  const act = LANE_KEYS.includes(c.act) ? c.act : LANE_KEYS[0];
+  const inAct = [];
+  state.cards.forEach((x, i) => { if (x.act === act) inAct.push(i); });
+  const to = c.binPos != null && c.binPos < inAct.length ? inAct[c.binPos] : lastIndexOfAct(act) + 1;
+  unbinCard(bi, to, act);
+}
+
+// A drag that ends anywhere (a drop target, or nowhere at all) must clear both
+// sources: a stale dragBin would turn the next board-card drop into a restore.
+// Called from dragend AND from every drop, since render() on drop detaches the
+// source card and some browsers never fire dragend on a detached node.
+function startBinDrag() {
+  // Next frame: growing the bin in the same tick as dragstart can cancel the drag.
+  requestAnimationFrame(() => { if (state.dragFrom != null) document.body.classList.add('bin-drag'); });
+}
+function endBoardDrag() {
+  state.dragFrom = null;
+  state.dragBin = null;
+  document.body.classList.remove('bin-drag');
+  document.querySelectorAll('.bcard').forEach((r) => r.classList.remove('drop-before', 'drop-after'));
+  document.querySelectorAll('.actcards').forEach((a) => a.classList.remove('dragover'));
+  document.querySelectorAll('.bin-over').forEach((a) => a.classList.remove('bin-over'));
+}
+
+// Board card → bin. The resting pill (grown into a well mid-drag) and the open
+// drawer both take the drop.
+function wireBinDrop(target) {
+  target.addEventListener('dragover', (e) => {
+    if (state.dragFrom == null) return;
+    e.preventDefault();
+    target.classList.add('bin-over');
+  });
+  target.addEventListener('dragleave', (e) => { if (!target.contains(e.relatedTarget)) target.classList.remove('bin-over'); });
+  target.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (state.dragFrom == null) return;
+    binCard(state.dragFrom);
+    endBoardDrag();
+    render();
+  });
+}
+
+const BIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7h18v4H3z"/><path d="M5 11v8a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-8"/><path d="M10 15h4"/></svg>';
+
+function binItem(c, bi) {
+  const actName = laneLabel(c.act, LANE_LABELS[c.act] || c.act);
+  const head = el('div', { class: 'bin-item-head' }, [el('span', { text: 'From ' + actName })]);
+  const back = el('button', { class: 'bin-back', type: 'button', text: 'Put back', title: 'Return it to ' + actName + ', where it was' });
+  back.addEventListener('click', () => { putBackCard(bi); render(); });
+  const del = el('button', { class: 'bin-del', type: 'button', text: 'Delete', title: 'Delete for good' });
+  del.addEventListener('click', () => {
+    if (!confirm('Delete "' + (c.title || 'Untitled') + '" for good?')) return;
+    state.bin.splice(bi, 1);
+    render();
+  });
+  head.append(del, back);
+
+  let kicker;
+  if (c.type === 'song') { const m = FN[c.fn] || FN.ballad; kicker = el('span', { class: 'pill', 'data-fam': m.fam, text: m.label }); }
+  else if (c.type === 'scene') kicker = el('span', { class: 'pill beat-pill', text: state.format === 'prose' ? 'Chapter' : 'Scene' });
+  else kicker = el('span', { class: 'pill beat-pill', text: (c.beatFn || '').trim() || 'Beat' });
+  const sub = c.type === 'song' ? c.purpose : c.type === 'beat' ? c.note : '';
+  const kids = [kicker, el('div', { class: 'bin-card-title', text: c.title || 'Untitled' })];
+  if (sub) kids.push(el('div', { class: 'bin-card-sub', text: sub }));
+  const card = el('div', { class: 'bin-card' + (c.type === 'beat' ? ' beat' : ''), draggable: 'true', title: 'Drag onto the board to use it again' }, kids);
+  card.addEventListener('dragstart', (e) => {
+    state.dragBin = bi;
+    state.dragFrom = null;
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', 'bin:' + bi);
+  });
+  card.addEventListener('dragend', () => { card.classList.remove('dragging'); endBoardDrag(); });
+  return el('div', { class: 'bin-item' }, [head, card]);
+}
+
+// Rebuilt by render(). Lives inside #page-board, so leaving the Board hides it
+// with the page. Read-only boards (references, templates, viewers) get none.
+function renderBin() {
+  const page = document.getElementById('page-board');
+  if (!page) return;
+  let root = document.getElementById('bin-root');
+  if (!root) { root = el('div', { id: 'bin-root' }); page.appendChild(root); }
+  root.innerHTML = '';
+  if (state.readonly) { binOpen = false; return; }
+  const n = state.bin.length;
+
+  if (!binOpen) {
+    const pill = el('button', { class: 'bin-pill' + (n ? '' : ' empty'), type: 'button', title: 'Cards set aside from the story' });
+    pill.appendChild(el('span', { class: 'bin-pill-rest', html: BIN_ICON + '<span>Bin</span><b>' + n + '</b>' }));
+    pill.appendChild(el('span', { class: 'bin-pill-drop', html: BIN_ICON + '<span>Drop to set aside</span><small>Out of the story, kept for later</small>' }));
+    pill.addEventListener('click', () => { binOpen = true; renderBin(); });
+    wireBinDrop(pill);
+    root.appendChild(pill);
+    return;
+  }
+
+  const drawer = el('div', { class: 'bin-drawer' });
+  const x = el('button', { class: 'xclose', type: 'button', text: '✕', title: 'Close' });
+  x.addEventListener('click', () => { binOpen = false; renderBin(); });
+  drawer.appendChild(el('div', { class: 'bin-drawer-head' }, [el('span', { class: 'bin-drawer-title', html: BIN_ICON + '<span>Bin</span>' }), x]));
+  drawer.appendChild(el('div', { class: 'bin-drawer-sub', text: n
+    ? 'Set aside, not part of the story. Drag a card back onto the board, or put it back where it was.'
+    : 'Nothing set aside. Drag a card here to keep it out of the story without deleting it.' }));
+  const list = el('div', { class: 'bin-list' });
+  state.bin.forEach((c, bi) => list.appendChild(binItem(c, bi)));
+  drawer.appendChild(list);
+  wireBinDrop(drawer);
+  root.appendChild(drawer);
 }
 
 function addTile(act) {
@@ -7273,6 +7417,7 @@ function exportShow() {
     mode: state.mode,
     format: state.format,
     cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
+    bin: state.bin.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
     characters: state.characters,
     book: state.book,
     exported: Date.now(),
@@ -7297,6 +7442,7 @@ function importShow(file) {
         mode: data.mode || 'full',
         format: data.format || 'song', // older backups predate the format field
         cards: data.cards,
+        bin: data.bin || [],
         characters: data.characters || {},
         book: data.book,
         updated: Date.now(),
@@ -10879,6 +11025,7 @@ function render() {
     board.appendChild(banner);
   }
   board.appendChild(buildBoard());
+  renderBin();
 
   buildStats();
   syncControls();
@@ -11026,6 +11173,7 @@ function initControls() {
       const modal = document.getElementById('new-show-modal');
       if (modal && modal.style.display !== 'none') { closeNewShowModal(); return; }
       if (state.lyricWinId) closeLyricWindow();
+      else if (binOpen) { binOpen = false; renderBin(); }
     }
   });
   document.addEventListener('click', (e) => {

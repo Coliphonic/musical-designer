@@ -54,6 +54,13 @@ corpus is musicals no matter what is open). Every own-show block in that
 function is guarded on `mine.length`; this test is what stops an unguarded one
 being added.
 
+`bin.test.js` covers the Board's bin (`binCard` / `putBackCard` / `unbinCard`).
+A binned card leaves `state.cards` entirely, which is the whole reason the
+runtime, percentages, Manuscript and exports never see it, so the test pins
+that it really leaves, that `bin` survives `serialize()` → `applyShowData()`,
+and that Put back returns a card to its old place within its act (or the end
+of the act, if the act has shrunk since).
+
 ### If the whole file goes red but every assertion passed
 
 That is the signature of a **boot-time** failure, not a broken app. `app.js` ends
