@@ -44,6 +44,14 @@ const NAMES = {
   newsiesfilm:'Newsies (film)',lionkingfilm:'The Lion King (film)',
   hunchbackfilm:'The Hunchback of Notre Dame (film)',herculesfilm:'Hercules (film)',
   anastasiafilm:'Anastasia (film)',tarzanfilm:'Tarzan (film)',frozenfilm:'Frozen (film)',
+  // batch10 — new releases, carded once the cast album is out.
+  lostboys:'The Lost Boys',
+  twostrangers:'Two Strangers (Carry a Cake Across New York)',
+  queenofversailles:'The Queen of Versailles',deadoutlaw:'Dead Outlaw',
+  deathbecomesher:'Death Becomes Her',operationmincemeat:'Operation Mincemeat',
+  redwood:'Redwood',realwomencurves:'Real Women Have Curves',boop:'BOOP!',
+  ragtime:'Ragtime',floydcollins:'Floyd Collins',sunsetboulevard:'Sunset Boulevard',
+  cats:'Cats',
 };
 
 // The Atlas form filter's three cohorts. 'film' is named explicitly rather than

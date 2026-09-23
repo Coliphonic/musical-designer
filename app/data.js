@@ -59,7 +59,7 @@ const TEMPLATES = [
     label: 'Book Musical — the mean',
     sub: 'The measured middle of the form: 16 songs where 70 two-act shows actually put them.',
     mode: 'full',
-    basis: '77 two-act shows · A1:A2 ratio 1.32 · break at 57% — the all-corpus mean',
+    basis: '88 two-act shows · A1:A2 ratio 1.31 · break at 57% — the all-corpus mean',
     // The shipped v2 default, referenced (not copied) so the two can never drift.
     cards: DEFAULT_TEMPLATE,
   },
@@ -68,7 +68,7 @@ const TEMPLATES = [
     label: 'Golden Age',
     sub: 'Frontloaded Act One, love secured before the break, a company blowout at the curtain.',
     mode: 'full',
-    basis: 'Pre-1990 cohort (n=29) · ratio 1.42 · A1 59% · charm skews Act 1, 38 of 49',
+    basis: 'Pre-1990 cohort (n=30) · ratio 1.42 · A1 59% · charm skews Act 1, 40 of 52',
     // 17 songs · 10/7 · A1 share 61.6% (target ~61%) — minutes as written in §7b.
     cards: [
       // ── Act 1: the world, wide and generous — two charm spots and a big number ──
@@ -99,7 +99,7 @@ const TEMPLATES = [
     label: 'Modern Pop',
     sub: 'Two I Wants for two leads, an anthem where the villain was, and a solo transformation at the break.',
     mode: 'full',
-    basis: '1990+ cohort (n=48) · ratio 1.26 · A1 56% · 9 of 48 shows run dual I Wants',
+    basis: '1990+ cohort (n=58) · ratio 1.25 · A1 56% · 12 of 58 shows run dual I Wants',
     // 16 songs · 9/7 · A1 share 57.5% (target ~57%) — minutes as written in §7b.
     cards: [
       // ── Act 1: want before world-building finishes — the modern cold-ish open ──
@@ -129,7 +129,7 @@ const TEMPLATES = [
     label: 'Contemporary Book Musical',
     sub: 'The Viertel sequence — the noise, the tent pole, the candy dish — hung on the three positions the corpus actually fixes.',
     mode: 'full',
-    basis: 'Card grid × 1990+ cohort (n=48) · act finale 54% and 11 o’clock 88–91%, both corpus-confirmed · 18 seats at ratio 1.25 (measured 1.22)',
+    basis: 'Card grid × 1990+ cohort (n=58) · act finale 54% and 11 o’clock 88–91%, both corpus-confirmed · 18 seats at ratio 1.25 (measured 1.22)',
     // Cut from Colin's Book Musical card grid (v3) where the corpus BACKS it,
     // which is most but not all of it. Positions were tested against the 77
     // two-act shows / 1,485 songs; what survived:
@@ -192,7 +192,7 @@ const TEMPLATES = [
     label: 'Sung-Through',
     sub: 'No book to frontload: a motif planted early, developed at the midpoint, paid off as the 11 o’clock.',
     mode: 'full',
-    basis: 'West End tradition (n=12) · ratio 1.17 · A1 54% · every reprise lands in Act 2 (8 of 8)',
+    basis: 'West End tradition (n=16) · ratio 1.18 · A1 54% · reprises land in Act 2, 13 of 15',
     // 20 songs · 11/9 · A1 share 54.5% (target ~54%). Four ±0.5 nudges buy the
     // flat British split: Act-1 production and the 2A anthem come down 0.5, the
     // 2B drive and the Act-3 soliloquy go up 0.5.

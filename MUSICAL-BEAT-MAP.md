@@ -1,7 +1,7 @@
 # The Musical Beat Map — corpus × story-structure guides
 
 *Research doc. Companion to TEMPLATE-PLAN.md (§4 scene prompts) and SPEC §15
-Story DNA. Source: the 104-show corpus, 1,809 classified songs (1943–2026,
+Story DNA. Source: the 117-show corpus, 2,083 classified songs (1943–2026,
 Broadway + West End + continental Europe + 12 film musicals, hits AND
 flops). Data in `corpus/`.*
 
@@ -11,8 +11,11 @@ corpus grew from 797 to 1,576 songs — the map has converged. At 1,809 (the
 now reads charm 18 · iwant 16 · comedy 16, and 45–50% reads finale 18 ·
 comedy 18. Both shifts are ≤2 points and come from the film cohort singing
 its charm early; every other leader held, and in the two-act-only cut
-comedy still leads the Break into Two. §6 tests the map against a flop
-control group.
+comedy still leads the Break into Two. At 2,083 (batch 10, 2026-09-23:
+the 2024–26 seasons plus Ragtime, Floyd Collins, Sunset Boulevard, Cats)
+both ties resolved without a new leader: 22–28% reads charm 18 · comedy 16
+· iwant 15, and 45–50% reads finale 19 · comedy 16. §6 tests the map
+against a flop control group.
 
 The question: when the popular beat systems are laid over where musicals
 actually put their songs, what lines up — and what does the musical do

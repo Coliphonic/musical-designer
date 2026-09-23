@@ -12,7 +12,7 @@ Corpus data + analyzers live in `corpus/` (plain .mjs, runnable with node).
 
 ## 1 · The corpus
 
-**104 shows · 77 two-act · 15 one-act · 12 film · 1,809 classified songs —
+**117 shows · 88 two-act · 17 one-act · 12 film · 2,083 classified songs —
 including a 5-show flop control group** (see MUSICAL-BEAT-MAP.md §6).
 37 Best Musical Tony winners, plus Olivier winners, the foundational Golden
 Age canon, the West End mega-musicals, and two continental landmarks.
@@ -27,6 +27,20 @@ in the Atlas form filter beside One-act and Full-length (it was folded into
 'finale' — no interval, the same reasoning as the one-act rule. The four cohort basis lines in data.js (mean, pre-1990,
 1990+, West End) were refreshed to the post-batch-9 analyzer output
 (77 two-act · ratio 1.32 · A1 57%).
+
+Batch 10 (2026-09-23) opened a **new releases** file for shows carded once
+their cast album is out, starting with The Lost Boys (2026, 25 numbers,
+minutes from the album's own track times). Every rounded cohort figure held;
+only the n= in the mean and 1990+ basis lines moved (77→78, 48→49).
+The same day it took the rest of the two seasons' original scores (Two
+Strangers, The Queen of Versailles, Dead Outlaw, Death Becomes Her,
+Operation Mincemeat, Redwood, Real Women Have Curves, BOOP!) and four titles
+those seasons revived that the corpus never had (Ragtime, Floyd Collins,
+Sunset Boulevard, Cats), carded as originally written. Jukebox scores held
+back. Moved: mean ratio 1.32→1.31; 1990+ ratio 1.26→1.25 and dual I Wants
+12 of 58; West End n=16, and **its "every reprise lands in Act 2" no longer
+holds** — Sunset Boulevard and Cats each reprise inside Act One (13 of 15).
+Act-one share, function medians and bands all held.
 
 `form` is now carried through to `ATLAS_SHOWS.kind`
 ('one' | 'full' | 'film' | 'other') so the Atlas can filter the three cohorts

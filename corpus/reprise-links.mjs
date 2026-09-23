@@ -54,6 +54,7 @@ export const SOURCE_NOT_CARDED = {
   'beetlejuice :: Ready, Set (Rep)': 'Ready Set Not Yet (not carded)',
   'intothewoods :: So Happy': 'Act 1 finale material, not a single carded song',
   'schmigadoon :: You Done Tamed Me': 'reprises dialogue-underscore material',
+  'operationmincemeat :: Spilsbury Reprise': 'Spilsbury\'s Act One material, not recorded as its own track',
   'frozen :: I Can\'t Lose You': 'reprises For the First Time in Forever material, not a carded card',
 };
 

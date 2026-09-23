@@ -13,6 +13,7 @@ import { BATCH6 } from './corpus-batch6.mjs';
 import { BATCH7 } from './corpus-batch7.mjs';
 import { BATCH8 } from './corpus-batch8.mjs';
 import { BATCH9 } from './corpus-batch9.mjs';
+import { BATCH10 } from './corpus-batch10.mjs';
 
 // Regional tradition for cross-culture comparison. Everything unlisted = bway.
 const REGIONS = { phantom: 'westend', lesmis: 'westend' };
@@ -60,7 +61,7 @@ for (const [key, show] of Object.entries(SHOWS)) {
 }
 
 // ---- normalize data-only shows (position from song-minute timeline — caveat) ----
-for (const [name, data] of Object.entries({ ...WINNERS, ...EXTRAS, ...CLASSICS, ...BATCH4, ...BATCH5, ...BATCH6, ...BATCH7, ...BATCH8, ...BATCH9 })) {
+for (const [name, data] of Object.entries({ ...WINNERS, ...EXTRAS, ...CLASSICS, ...BATCH4, ...BATCH5, ...BATCH6, ...BATCH7, ...BATCH8, ...BATCH9, ...BATCH10 })) {
   const total = data.songs.reduce((s, t) => s + t[3], 0);
   let cum = 0;
   const songs = data.songs.map(([half, fn, voice, min]) => {
