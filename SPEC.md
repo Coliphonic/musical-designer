@@ -172,7 +172,12 @@ typed **element** — Character, Lyrics, Dialogue, Parenthetical, Action, Sectio
   type is inferred from its own text and the block context above it — the same read Highland/
   Fountain give plain text. An ALL-CAPS line after a blank/section becomes a Character cue; a
   parenthesized line becomes a Parenthetical; lines inside a character block default to sung
-  (songs) or spoken (scenes/beats); `[Bracket]` becomes a Section. Feedback is **styling only** —
+  (songs) or spoken (scenes/beats); `[Bracket]` becomes a Section. **In a song, a plain line with
+  no character above it is a lyric too (song grammar 2, 2026-09-23)**: a solo needs no name and no
+  `~`, Enter Enter starts the next verse, and a stage direction is marked with `!` (or Tab to
+  Action), after which the next plain line is a lyric again. Scenes and beats keep plain = Action.
+  Cards carry `grammar: 2` once saved; a song loaded without it gets `!` on exactly the lines the
+  old rule read as Action (`migrateSongGrammar`), so nothing already written changes type. Feedback is **styling only** —
   no labels, chips, or popovers — so a blank page stays a blank page. Classification happens once
   per line, at the moment it's left (Enter, caret leaving the row, or editor blur), never
   retroactively above the caret.

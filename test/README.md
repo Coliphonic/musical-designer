@@ -61,6 +61,13 @@ that it really leaves, that `bin` survives `serialize()` → `applyShowData()`,
 and that Put back returns a card to its old place within its act (or the end
 of the act, if the act has shrunk since).
 
+`song-grammar.test.js` covers song grammar 2: in a song, a plain line with no
+character name above it is a lyric, and a stage direction is marked with `!`.
+It pins the parse (solo verses, `!` directions, CAPS singers after a blank,
+beats unchanged), the `!` the serializer writes for a song's Action rows, and
+the one-time conversion of unstamped songs, which must leave every line's type
+exactly as the old rule read it.
+
 ### If the whole file goes red but every assertion passed
 
 That is the signature of a **boot-time** failure, not a broken app. `app.js` ends

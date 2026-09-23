@@ -193,7 +193,29 @@ function assignLanes(numbers) {
   numbers.forEach((t, i) => { lane[i] = t[0] === 1 ? (pct[i] < 20 ? '1' : '2A') : (pct[i] >= 80 ? '3' : '2B'); });
   return lane;
 }
-function cardFromStored(o) { return Object.assign({}, o, { id: uid() }); }
+function cardFromStored(o) { return migrateSongGrammar(Object.assign({}, o, { id: uid() })); }
+// Song-lyric grammar. Under 1 (cards with no `grammar` stamp), a plain line in
+// a song with no character name above it was Action, so a solo needed ~ on
+// every verse. Under 2 it's a lyric, and Action is marked with ! (see
+// classifyLyricLine). Cards in memory always follow the current grammar:
+// storedCard stamps every card written out from state, and a card loaded
+// without the stamp is converted once here, by giving ! to exactly the lines
+// grammar 1 read as Action by default, so nothing already written changes type.
+const LYRIC_GRAMMAR = 2;
+function storedCard(c) { const o = Object.assign({}, c); delete o.id; o.grammar = LYRIC_GRAMMAR; return o; }
+function migrateSongGrammar(c) {
+  if (c.grammar >= LYRIC_GRAMMAR) return c;
+  if (c.type === 'song' && (c.lyrics || '').trim()) {
+    let ctx = { inCharBlock: false, blockSung: true };
+    c.lyrics = c.lyrics.split('\n').map((ln) => {
+      const { tok, ctx: next } = classifyLyricLine(ln, ctx, true, 1);
+      ctx = next;
+      return (tok.type === 'action' && !/^\s*!/.test(ln)) ? '!' + ln.trim() : ln;
+    }).join('\n');
+  }
+  c.grammar = LYRIC_GRAMMAR;
+  return c;
+}
 
 // Which field holds a card's *manuscript body* (the text the editor + Print view
 // read). Songs write lyrics; scenes write note; a beat's body is always lyrics —
@@ -488,8 +510,8 @@ function serializeData() {
     wordCountBaseline: state.wordCountBaseline || 0,
     wordCountBaselineDate: state.wordCountBaselineDate || '',
     paraStyle: state.paraStyle || 'indent',
-    cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
-    bin: state.bin.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
+    cards: state.cards.map(storedCard),
+    bin: state.bin.map(storedCard),
     revisions: state.revisions,
     currentRev: state.currentRev,
     pageLock: state.pageLock,
@@ -534,7 +556,7 @@ function loadProjects() {
   return fetch('/api/shows').then((r) => r.json()).then((list) => { state.projects = list || []; renderShowBtn(); if (state.page === 'library') buildLibraryPage(); }).catch(() => {});
 }
 function duplicateProject() {
-  const body = JSON.stringify({ title: state.title + ' (copy)', mode: state.mode, format: state.format || 'song', updated: Date.now(), cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }), bin: state.bin.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }) });
+  const body = JSON.stringify({ title: state.title + ' (copy)', mode: state.mode, format: state.format || 'song', updated: Date.now(), cards: state.cards.map(storedCard), bin: state.bin.map(storedCard) });
   fetch('/api/shows', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body }).then((r) => r.json()).then((d) => loadProjects().then(() => openProject(d.id)));
 }
 function deleteProject() {
@@ -2275,7 +2297,9 @@ function splitCueMode(label, defaultSung) {
 // line on demand (replaying prior context) without a parallel classifier that
 // could drift from the canonical parse. Behavior must stay byte-identical to
 // the original inline loop — parseLyricLines below is now a thin wrapper.
-function classifyLyricLine(ln, ctx, defaultSung) {
+// `grammar` is the song-lyric grammar the text was written under (see
+// LYRIC_GRAMMAR); only migrateSongGrammar ever asks for the old one.
+function classifyLyricLine(ln, ctx, defaultSung, grammar = LYRIC_GRAMMAR) {
   let { inCharBlock, blockSung } = ctx;
   const t = ln.trim();
   if (!t) return { tok: { type: 'blank', text: '' }, ctx: { inCharBlock: false, blockSung } };
@@ -2314,6 +2338,11 @@ function classifyLyricLine(ln, ctx, defaultSung) {
     return { tok: { type: 'cue', text: name, dual }, ctx: { inCharBlock: true, blockSung: sung } };
   }
   if (inCharBlock) return { tok: (blockSung ? { type: 'sung', text: t } : { type: 'dialogue', text: ln }), ctx: { inCharBlock, blockSung } };
+  // A song is sung unless a line says otherwise: plain text with no character
+  // above it (a solo, or the next verse after a blank) is a lyric, and a stage
+  // direction needs ! (or Tab to Action). It opens a sung block the way ~text
+  // does, so a CAPS line straight under it stays a shouted lyric, not a cue.
+  if (defaultSung && grammar >= 2) return { tok: { type: 'sung', text: t }, ctx: { inCharBlock: true, blockSung: true } };
   return { tok: { type: 'action', text: ln }, ctx: { inCharBlock, blockSung } };
 }
 // Classify each text line into exactly one token (1:1 with input lines, so the
@@ -2395,7 +2424,8 @@ function serializeRows(rows, isSong) {
       // In-block action would re-parse as dialogue/lyric (plain text inside a
       // character block) — the ! forced-action marker keeps it an action
       // through the round-trip, and closes the block exactly like the parser.
-      parts.push(inBlock ? '!' + text : text);
+      // In a song every action needs it: plain text there is a lyric.
+      parts.push((inBlock || isSong) ? '!' + text : text);
       inBlock = false;
     } else {
       parts.push(text);
@@ -2780,12 +2810,14 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   // a caps name flips the row to Character the moment it reads as one.
   const predictNext = (row) => {
     const type = row.dataset.type;
-    if (!(row.textContent || '').trim()) return 'action'; // Enter on an emptied row: the block just closed, action is next
+    // In a song everything outside a direction is sung, so the next verse,
+    // the line after a stage direction, and the line after a break are lyrics.
+    if (!(row.textContent || '').trim()) return isSong ? 'sung' : 'action'; // Enter on an emptied row: the block just closed
     if (type === 'cue') return row.dataset.mode ? (row.dataset.mode === 'sung' ? 'sung' : 'dialogue') : (isSong ? 'sung' : 'dialogue'); // a (sings)/(spoken) tag steers the block
     if (type === 'paren') return isSong ? 'sung' : 'dialogue';
     if (type === 'section') return isSong ? 'cue' : 'action';
-    if (type === 'scenebreak' || type === 'blank') return 'action';
-    return type; // sung → sung, dialogue → dialogue, action → action
+    if (type === 'scenebreak' || type === 'blank' || type === 'action') return isSong ? 'sung' : 'action';
+    return type; // sung → sung, dialogue → dialogue
   };
   const tabNext   = (type) => { const i = elCycle.indexOf(type); return elCycle[(i + 1) % elCycle.length]; };
   // Each row carries data-id so an edited line keeps its identity across saves
@@ -2848,11 +2880,14 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       if (!(p.textContent || '').trim()) { if (p.dataset.stanza !== '1') inCharBlock = false; continue; }
       const type = p.dataset.type;
       if (type === 'cue') { inCharBlock = true; blockSung = p.dataset.mode ? p.dataset.mode === 'sung' : !!isSong; }
-      else if (type === 'sung') { if (inCharBlock) blockSung = true; }
+      // A lyric with no name above it opens a sung block, as it does in the
+      // parser (classifyLyricLine's song fallback and ~text).
+      else if (type === 'sung') { if (inCharBlock) blockSung = true; else if (isSong) { inCharBlock = true; blockSung = true; } }
       else if (type === 'dialogue') { if (inCharBlock) blockSung = false; }
-      else if (type === 'blank' || type === 'scenebreak' || type === 'section') { inCharBlock = false; }
-      // paren/action never change the block state (action only ever occurs
-      // when already out of a block, so there's nothing to flip back).
+      // Action closes the block: it's written out with ! wherever it could
+      // otherwise read as a lyric or dialogue, and the parser closes on !.
+      else if (type === 'blank' || type === 'scenebreak' || type === 'section' || type === 'action') { inCharBlock = false; }
+      // paren never changes the block state.
     }
     return { inCharBlock, blockSung };
   };
@@ -2893,6 +2928,13 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     if ((type === 'cue' || (row.dataset.fresh === '1' && cueLetters >= 2)) && newType !== 'cue' && looksLikeCue(raw)) {
       ({ tok } = classifyLyricLine(raw, { inCharBlock: false, blockSung: !!isSong }, isSong));
       newType = tok.type;
+    }
+    // A stage direction in a song was chosen on purpose (! or Tab: plain text
+    // there is a lyric), so editing its words keeps it Action. Only a fresh
+    // Enter-made row is still open to inference.
+    if (isSong && type === 'action' && row.dataset.fresh !== '1' && (newType === 'sung' || newType === 'dialogue' || newType === 'cue')) {
+      tok = { type: 'action', text: raw.replace(/^!\s*/, '') };
+      newType = 'action';
     }
     const sameSubtype = newType !== 'section' || tok.subtype === row.dataset.subtype;
     const sameDual = newType !== 'cue' || !!tok.dual === (row.dataset.dual === '1');
@@ -2957,6 +2999,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     // text reads as something, the stamp drops and the row justifies to its
     // element's real position — one jump per line, always from the left.
     if (row.dataset.neutral === '1' && t && !/^[@~!([/.=#*]/.test(t) && !/^[A-Z]$/.test(t)) delete row.dataset.neutral;
+    if (isSong && type === 'action' && row.dataset.fresh !== '1') return; // a song's stage direction holds while its words are edited (see inferRow)
     if (!t) { row.dataset.neutral = '1'; return; } // emptied by editing — unidentified again, caret returns to the left margin
     if (/^[@~!([/.=#]/.test(t) || /^\*/.test(t)) return; // markers wait for commit — including a /command or a . = # card-creation marker being typed, which would otherwise live-retype to action and lose the neutral stamp
     let newType;
@@ -2987,8 +3030,11 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   // Read the DOM rows back as identified lines — text re-wrapped so each row's
   // text matches parseLyricLines output (so the blob round-trips exactly).
   const rowsFrom = (lineEd) => [...lineEd.querySelectorAll('.ms-el')].map((div) => {
-    const type = div.dataset.type;
     let txt = emphFromNode(div).trim(); // serialize b/i/u back to Fountain markup
+    // An emptied row keeps the style Enter predicted for it (a lyric, in a
+    // song), but it's a blank line: serializeRows writes it as one and the
+    // parser reads it back as one, so store it as one too.
+    const type = (!txt && div.dataset.type !== 'scenebreak') ? 'blank' : div.dataset.type;
     if (type === 'paren' && txt) txt = '(' + txt.replace(/^\(/, '').replace(/\)$/, '') + ')';
     const row = { id: div.dataset.id || lid(), type, text: txt, dual: div.dataset.dual === '1' };
     if (div.dataset.subtype) row.subtype = div.dataset.subtype;
@@ -3614,7 +3660,10 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     for (let i = 1; i < segs.length; i++) {
       const txt = segs[i] + (i === segs.length - 1 ? after : '');
       // empty pasted lines are stanza breaks, not empty rows of the cloned type
-      const nl = txt.trim() ? mkLine(line.dataset.type, txt) : mkLine('blank', '');
+      // (A song's Action rows hold their type once committed, so pasted lines
+      // start as lyrics there and let inference find any !directions.)
+      const cloneType = (isSong && line.dataset.type === 'action') ? 'sung' : line.dataset.type;
+      const nl = txt.trim() ? mkLine(cloneType, txt) : mkLine('blank', '');
       nl.dataset.dirty = '1';
       anchor.after(nl); anchor = nl;
     }
@@ -3797,7 +3846,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       if (e.shiftKey && !carried.trim()) {
         const curT = cur.dataset.type;
         const inBlock = !isProse && (blockCtxBefore(cur).inCharBlock || curT === 'sung' || curT === 'dialogue' || curT === 'cue');
-        const contType = !inBlock ? 'action'
+        const contType = !inBlock ? (isSong ? 'sung' : 'action')
           : curT === 'dialogue' ? 'dialogue'
           : curT === 'sung' ? 'sung'
           : (isSong ? 'sung' : 'dialogue'); // cue/other in-block row → the block's default mode
@@ -7416,8 +7465,8 @@ function exportShow() {
     title: state.title,
     mode: state.mode,
     format: state.format,
-    cards: state.cards.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
-    bin: state.bin.map((c) => { const o = Object.assign({}, c); delete o.id; return o; }),
+    cards: state.cards.map(storedCard),
+    bin: state.bin.map(storedCard),
     characters: state.characters,
     book: state.book,
     exported: Date.now(),
@@ -10630,7 +10679,7 @@ function buildLyricWindow(c) {
         : 'Write the scene here…\n\nJust write — paragraphs flow one after another.\n*italic* / **bold** — inline emphasis\n***  — a scene break (on its own line)\nCHARACTER — a CAPS line still works for dialogue cues, if you want them')
     : c.type === 'beat'
     ? 'Write the scene here…\n\nCHARACTER — a CAPS line is who speaks\nDialogue — plain text below the name\n~ — a blank line that keeps the speech going\n(Parenthetical) — tone / action mid-line\nAction — plain line outside a character\n!Line — force action inside dialogue\nCHARACTER (sings) — mark a sung outburst\n[Scene] — section heading\n/song Title — start a new song card (Manuscript)'
-    : 'Write here…\n\nCHARACTER — a CAPS line is who sings\nLyrics — just type below the name (rhyme-tracked)\n~ — a blank line that stays in the song (new stanza)\nCHARACTER (spoken) — mark a spoken aside\n(Parenthetical) — inline note\n[Chorus] — section chip (resets rhyme)\n[Scene 1: Title] — scene heading\n[#01 Title] — song number header\n/song Title — start a new song card (Manuscript)';
+    : 'Write here…\n\nLyrics — just type, with or without a name above (rhyme-tracked)\nCHARACTER — a CAPS line is who sings\n!Line — a stage direction\nCHARACTER (spoken) — mark a spoken aside\n(Parenthetical) — inline note\n[Chorus] — section chip (resets rhyme)\n[Scene 1: Title] — scene heading\n[#01 Title] — song number header\n/song Title — start a new song card (Manuscript)';
   const editor = el('textarea', { class: 'lweditor', wrap: (plain || isProse) ? 'soft' : 'off', spellcheck: 'true', placeholder: (plain && !isProse) ? 'Write the scene here — the book prose for this moment.' : editorPlaceholder });
   editor.value = c[bodyField] || '';
 

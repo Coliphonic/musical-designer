@@ -118,6 +118,9 @@ const EXPORTS = [
   // The Board's bin: the card moves in and out of it, and render() for the
   // drawer runs against the DOM stub.
   'binCard', 'unbinCard', 'putBackCard', 'renderBin',
+  // Song-lyric grammar: the parser, and the one-time conversion of songs
+  // written before a plain line in a song counted as a lyric.
+  'parseLyricLines', 'classifyLyricLine', 'migrateSongGrammar', 'storedCard', 'serializeData',
 ];
 
 // app.js's boot tail kicks off loadProjects().then(...) — an async chain that
