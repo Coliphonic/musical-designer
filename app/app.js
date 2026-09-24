@@ -2015,6 +2015,7 @@ function binCard(i) {
   const c = state.cards[i];
   if (!c) return;
   c.binPos = state.cards.filter((x) => x.act === c.act).indexOf(c);
+  delete c.binFrom;
   state.cards.splice(i, 1);
   state.bin.unshift(c); // newest on top
 }
@@ -2022,6 +2023,7 @@ function unbinCard(bi, to, act) {
   const c = state.bin.splice(bi, 1)[0];
   if (!c) return;
   delete c.binPos;
+  delete c.binFrom;
   c.act = act;
   state.cards.splice(to, 0, c);
 }
@@ -2034,6 +2036,72 @@ function putBackCard(bi) {
   const to = c.binPos != null && c.binPos < inAct.length ? inAct[c.binPos] : lastIndexOfAct(act) + 1;
   unbinCard(bi, to, act);
 }
+
+// ---- Copy to another project ----------------------------------------------
+// A copy lands in the other project's Bin, never on its board, so nothing in
+// that show's running order, runtime or Manuscript moves until the writer
+// places it. The card is snapshotted when the button is pressed (storedCard:
+// no session id) and remembers the show it came from for the Bin's label.
+// Only projects of the same format (song or prose) that you can edit are
+// offered; archived ones are left out to keep the list short.
+function copiedCard(c, fromTitle) {
+  const o = JSON.parse(JSON.stringify(storedCard(c)));
+  delete o.binPos;
+  o.binFrom = fromTitle || 'another project';
+  return o;
+}
+function addCopyToShow(d, copy) {
+  d.bin = [copy].concat(d.bin || []); // newest on top, as binCard does
+  d.updated = Date.now();
+  delete d.role; // the GET adds it; it isn't part of the show
+  return d;
+}
+function copyTargets() {
+  const fmt = state.format || 'song';
+  return (state.projects || []).filter((p) => p.id !== state.projectId
+    && (p.format || 'song') === fmt && p.role !== 'viewer' && p.status !== 'archived');
+}
+function copyCardToProject(copy, id) {
+  return fetch('/api/shows/' + id).then((r) => { if (!r.ok) throw new Error('load'); return r.json(); })
+    .then((d) => fetch('/api/shows/' + id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(addCopyToShow(d, copy)) }))
+    .then((r) => { if (!r.ok) throw new Error('save'); return loadProjects(); });
+}
+function openCopyModal(c) {
+  const copy = copiedCard(c, state.title);
+  const name = c.title || 'Untitled';
+  const list = document.getElementById('copy-list');
+  const sub = document.getElementById('copy-sub');
+  const cancel = document.getElementById('copy-cancel');
+  list.innerHTML = '';
+  list.style.display = '';
+  cancel.textContent = 'Cancel';
+  const targets = copyTargets();
+  sub.textContent = targets.length
+    ? 'Copy "' + name + '" into another project. It goes into that project\u2019s Bin, ready to drag onto the board. This one stays where it is.'
+    : 'There\u2019s no other ' + (state.format === 'prose' ? 'novel' : 'show') + ' to copy into yet.';
+  targets.forEach((p) => {
+    const b = el('button', { class: 'folder-opt', type: 'button' }, [
+      el('span', { text: p.title || 'Untitled' }),
+      p.folder ? el('small', { class: 'copy-folder', text: p.folder }) : null,
+    ].filter(Boolean));
+    b.addEventListener('click', () => {
+      list.querySelectorAll('button').forEach((x) => { x.disabled = true; });
+      sub.textContent = 'Copying\u2026';
+      copyCardToProject(copy, p.id).then(() => {
+        list.innerHTML = '';
+        list.style.display = 'none';
+        sub.textContent = 'Copied "' + name + '" to ' + (p.title || 'Untitled') + '. It\u2019s in that project\u2019s Bin.';
+        cancel.textContent = 'Done';
+      }).catch(() => {
+        list.querySelectorAll('button').forEach((x) => { x.disabled = false; });
+        sub.textContent = 'Couldn\u2019t copy to ' + (p.title || 'Untitled') + '. Check your connection and try again.';
+      });
+    });
+    list.appendChild(b);
+  });
+  document.getElementById('copy-modal').style.display = '';
+}
+function closeCopyModal() { document.getElementById('copy-modal').style.display = 'none'; }
 
 // A drag that ends anywhere (a drop target, or nowhere at all) must clear both
 // sources: a stale dragBin would turn the next board-card drop into a restore.
@@ -2075,7 +2143,10 @@ const BIN_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" str
 
 function binItem(c, bi) {
   const actName = laneLabel(c.act, LANE_LABELS[c.act] || c.act);
-  const head = el('div', { class: 'bin-item-head' }, [el('span', { text: 'From ' + actName })]);
+  const from = 'From ' + (c.binFrom || actName);
+  const head = el('div', { class: 'bin-item-head' }, [el('span', { text: from, title: from })]);
+  const copy = el('button', { class: 'bin-del', type: 'button', text: 'Copy', title: 'Copy into another project' });
+  copy.addEventListener('click', () => openCopyModal(c));
   const back = el('button', { class: 'bin-back', type: 'button', text: 'Put back', title: 'Return it to ' + actName + ', where it was' });
   back.addEventListener('click', () => { putBackCard(bi); render(); });
   const del = el('button', { class: 'bin-del', type: 'button', text: 'Delete', title: 'Delete for good' });
@@ -2084,7 +2155,7 @@ function binItem(c, bi) {
     state.bin.splice(bi, 1);
     render();
   });
-  head.append(del, back);
+  head.appendChild(el('div', { class: 'bin-item-acts' }, [copy, del, back]));
 
   let kicker;
   if (c.type === 'song') { const m = FN[c.fn] || FN.ballad; kicker = el('span', { class: 'pill', 'data-fam': m.fam, text: m.label }); }
@@ -10403,7 +10474,9 @@ function buildDetailsPanel(c, onChange) {
     const i = state.cards.indexOf(c); if (i >= 0) state.cards.splice(i, 1);
     closeLyricWindow();
   });
-  body.appendChild(del);
+  const copyBtn = el('button', { class: 'lwcopy', text: 'Copy to another project…' });
+  copyBtn.addEventListener('click', () => openCopyModal(c));
+  body.appendChild(el('div', { class: 'lwcardacts' }, [copyBtn, del]));
   return wrap;
 }
 
@@ -11157,6 +11230,10 @@ function initControls() {
   document.getElementById('folder-new').addEventListener('keydown', (e) => { if (e.key === 'Enter') createFolderAndMove(); });
   document.getElementById('folder-modal').addEventListener('click', (e) => { if (e.target.id === 'folder-modal') closeFolderModal(); });
 
+  // Copy-to-project modal
+  document.getElementById('copy-cancel').addEventListener('click', closeCopyModal);
+  document.getElementById('copy-modal').addEventListener('click', (e) => { if (e.target.id === 'copy-modal') closeCopyModal(); });
+
   // Share modal
   document.getElementById('share-cancel').addEventListener('click', closeShareModal);
   document.getElementById('share-save').addEventListener('click', saveSharing);
@@ -11215,6 +11292,8 @@ function initControls() {
       if (exd) { closeExportDrawer(); return; }
       const fnd = document.getElementById('find-modal');
       if (fnd && fnd.style.display !== 'none') { closeFindModal(); return; }
+      const cpm = document.getElementById('copy-modal');
+      if (cpm && cpm.style.display !== 'none') { closeCopyModal(); return; }
       const fm = document.getElementById('folder-modal');
       if (fm && fm.style.display !== 'none') { closeFolderModal(); return; }
       const shm = document.getElementById('share-modal');

@@ -422,9 +422,11 @@ body.bin-drag .bin-pill.bin-over { background: color-mix(in srgb, var(--energy) 
 .bin-drawer-sub { padding: 0 14px 12px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 12px; line-height: 1.45; }
 .bin-list { flex: 1; overflow-y: auto; padding: 12px 14px 16px; display: flex; flex-direction: column; gap: 14px; }
 .bin-item { display: flex; flex-direction: column; gap: 5px; }
-.bin-item-head { display: flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
-.bin-item-head > span { flex: 1; }
-.bin-back, .bin-del { font-family: inherit; font-size: 11.5px; padding: 2px 8px; border-radius: 7px; cursor: pointer; letter-spacing: 0; text-transform: none; font-weight: 500; }
+.bin-item-head { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 650; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); }
+/* A long source ("From <another show>") wraps onto its own line above the buttons. */
+.bin-item-head > span { flex: 1 0 auto; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bin-item-acts { display: flex; gap: 4px; margin-left: auto; }
+.bin-back, .bin-del { flex: none; white-space: nowrap; font-family: inherit; font-size: 11.5px; padding: 2px 8px; border-radius: 7px; cursor: pointer; letter-spacing: 0; text-transform: none; font-weight: 500; }
 .bin-back { border: 1px solid var(--line); background: transparent; color: var(--energy); }
 .bin-back:hover { background: var(--hover); }
 .bin-del { border: none; background: transparent; color: var(--muted); }
@@ -1321,6 +1323,9 @@ textarea.lweditor.lweditor-lit::placeholder { color: #c5beb0; -webkit-text-fill-
 .lwdetails-body { display: flex; flex-direction: column; gap: 13px; padding: 10px 0 4px; }
 .lwdetails-body .fl { color: var(--azure); }
 .lwdetails .fi:focus { box-shadow: inset 0 0 0 1px var(--azure); }
+.lwcardacts { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.lwcopy { background: none; border: 0; color: var(--energy); font-size: 13px; font-family: inherit; padding: 6px 0; cursor: pointer; }
+.lwcopy:hover, .lwdelete:hover { text-decoration: underline; }
 .lwdelete { align-self: flex-start; background: none; border: 0; color: var(--danger); font-size: 13px; padding: 6px 0; cursor: pointer; }
 
 /* inline-editable card fields: placeholder when empty */
@@ -3018,6 +3023,9 @@ body.dark .ch-card { --ch-accent: oklch(0.72 0.10 var(--ch-hue, 250)); }
   font-size: 14px; font-family: inherit; padding: 9px 11px; border-radius: 8px; cursor: pointer;
 }
 .folder-opt:hover { background: var(--hover); }
+.folder-opt { display: flex; align-items: baseline; gap: 10px; }
+.folder-opt:disabled { opacity: 0.5; cursor: default; }
+.copy-folder { margin-left: auto; font-size: 11.5px; color: var(--muted); }
 .folder-opt.active { border-color: var(--energy); color: var(--energy); font-weight: 600; }
 
 /* ── The Score Field ───────────────────────────────────────────────────────

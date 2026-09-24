@@ -90,3 +90,48 @@ test('the drawer and pill build for an empty and a full bin', () => {
   assert.doesNotThrow(() => app.renderBin());
   app.state.readonly = true;
 });
+
+// Copy to another project: the copy is written into the other show's bin, so
+// the pieces worth pinning are the payload (no session id, no stale binPos,
+// a source label) and that a copied card is a normal bin card once it's there.
+test('a copied card is a clean, stored snapshot that names its source', () => {
+  app.applyShowData(show());
+  const c = app.state.cards[1];
+  const copy = app.copiedCard(c, 'Old draft');
+  assert.equal(copy.id, undefined, 'no session id travels');
+  assert.equal(copy.binFrom, 'Old draft');
+  assert.equal(copy.title, 'Middle beat');
+  assert.equal(copy.note, 'a draft');
+  copy.title = 'changed';
+  assert.equal(c.title, 'Middle beat', 'the original is untouched');
+});
+
+test('a copy lands on top of the other show\'s bin and survives its load', () => {
+  app.applyShowData(show());
+  app.binCard(0); // a card already binned: its binPos must not travel
+  const copy = app.copiedCard(app.state.bin[0], 'Old draft');
+  assert.equal(copy.binPos, undefined);
+  const target = { title: 'New show', mode: 'full', format: 'song', role: 'editor', cards: [], bin: [{ type: 'beat', act: '1', title: 'Already here' }] };
+  const out = app.addCopyToShow(target, copy);
+  assert.equal(out.role, undefined, 'the GET-only role field is not written back');
+  assert.deepEqual(Array.from(out.bin, (b) => b.title), ['Opening', 'Already here']);
+  app.applyShowData(out);
+  assert.equal(app.state.bin[0].binFrom, 'Old draft');
+  app.putBackCard(0);
+  assert.equal(app.state.cards[0].title, 'Opening');
+  assert.equal(app.state.cards[0].binFrom, undefined, 'the source label goes once it is placed');
+});
+
+test('only same-format, editable, unarchived other projects are offered', () => {
+  app.applyShowData(show());
+  app.state.projectId = 'me';
+  app.state.projects = [
+    { id: 'me', title: 'This one', format: 'song' },
+    { id: 'a', title: 'Song show', format: 'song', role: 'owner' },
+    { id: 'b', title: 'Novel', format: 'prose' },
+    { id: 'c', title: 'View only', format: 'song', role: 'viewer' },
+    { id: 'd', title: 'Old', format: 'song', status: 'archived' },
+    { id: 'e', title: 'Legacy, no format', role: 'editor' },
+  ];
+  assert.deepEqual(Array.from(app.copyTargets(), (p) => p.id), ['a', 'e']);
+});
