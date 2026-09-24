@@ -121,6 +121,9 @@ const EXPORTS = [
   // Song-lyric grammar: the parser, and the one-time conversion of songs
   // written before a plain line in a song counted as a lyric.
   'parseLyricLines', 'classifyLyricLine', 'migrateSongGrammar', 'storedCard', 'serializeData',
+  // Template registry helpers: the seat label a preview shows, the cards a
+  // created show is seeded from, and the read-only preview itself.
+  'templateSeatLabel', 'templateCardsFor', 'openTemplatePreview',
 ];
 
 // app.js's boot tail kicks off loadProjects().then(...) — an async chain that

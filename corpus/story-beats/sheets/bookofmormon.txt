@@ -1,0 +1,28 @@
+### The Book of Mormon (2011) | protagonist: Elder Price | sources: https://en.wikipedia.org/wiki/The_Book_of_Mormon_(musical), https://stageagent.com/shows/musical/1287/the-book-of-mormon | version: original 2011 Broadway | confidence: high ("Orlando" is a real number the fetched synopsis mentions that isn't in the given running order, marked S* per instructions)
+
+A1 | / | - | - | A Missionary Training Center, then northern Uganda
+A1 | S | Hello! | Opening Image | Missionaries in training cheerfully practice their doorbell pitch
+A1 | S | Two by Two | Set-Up | Price hopes for a glamorous Orlando posting; instead he's paired with awkward Cunningham for Uganda
+A1 | S | You and Me (But Mostly Me) | Theme Stated | Cunningham vows loyal friendship while Price fixates on his own destiny for greatness
+A1 | B | - | Catalyst | The missionaries land in Uganda and are immediately robbed at gunpoint by the warlord's soldiers
+A1 | S | Hasa Diga Eebowai | Debate | Villagers teach the shell-shocked missionaries their bleak, profane coping motto
+A1 | S | Turn It Off | Debate | Fellow missionary Elder McKinley teaches suppressing bad feelings instead of confronting them
+A1 | S | I Am Here for You | Break into Two | Cunningham reassures anxious Price he'll back him no matter what happens
+A1 | S | All-American Prophet | Fun and Games | Price enthusiastically preaches Joseph Smith's story, mostly about himself
+A1 | S | Sal Tlay Ka Siti | B Story | Village girl Nabulungi dreams of a paradise called Salt Lake City, and Cunningham listens
+A1 | B | - | Midpoint (false victory) | Shaken by the warlord's violence, Price demands a transfer, abandoning Cunningham for his Orlando dream
+A1 | S | Man Up | Bad Guys Close In | Left alone, Cunningham finds unlikely courage to keep the mission going without Price
+A2 | S | Making Things Up Again | Bad Guys Close In | Struggling to hold interest, Cunningham starts blending scripture with sci-fi nonsense
+A2 | S | Spooky Mormon Hell Dream | Bad Guys Close In | Guilt-ridden over abandoning Cunningham, Price is tormented by a nightmare of Hell
+A2 | S | I Believe | Bad Guys Close In | Renewed in faith, Price tries to convert the warlord directly and is dragged off and beaten
+A2 | S | Baptize Me | Bad Guys Close In | Meanwhile Cunningham baptizes an eager Nabulungi, their bond deepening
+A2 | S | I Am Africa | Bad Guys Close In | The missionaries and villagers celebrate a unity built on Cunningham's fabrications
+A2 | B | - | Bad Guys Close In | The warlord, enraged at the conversions, vows revenge; Price, his faith shattered, drowns his sorrows in coffee
+A2 | S* | Orlando | Bad Guys Close In | Price bitterly reflects on the posting he'll now never get
+A2 | S | Joseph Smith American Moses | Bad Guys Close In | The village stages a pageant of Cunningham's absurd invented gospel for the visiting mission president
+A2 | B | - | All Is Lost | Appalled, the president excommunicates the mission and tells Nabulungi she was never really a member
+A2 | B | - | Dark Night of the Soul | Heartbroken at being betrayed by the faith she trusted, Nabulungi curses God alongside the shattered village
+A2 | S | You and Me (But Mostly Me) (Rep) | Break into Three | Price realizes Cunningham was right: a story's meaning matters more than its facts
+A2 | B | - | Finale | As the warlord returns for revenge, the villagers shield Cunningham, insisting his teachings already saved them
+A2 | S | Tomorrow Is a Latter Day | Final Image | Newly ordained Ugandan elders spread their own reimagined gospel, echoing the opening doorbell pitch
+NOTES: Midpoint (Price abandoning Cunningham, a self-serving "victory" that's really a betrayal) falls at the Act One curtain. Catalyst, All Is Lost, and Dark Night are all spoken book scenes; Break into Two and Break into Three are sung. Nearly the whole back half of Act Two is one continuous Bad-Guys-Close-In stretch.

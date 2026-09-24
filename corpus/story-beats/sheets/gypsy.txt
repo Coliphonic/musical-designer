@@ -1,0 +1,28 @@
+### Gypsy (1959) | protagonist: Rose | sources: https://en.wikipedia.org/wiki/Gypsy:_A_Musical_Fable, https://stageagent.com/shows/musical/1347/gypsy | version: original 1959 Broadway | confidence: medium (Wikipedia's synopsis is compressed; some Act Two connective detail below, e.g. Herbie's final exit, is filled in from general knowledge of the standard libretto rather than spelled out in the fetched text)
+
+A1 | / | - | - | The wings of a third-rate vaudeville theater, Seattle
+A1 | S | Let Me Entertain You (kiddie) | Opening Image | Baby June and Louise perform a scrappy kiddie act as Rose heckles from the house
+A1 | B | - | Catalyst | Rose begs her father for money to take the act on the road; he refuses her for good
+A1 | S | Some People | Theme Stated | Rose vows she'll never settle the way "some people" do, whatever it costs
+A1 | S | Small World | Set-Up | Traveling salesman Herbie is charmed by Rose into becoming the act's agent
+A1 | B | - | Debate | Once burned by show business, Herbie hesitates before signing on to Rose's scheme again
+A1 | S~ | Baby June and Her Newsboys | Break into Two | Under Herbie's management, the act finally lands real vaudeville bookings
+A1 | S | Mr. Goldstone, I Love You | Fun and Games | Rose charms an Orpheum Circuit booker into giving the act a real date
+A1 | S | Little Lamb | B Story | On her birthday, overlooked Louise confides only in her toy lamb
+A1 | S | You'll Never Get Away from Me | Fun and Games | Rose rejects Herbie's marriage proposal, keeping him bound to the act instead
+A1 | S | Dainty June and Her Farmboys | Fun and Games | Now teenagers, the act rebrands as June ages into the ingenue role
+A1 | S | If Momma Was Married | Bad Guys Close In | June and Louise fantasize about Rose settling down and letting them go
+A1 | S | All I Need Is the Girl | Bad Guys Close In | Cast member Tulsa shares his dream act with Louise; the two grow close
+A1 | B | - | Bad Guys Close In | Fed up with Rose's control, June elopes with Tulsa and quits the act for good
+A1 | S | Everything's Coming Up Roses | Midpoint (false victory) | Undaunted by losing her star, Rose vows to make Louise the new one instead
+A2 | S | Madame Rose's Toreadorables | Bad Guys Close In | Rose rebrands the act around a reluctant Louise; bookings keep shrinking
+A2 | S | Together, Wherever We Go | Bad Guys Close In | Rose, Herbie, and Louise pledge loyalty to each other even as the act keeps failing
+A2 | B | - | Bad Guys Close In | Bookings dry up entirely; an agent accidentally lands them a burlesque house in Wichita
+A2 | S | You Gotta Get a Gimmick | Bad Guys Close In | Three veteran strippers coach anxious Louise on how to stand out
+A2 | B | - | Bad Guys Close In | Herbie proposes again, on condition Rose finally let Louise quit for a normal life; she agrees
+A2 | B | - | All Is Lost | The featured stripper is arrested; Rose immediately breaks that promise and pushes Louise on instead
+A2 | S | Let Me Entertain You (strip) | Dark Night of the Soul | Louise reluctantly performs, discovers a gift for it, and becomes a sensation as Herbie leaves for good
+A2 | B | - | Break into Three | Now a headliner billed as Gypsy Rose Lee, Louise coolly tells Rose she no longer needs her
+A2 | S | Rose's Turn | Finale | Alone, Rose finally performs for herself, confronting the star she never let herself become
+A2 | B | - | Final Image | Louise appears as the number ends; mother and daughter reach a wary, wordless truce
+NOTES: Midpoint (Everything's Coming Up Roses, a manic false victory pivoting from June's defection) sits right at the Act One curtain. Catalyst and Break into Two are spoken/implied book beats; the Midpoint and Finale (Rose's Turn) are sung, and the true reckoning (Dark Night into Break into Three) is mostly spoken, compressed into Louise's rise and her rejection of Rose. "Baby June and Her Newsboys"'s exact dramatic function is inferred from the running order since the fetched synopsis skipped past it.

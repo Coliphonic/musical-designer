@@ -1,0 +1,36 @@
+### Beauty and the Beast (1994 Broadway) | protagonist: Belle | sources: https://en.wikipedia.org/wiki/Beauty_and_the_Beast_(musical), https://stageagent.com/shows/musical/321/beauty-and-the-beast | version: original 1994 Broadway (see NOTES on "Human Again") | confidence: high
+
+A1 | / | - | - | A cursed castle; ten years later, a French provincial village
+A1 | B | - | Opening Image | An enchantress curses a cruel young prince into a Beast for refusing an old beggar shelter
+A1 | S | Belle | Set-Up | Belle longs for adventure and a life bigger than her provincial village
+A1 | S | No Matter What | Theme Stated | Maurice reassures Belle that being different doesn't matter
+A1 | S | No Matter What (Rep) | Set-Up | Maurice sets off for the invention fair wearing the scarf Belle knitted him
+A1 | S | Wolf Chase | Catalyst | Lost in the woods, Maurice is attacked by wolves, reaches a mysterious castle, and is imprisoned by its Beast
+A1 | S | Me | Debate | Back in town, Gaston proposes marriage to Belle; she refuses him without hesitation
+A1 | S | Belle (Reprise) | Debate | Still aching for a bigger life, Belle sees LeFou wearing her father's scarf and panics
+A1 | B | - | Break into Two | Belle rushes into the woods, finds her father caged at the castle, and offers herself in his place
+A1 | / | - | - | Inside the Beast's castle
+A1 | S | Home | Fun and Games | Belle grieves her sudden captivity in the castle
+A1 | S | Home (Reprise) | Fun and Games | Mrs. Potts and Madame de la Grande Bouche try to comfort her
+A1 | S | Gaston | Bad Guys Close In | At the tavern, Gaston mourns losing Belle while villagers try to console him
+A1 | S | Gaston (Reprise) | Bad Guys Close In | Maurice's wild story about a Beast gives Gaston a sinister idea
+A1 | S | How Long Must This Go On? | Fun and Games | The Beast, impatient and afraid, declares Belle won't eat unless she joins him
+A1 | S | Be Our Guest | Fun and Games | The servants, defying his sulking, treat hungry Belle to a lavish dinner show
+A1 | S | If I Can't Love Her | Midpoint (false defeat) | After Belle flees the forbidden West Wing in fear, the Beast despairs he's cursed forever
+A2 | B | - | B Story | Wolves attack Belle in the woods; the wounded Beast's rescue earns him her trust and care
+A2 | S | Something There | Bad Guys Close In | Belle and the Beast's growing bond becomes obvious to the delighted servants
+A2 | S | Human Again | Bad Guys Close In | The servants dream of becoming human again as the romance blooms
+A2 | S | Maison des Lunes | Bad Guys Close In | Gaston conspires to have Maurice committed unless Belle agrees to marry him
+A2 | S | Beauty and the Beast | Bad Guys Close In | Belle and the Beast dance together at a formal dinner, plainly in love
+A2 | B | - | Bad Guys Close In | The Beast's magic mirror shows Maurice lost and sick; he lets Belle go to save him
+A2 | S | If I Can't Love Her (Rep) | Bad Guys Close In | The Beast says an anguished goodbye, sure he's lost his last chance at love
+A2 | S | The Mob Song | Bad Guys Close In | Gaston rallies the village to storm the castle and kill the Beast
+A2 | B | - | Bad Guys Close In | The servants battle the mob while Gaston finds the Beast and beats him mercilessly
+A2 | B | - | All Is Lost + Dark Night of the Soul | Beaten and hopeless, the Beast stops fighting back, resigned to die unloved
+A2 | B | - | Break into Three | Belle arrives just in time; the Beast turns to fight but spares Gaston when he sees his terror
+A2 | B | - | Finale | Gaston stabs the Beast from behind, then loses his footing and falls to his death
+A2 | B | - | Finale | Belle begs the dying Beast not to leave her, having finally found a home in him despite everything
+A2 | B | - | Finale (Dig Deep Down) | As the last petal falls, Belle whispers that she loves him just before he dies
+A2 | S | Transformation | Finale | The Beast transforms back into the prince; the servants become human again
+A2 | S | Finale | Final Image | The restored court and Belle celebrate how love has changed all their lives
+NOTES: The Prologue is narrated/underscored, not a titled number in the given running order, so it's marked B. "Human Again"'s place in the "original 1994" era is debated — several production histories place its Broadway debut in a later-1990s staging refresh rather than opening night. Midpoint (a false defeat) falls at the Act One curtain; Catalyst and Break into Two are largely book-driven, while the true low point (All Is Lost/Dark Night, combined) is entirely spoken/physical, not sung.

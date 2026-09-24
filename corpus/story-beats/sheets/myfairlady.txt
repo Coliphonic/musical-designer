@@ -1,0 +1,35 @@
+### My Fair Lady (1956) | protagonist: Eliza Doolittle | sources: https://stageagent.com/shows/musical/643/my-fair-lady, https://en.wikipedia.org/wiki/My_Fair_Lady | version: original 1956 Broadway | confidence: high
+
+A1 | / | - | - | Covent Garden, London, a rainy night after the opera
+A1 | S | Why Can't the English? | Opening Image + Set-Up | Higgins mocks the crowd's accents; Eliza is just a rough-voiced flower girl among them
+A1 | B | - | Catalyst | Higgins boasts to Pickering he could pass Eliza off as a duchess within months
+A1 | S | Wouldn't It Be Loverly? | Debate | Eliza daydreams about a warm, comfortable life, tempted but not yet acting
+A1 | / | - | - | Tottenham Court Road, the next morning
+A1 | S | With a Little Bit of Luck | Set-Up | Eliza's father Doolittle preaches getting by on charm and luck instead of work
+A1 | B | - | Break into Two | Eliza shows up at Higgins's house to pay for speech lessons herself
+A1 | B | - | B Story | Pickering funds the wager on the condition Higgins treats Eliza decently
+A1 | S | I'm an Ordinary Man | Fun and Games | Higgins gripes that women ruin a confirmed bachelor's peaceful life
+A1 | B | - | Fun and Games | Doolittle turns up demanding payment for "losing" his daughter to Higgins's house
+A1 | S | Just You Wait | Fun and Games | Worn down by drills, Eliza fantasizes about Higgins someday begging her forgiveness
+A1 | S | The Rain in Spain | Fun and Games | Eliza's diction suddenly clicks; the exhausted household celebrates the breakthrough
+A1 | S | I Could Have Danced All Night | Fun and Games | Giddy with progress, Eliza can't sleep, thrilled by her own transformation
+A1 | / | - | - | Ascot Racecourse
+A1 | S | Ascot Gavotte | Fun and Games | Eliza's public debut: perfect diction until she lapses into gutter slang over a horse race
+A1 | S | On the Street Where You Live | Fun and Games | Freddy Eynsford-Hill, smitten at Ascot, moons outside Higgins's house
+A1 | / | - | - | The Embassy Ball
+A1 | S | The Embassy Waltz | Midpoint (false victory) | Eliza fools the ball, even a rival phonetician, and passes as nobility
+A2 | / | - | - | Higgins's study, after the ball
+A2 | S | You Did It | Bad Guys Close In | Higgins and Pickering celebrate their triumph, crediting each other and ignoring Eliza
+A2 | S | Just You Wait (Rep) | Bad Guys Close In | Eliza seethes silently, unacknowledged after doing all the actual work
+A2 | B | - | All Is Lost | Eliza hurls Higgins's slippers at him, then walks out into the night
+A2 | B | - | Dark Night of the Soul | She returns to Covent Garden, but old friends no longer recognize her
+A2 | S | Show Me | Dark Night of the Soul | Eliza lashes out at Freddy, whose soft devotion can't fill her emptiness
+A2 | S | Get Me to the Church on Time | Dark Night of the Soul | Cutaway: newly wealthy Doolittle is rushed into his own wedding, comic counterpoint to Eliza's low point
+A2 | S | A Hymn to Him | Dark Night of the Soul | Higgins rages that women complicate everything, avoiding his own reckoning
+A2 | / | - | - | Mrs. Higgins's house
+A2 | S | Without You | Break into Three | Eliza declares she can stand on her own, needing neither Higgins nor his approval
+A2 | B | - | - | Higgins walks home alone, unsettled by Eliza's independence
+A2 | S | I've Grown Accustomed to Her Face | Finale (Dig Deep Down) | Alone, Higgins admits to himself how attached he's become to Eliza
+A2 | B | - | Final Image | Eliza appears in his study doorway; he asks for his slippers, ending ambiguously
+
+NOTES: Midpoint (Embassy Ball) falls right at the intermission, the classic false-victory act-break. Catalyst and Break into Two are spoken book scenes; Midpoint and Break into Three are sung. Unusual: Doolittle's jubilant "Get Me to the Church on Time" is a comic cutaway dropped inside Eliza's Dark Night, and the Finale beat belongs to Higgins, not Eliza, since the ending stays deliberately ambiguous about her final choice.

@@ -1,0 +1,48 @@
+### The Music Man (1957) | protagonist: Harold Hill | sources: https://stageagent.com/shows/musical/839/the-music-man, https://en.wikipedia.org/wiki/The_Music_Man | version: original 1957 Broadway | confidence: high
+
+A1 | / | - | - | Aboard a train leaving Rock Island, Illinois, July 1912
+A1 | S | Rock Island | Opening Image | Traveling salesmen grumble that con man Harold Hill has ruined the trade for everyone
+A1 | / | - | - | River City, Iowa
+A1 | S | Iowa Stubborn | Set-Up + Theme Stated | The town boasts it trusts no stranger until he's proven himself over time
+A1 | B | - | Catalyst | Old friend Marcellus warns Hill that librarian Marian is trained enough to expose him
+A1 | B | - | Debate | Hill weighs the risk but decides River City is too good a mark to skip
+A1 | S | Ya Got Trouble | Break into Two | Hill whips up panic over a new pool table to sell his boys'-band scheme
+A1 | B | - | B Story | Marian gives Amaryllis a piano lesson, dodging Hill, describing her high standards for men
+A1 | S | Goodnight, My Someone | B Story | Marian and young Winthrop each wish, separately, for someone to love
+A1 | B | - | Fun and Games | Mayor Shinn's Fourth of July speech is derailed by Tommy Djilas's firecracker
+A1 | S | Seventy-Six Trombones | Fun and Games | Hill dazzles the town with his vision of a boys' band in full regalia
+A1 | S | Sincere | Fun and Games | Hill distracts the school board from checking his credentials with a barbershop song
+A1 | B | - | Fun and Games | Hill pairs the mayor's daughter with Tommy and recruits Tommy as his assistant
+A1 | S | The Sadder but Wiser Girl | Fun and Games | Hill tells Marcellus he prefers a knowing woman like Marian to an innocent
+A1 | S | Pickalittle | Fun and Games | Gossiping ladies brand Marian scandalous over the books she's lent around town
+A1 | S | Goodnight Ladies | Fun and Games | Hill again sidesteps the school board's demand for his credentials
+A1 | S | Marian the Librarian | Fun and Games | Hill romances Marian in the stacks; she nearly slaps him, hits Tommy instead
+A1 | B | - | Fun and Games | Tommy helps sign up every boy in town, including Winthrop; Mrs. Paroo warms to Hill
+A1 | S | My White Knight | Fun and Games | Marian insists she wants a good man, not necessarily a brilliant one
+A1 | S | The Wells Fargo Wagon | Midpoint | Instruments finally arrive, interrupting Marian's plan to expose Hill with printed proof
+A1 | B | - | Midpoint (false victory) | Winthrop's joy over his cornet melts Marian; she tears out the incriminating page instead
+A2 | / | - | - | The school gymnasium, River City
+A2 | S | It's You | Fun and Games | Ladies and school board rehearse for the ice cream social, oblivious to the danger
+A2 | S | Shipoopi | Fun and Games | Marcellus and the teenagers take over the gym floor for a dance
+A2 | B | - | Fun and Games | Mayor Shinn furiously denounces Tommy's romance with his daughter
+A2 | B | - | Fun and Games | Marian presses Hill on his made-up "Think System"; he talks his way past her
+A2 | S* | Pick-a-Little (Reprise) | Fun and Games | The gossiping ladies now court Marian, having reversed their opinion of her
+A2 | S | Lida Rose | Bad Guys Close In | The school board corners Hill again, still hunting for his credentials
+A2 | S | Will I Ever Tell You? | B Story | Alone on her porch, Marian admits to herself how much Hill has moved her
+A2 | S | Gary, Indiana | Fun and Games | Winthrop, newly confident, brags about Hill's supposed hometown
+A2 | B | - | Bad Guys Close In | Traveling salesman Charlie Cowell arrives in town carrying proof of Hill's fraud
+A2 | B | - | Bad Guys Close In | Marian delays Charlie with a kiss; he warns her Hill romances a woman in every town
+A2 | S | Till There Was You | B Story | Marian tells Hill how completely he's changed how she sees the world
+A2 | B | - | Bad Guys Close In | Marcellus says the uniforms have come and urges Hill to grab the cash and flee; Hill refuses
+A2 | B | - | Bad Guys Close In | Marian reveals she's long known Hill is a fraud, but hands him the proof anyway, out of love
+A2 | B | - | Bad Guys Close In | Overhearing each other's private songs, Hill and Marian realize they truly love each other
+A2 | B | - | All Is Lost | At the social, Charlie Cowell publicly unmasks Hill; the furious town hunts for him
+A2 | B | - | Dark Night of the Soul | A crushed Winthrop wishes Hill had never come; Marian and Winthrop beg him to run
+A2 | S | Till There Was You (Rep) | Break into Three | Hill chooses to stay and face the town, telling Marian he's never loved before her
+A2 | B | - | Finale (Gathering the Team) | Handcuffed, Hill watches Mayor Shinn lead the crowd demanding to see the promised band
+A2 | B | - | Finale (Executing the Plan) | Tommy marches in as drum major, followed by boys in ill-fitting uniforms
+A2 | B | - | Finale (High Tower Surprise) | Marian urges Hill to conduct anyway; the band plays badly but parents hear brilliance
+A2 | S | Seventy-Six Trombones (Rep) | Finale (Executing the New Plan) | Even the Mayor is won over; Hill is freed into Marian's arms as the town cheers
+A2 | B | - | Final Image | The once-solitary drifter now stands claimed by River City, girl and band both real
+
+NOTES: Midpoint (Wells Fargo Wagon / torn page) lands at the very end of Act One, right at intermission, a clean false-victory act-break. Catalyst is spoken, Break into Two and Break into Three are sung; All Is Lost and Dark Night are spoken book scenes. Unusual: hero and "bad guy close in" force are entangled with the love story throughout, so B Story beats keep interrupting the pressure zone rather than sitting apart from it.

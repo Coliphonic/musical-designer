@@ -1,0 +1,31 @@
+### Cabaret (1966) | protagonist: Cliff Bradshaw | sources: https://en.wikipedia.org/wiki/Cabaret_(musical), https://stageagent.com/shows/musical/323/cabaret | version: mixed — see NOTES; mapped to the given running order rather than pure 1966 or pure 1987/1998 | confidence: medium (the given running order blends eras; a few number-to-scene links are inferred)
+
+A1 | / | - | - | The Kit Kat Klub, Berlin, and a train arriving from Paris
+A1 | S | Willkommen | Opening Image | The Emcee welcomes patrons into the Kit Kat Klub's seductive, amoral world
+A1 | B | - | Set-Up | American writer Cliff Bradshaw arrives in Berlin and meets fellow traveler Ernst Ludwig
+A1 | S | So What? | Theme Stated | Landlady Fräulein Schneider shrugs that life has taught her to expect nothing and bend with anything
+A1 | S | Don't Tell Mama | Catalyst | At the Kit Kat Klub, Cliff meets performer Sally Bowles and his path changes
+A1 | B | - | Debate | Sally asks Cliff to critique her act; he's drawn to her but wary of the club's decadence
+A1 | S | Perfectly Marvelous | Break into Two | Fired and evicted, Sally talks her way into moving into Cliff's rented room
+A1 | S | Two Ladies | Fun and Games | The Emcee jokes about a cheerful threesome; the club's anything-goes ethos on display
+A1 | S | It Couldn't Please Me More | B Story | Elderly fruit seller Herr Schultz courts landlady Fräulein Schneider with a pineapple
+A1 | S | Tomorrow Belongs to Me | Fun and Games | A young waiter's sweet anthem curdles into a nationalist singalong as the club joins in
+A1 | S | Why Should I Wake Up? | Fun and Games | Now intimate with Sally, Cliff admits he'd rather stay lost in their happy dream
+A1 | B | - | Bad Guys Close In | Sally reveals she's pregnant; Ernst pressures Cliff into running one smuggling errand for cash
+A1 | S | Money | Bad Guys Close In | The Emcee and girls celebrate cash above all, as Cliff quietly pockets Ernst's money anyway
+A1 | S | Married | Midpoint (false victory) | Herr Schultz, thrilled, announces his engagement to Fräulein Schneider
+A1 | B | - | Bad Guys Close In | At the engagement party Cliff delivers Ernst's contraband; Kost reveals to Ernst that Schultz is Jewish
+A1 | S | Tomorrow Belongs to Me (Rep) | Bad Guys Close In | Kost and Ernst's circle reprise the anthem now openly as a Nazi salute
+A2 | S | Kickline | Bad Guys Close In | The Kit Kat girls' cheerful kickline curdles into a goose step, the room's mask slipping further
+A2 | S | Married (Rep) | Bad Guys Close In | Schultz reassures Schneider all will be fine, moments before a brick shatters his shop window
+A2 | S | If You Could See Her | Bad Guys Close In | The Emcee's love song to a gorilla ends on an antisemitic punchline that turns the joke on the audience
+A2 | B | - | All Is Lost | Fräulein Schneider calls off her engagement, too afraid of what marrying a Jewish man will cost her
+A2 | S | What Would You Do? | All Is Lost | Schneider asks Cliff what he'd do in her place, with no good answer to give
+A2 | B | - | Dark Night of the Soul | Cliff begs Sally to leave Berlin and raise their child with him in America; she refuses
+A2 | S | I Don't Care Much | Dark Night of the Soul | Sally chooses numbness over facing what's coming and returns to the stage
+A2 | B | - | Break into Three | Cliff finally confronts Ernst over his antisemitism; Ernst's men beat him and throw him out
+A2 | S | Cabaret | Dark Night of the Soul | Sally throws herself into denial, insisting life is a cabaret and nothing outside it matters
+A2 | B | - | Finale | The next morning Sally reveals she's had an abortion; heartbroken, Cliff packs to leave Berlin alone
+A2 | B | - | Final Image | On the train out, Cliff begins writing the very novel we've just watched, opening on the cabaret itself
+A2 | S | Finale | Final Image | The Emcee and company reprise "Willkommen," now hollow and discordant, as the lights go to black
+NOTES: This running order mixes eras: it keeps 1966's "Why Should I Wake Up?" (dropped from 1987/98 in favor of "Maybe This Time") while using the later "Money" in place of 1966's "Sitting Pretty," and omits 1966's "Telephone Song," "Meeskite," and the Mendes-era "Mein Herr"/"Maybe This Time"/"Don't Go." Midpoint (Married's happy announcement) falls partway through Act One, with the act actually closing deeper into Bad Guys Close In territory. Catalyst and Break into Two are sung; Break into Three is spoken and physical (Cliff's beating), not sung.

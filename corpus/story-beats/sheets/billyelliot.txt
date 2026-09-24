@@ -1,0 +1,29 @@
+### Billy Elliot (2005, West End) | protagonist: Billy Elliot | sources: https://stageagent.com/shows/musical/1586/billy-elliot, https://www.mtishows.com/full-synopsis/1889, https://en.wikipedia.org/wiki/Billy_Elliot_the_Musical | version: original West End 2005 | confidence: high; medium on the unlisted "Swan Lake" dance interlude, since Guide to Musical Theatre was unreachable to confirm it
+
+A1 | / | - | - | A County Durham mining village, 1984, during the miners' strike
+A1 | S | The Stars Look Down | Opening Image | The community, including motherless eleven-year-old Billy, is introduced amid the strike
+A1 | B | - | Catalyst | Told to return keys after boxing class, Billy stays and joins Mrs. Wilkinson's girls' ballet class
+A1 | S | Shine | Debate | Billy tries the steps half-embarrassed, unsure if this is something he's allowed to want
+A1 | S | Grandma's Song | Theme Stated | Grandma reveals she too once dreamed of a different, freer life through dance
+A1 | S | Solidarity | Set-Up | Picket-line clashes outside are staged against the ballet class inside, the two worlds colliding
+A1 | S | Expressing Yourself | B Story | Billy's friend Michael, exploring dressing up, insists on being exactly who he is
+A1 | B | - | Break into Two | Jackie forbids ballet, but Mrs. Wilkinson offers free lessons toward a Royal Ballet School audition
+A1 | S | The Letter | B Story | Billy privately reads the letter his late mother left him for when he's older
+A1 | S | Born to Boogie | Fun and Games | Billy and Michael tap and clown their way through a joyful practice session
+A1 | B | - | Midpoint (false defeat) | Police injure Tony on the picket line the same day the family discovers Billy's secret lessons
+A1 | B | - | Bad Guys Close In | Furious and humiliated, Jackie forbids Billy from ever dancing again
+A1 | S | Angry Dance | All Is Lost | Billy dances out his rage and grief, then gives up dancing altogether
+A2 | / | - | - | The same village, six months later
+A2 | S | Merry Christmas, Maggie Thatcher | Dark Night of the Soul | The miners' Christmas show mocks the government with bitter, defeated humor
+A2 | S | Deep Into the Ground | Dark Night of the Soul | Jackie sings a mournful folk song mourning his late wife
+A2 | B | - | Dark Night of the Soul | Michael quietly admits his feelings for Billy; Billy gently deflects without rejecting him
+A2 | B | - | Dark Night of the Soul | Unaware his father is watching, Billy dances alone for the first time in months
+A2 | S | He Could Be a Star | Break into Three | Moved by what he saw, Jackie decides to cross the picket line to fund Billy's audition
+A2 | B | - | Finale (Gathering the Team) | The whole mining community pools money so Billy can travel to London and audition again
+A2 | S | Electricity | Finale (Executing the Plan) | Billy tries to put into words what dancing actually feels like for him
+A2 | B | - | Finale (Dig Deep Down) | The panel presses him about a violent outburst; Billy's honesty and Mrs. Wilkinson's letter win them over
+A2 | S | Once We Were Kings | Finale | The defeated miners return to work as the strike officially collapses
+A2 | S | The Letter (Rep) | Finale | Billy answers his mother's letter, showing how much he's grown since reading it
+A2 | S | Finale | Finale + Final Image | Billy's acceptance letter arrives; the family and village celebrate him openly at last
+
+NOTES: Midpoint (the family's discovery) lands at the very end of Act One, compressing Bad Guys Close In and All Is Lost into the same closing stretch before intermission. Catalyst and Break into Two are spoken book beats; Break into Three is sung ("He Could Be a Star"). Unusual: the personal triumph (Billy's acceptance) is deliberately shadowed by the strike's defeat ("Once We Were Kings"), so the Finale carries a win and a loss side by side.

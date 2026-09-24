@@ -1,0 +1,41 @@
+### Fiddler on the Roof (1964) | protagonist: Tevye | sources: https://stageagent.com/shows/musical/869/fiddler-on-the-roof, https://en.wikipedia.org/wiki/Fiddler_on_the_Roof | version: original 1964 Broadway | confidence: high
+
+A1 | / | - | - | Anatevka, a shtetl in the Pale of Settlement, Russia, 1905
+A1 | S | Tradition (Prologue) | Opening Image + Theme Stated | Tevye explains how tradition keeps the village's precarious life in balance
+A1 | / | - | - | Tevye's house
+A1 | B | - | Set-Up | Yente the matchmaker floats marrying eldest daughter Tzeitel to the rich, older butcher Lazar Wolf
+A1 | S | Matchmaker, Matchmaker | Set-Up | The daughters half-joke, half-dread the idea of a matchmaker choosing their husbands
+A1 | S | If I Were a Rich Man | Set-Up | Tevye, exhausted and poor, daydreams about a life without constant struggle
+A1 | S | Sabbath Prayer | Set-Up | The family blesses their daughters, tradition still intact and unquestioned
+A1 | B | - | B Story | Perchik, a radical student from Kyiv, moves in to tutor the younger daughters
+A1 | / | - | - | The village inn
+A1 | S | To Life (L'Chaim) | Catalyst | Tevye, thinking they're discussing a cow, agrees to marry Tzeitel to Lazar Wolf
+A1 | B | - | Debate | Tzeitel begs her father; Motel the tailor claims her heart was already promised to him
+A1 | B | - | Debate | Tevye wrestles aloud with breaking his word to Lazar to honor Tzeitel's wish
+A1 | B | - | Break into Two | Tevye consents: Tzeitel may marry poor Motel instead of the wealthy butcher
+A1 | S | Miracle of Miracles | Fun and Games | Motel celebrates winning Tzeitel and the courage to defy the old order
+A1 | S | The Dream | Fun and Games | Tevye invents a fake nightmare to trick superstitious Golde into blessing the match
+A1 | / | - | - | Village roads and Tevye's yard
+A1 | B | - | Fun and Games | Chava secretly grows close to Fyedka, a gentile youth who lends her books
+A1 | S | Sunrise, Sunset | Fun and Games | The parents marvel at how fast Tzeitel and Motel's wedding day has come
+A1 | B | - | Midpoint (false defeat) | Russian soldiers stage a violent pogrom at the wedding, wounding Perchik and smashing gifts
+A2 | / | - | - | Anatevka, months later
+A2 | S | Now I Have Everything | B Story | Perchik proposes to Hodel before leaving to do revolutionary work in Kyiv
+A2 | B | - | Bad Guys Close In | Tevye argues with himself, then blesses Hodel's engagement even though no one asked his permission
+A2 | S | Do You Love Me? | Bad Guys Close In | Tevye asks Golde, after 25 arranged years, whether she actually loves him
+A2 | S | The Rumor | Bad Guys Close In | Yente spreads word that Chava has been seen with Fyedka around the village
+A2 | B | - | Bad Guys Close In | News arrives that Perchik has been arrested and exiled to Siberia
+A2 | / | - | - | The railway station
+A2 | S | Far From the Home I Love | Bad Guys Close In | Hodel says goodbye to her father, leaving to join Perchik in exile
+A2 | B | - | Bad Guys Close In | Chava asks permission to marry Fyedka; Tevye refuses to cross the line of faith
+A2 | B | - | All Is Lost | Chava elopes with Fyedka anyway; Tevye declares her dead to the family
+A2 | S | Chavaleh (Little Bird) | Dark Night of the Soul | Tevye aches over memories of Chava as his little girl, now lost to him
+A2 | B | - | Dark Night of the Soul | Chava returns seeking reconciliation; Tevye still refuses to acknowledge her
+A2 | B | - | Dark Night of the Soul | The Constable delivers an edict: every Jew has three days to leave Anatevka
+A2 | S | Anatevka | Dark Night of the Soul | The whole community mourns the home and life they're about to lose
+A2 | / | - | - | Outside Tevye's house, departure day
+A2 | B | - | Break into Three | Chava and Fyedka come to say goodbye; Tevye stays silent but lets Tzeitel bless her sister
+A2 | B | - | Finale | The family joins the exiled townsfolk, setting out for America among scattered relatives
+A2 | B | - | Final Image | The fiddler picks up his tune and follows Tevye out of the ruined village
+
+NOTES: Midpoint (the wedding pogrom) falls at the very end of Act One; the intermission lands right on the story's biggest external shock. Catalyst and Break into Two are spoken book scenes; All Is Lost and Break into Three are also spoken, not sung. Unusual: the show has no sung Finale number at all — after "Anatevka" the ending plays entirely in underscored silence and spoken action.

@@ -1,0 +1,38 @@
+### Oklahoma! (1943) | protagonist: Curly McLain | sources: https://stageagent.com/shows/musical/322/oklahoma, https://en.wikipedia.org/wiki/Oklahoma! | version: original 1943 Broadway (Theatre Guild) | confidence: high
+
+A1 | / | - | - | Front of Laurey's farmhouse, Oklahoma Territory, morning
+A1 | S | Oh, What a Beautiful Mornin' | Opening Image | Curly rides in alone, savoring the morning, before he's shown a soul with anyone
+A1 | B | - | Theme Stated | Aunt Eller teases Curly for spinning tall tales instead of courting Laurey plainly
+A1 | S | The Surrey with the Fringe on Top | Set-Up | Curly woos Laurey by describing a rented rig that doesn't exist yet
+A1 | B | - | Set-Up | Will Parker returns from Kansas City with prize money meant for marrying Ado Annie
+A1 | S | Kansas City | Set-Up | Will describes the modern city wonders he saw, spending the money as he goes
+A1 | B | - | B Story | Ado Annie admits she can't choose between Will and peddler Ali Hakim
+A1 | S | I Cain't Say No | B Story | Ado Annie confesses she's helpless to refuse any man's attention
+A1 | B | - | Catalyst | Stung by Curly's teasing, Laurey agrees to go to the box social with Jud Fry
+A1 | / | - | - | The smokehouse
+A1 | S | Many a New Day | Debate | Laurey insists to the girls she doesn't need any particular man
+A1 | S | It's a Scandal! It's a Outrage! | Debate | Ali Hakim and the men grumble about scheming women trapping bachelors into marriage
+A1 | S | People Will Say We're in Love | Fun and Games | Curly and Laurey trade coy warnings not to act like they're falling for each other
+A1 | / | - | - | A grove on Laurey's farm
+A1 | S | Pore Jud Is Daid | Break into Two | Curly actively baits Jud, painting a mock funeral to needle his rival
+A1 | S | Lonely Room | Bad Guys Close In | Alone, Jud reveals his obsessive fixation on Laurey and his simmering danger
+A1 | / | - | - | Kitchen porch of Laurey's farmhouse
+A1 | S | Out of My Dreams | Midpoint (false victory) | Anxious before the dance, Laurey takes Ali Hakim's elixir and drifts into a dream of marrying Curly
+A1 | S | Dream Ballet | Midpoint (false defeat) | The dream turns violent as dream-Jud kills dream-Curly; Laurey wakes still bound to go with Jud
+A2 | / | - | - | The Skidmore Ranch, box social, that night
+A2 | S | The Farmer and the Cowman | Bad Guys Close In | Cowboys and farmers nearly brawl before agreeing, uneasily, to get along
+A2 | B | - | Bad Guys Close In | Curly and Jud wage a fierce bidding war for Laurey's hamper; Curly sells his gear to win
+A2 | B | - | Bad Guys Close In | Jud secretly draws a knife on Curly; Aunt Eller intervenes and asks Curly to dance
+A2 | S | All Er Nuthin' | B Story | Will and Ado Annie fight, then commit to marrying, done with games
+A2 | B | - | Bad Guys Close In | Frightened by Jud's threats, Laurey fires him; he storms off vowing revenge
+A2 | / | - | - | Laurey's back yard, the next day
+A2 | S | People Will Say (Rep) | Break into Three | Curly comforts heartbroken Laurey and proposes for real; she accepts
+A2 | B | - | Finale (Gathering the Team) | Three weeks later, statehood day: the community gathers for Curly and Laurey's wedding
+A2 | S | Oklahoma | Finale (Executing the Plan) | The town celebrates the new state and the marriage together as one community
+A2 | B | - | All Is Lost | Drunken Jud crashes the party, attacks Curly with a knife, and dies falling on his own blade
+A2 | B | - | Dark Night of the Soul | The stunned crowd falls quiet, unsure if Curly will be charged with murder
+A2 | B | - | Finale (Dig Deep Down) | Aunt Eller pushes for an impromptu trial right there instead of calling in the law
+A2 | B | - | Finale (High Tower Surprise) | The makeshift jury acquits Curly of murder on the spot, almost too easily
+A2 | S | Finale Ultimo | Final Image | Curly and Laurey ride off married in the now-real surrey as the town sings them off
+
+NOTES: Midpoint (Dream Ballet) closes Act One, well before intermission proportionally but at the true emotional turn. Catalyst and Break into Two are spoken/danced, not sung on-lyric; Midpoint and Break into Three are sung; All Is Lost is spoken. Unusual: the romantic Break into Three (proposal) lands chronologically before the literal All Is Lost (Jud's death), so the external-danger climax arrives as a late, compressed coda inside the wedding Finale rather than before it.

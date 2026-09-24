@@ -1,0 +1,28 @@
+### The Producers (2001) | protagonist: Leo Bloom | sources: https://en.wikipedia.org/wiki/The_Producers_(musical), https://stageagent.com/shows/musical/1290/the-producers | version: original 2001 Broadway | confidence: high (a few numbers in the full score that aren't in the given running order, e.g. "Where Did We Go Right?", are omitted per instructions rather than invented)
+
+A1 | / | - | - | New York City, 1959 — a Broadway opening night
+A1 | S | Opening Night | Opening Image | Max Bialystock's new musical flops and closes before opening night even ends
+A1 | S | The King of Broadway | Set-Up | Max mourns his fall from Broadway's top producer to a washed-up has-been
+A1 | B | - | Catalyst | Timid accountant Leo Bloom arrives to audit Max's books and finds a $2,000 discrepancy
+A1 | S | We Can Do It | Theme Stated + Debate | Max lays out his scheme to profit from a flop; Leo, tempted but frightened, refuses
+A1 | S | I Wanna Be a Producer | Debate | Leo, miserable at his accounting job, daydreams about the glamour Max offered
+A1 | B | - | Break into Two | Leo quits his job on the spot and returns to join Max's scheme for good
+A1 | / | - | - | Franz Liebkind's tenement roof, then Roger De Bris's townhouse
+A1 | S | Der Guten Tag Hop-Clop | Fun and Games | Max and Leo win over unhinged ex-Nazi playwright Franz Liebkind and his script
+A1 | S | Keep It Gay | Fun and Games | Flamboyant director Roger De Bris signs on, remaking the show in his own image
+A1 | S | When You've Got It, Flaunt It | Fun and Games | Swedish bombshell Ulla auditions and is hired on the spot
+A1 | S | Along Came Bialy | Midpoint (false victory) | Max seduces a horde of elderly investors into funding the needed two million dollars
+A2 | S | That Face | B Story | Alone with Ulla in the office, Leo falls for her as Max looks on
+A2 | S | Haben Sie Gehört das Deutsche Band? | Bad Guys Close In | At auditions, only unhinged Franz can convincingly play Hitler
+A2 | B | - | Bad Guys Close In | On opening night Leo curses the show by wishing "good luck"; Franz breaks his leg and can't go on
+A2 | S | Springtime for Hitler | Bad Guys Close In | Roger goes on as Hitler; the show's tastelessness stuns the audience into laughter
+A2 | B | - | All Is Lost | Rave reviews reveal the "flop" is a smash hit — meaning prison, not Rio, unless they act fast
+A2 | B | - | Bad Guys Close In | Franz, enraged at Roger's mockery, tries to shoot the cast; police arrest Franz and Max and seize the books
+A2 | B | - | Bad Guys Close In | Leo escapes arrest, but Ulla convinces him to flee to Rio with the stolen $2 million
+A2 | S | Betrayed | Dark Night of the Soul | Imprisoned awaiting trial, Max reels from what looks like Leo's total betrayal
+A2 | B | - | Break into Three | Leo returns from Rio with Ulla and the money, choosing loyalty to Max over escape
+A2 | S | 'Til Him | Finale | Leo testifies that Max, whatever his crimes, is essentially good, moving the judge
+A2 | B | - | Finale | All three are sentenced to Sing Sing, but Max and Leo's partnership survives, deepened
+A2 | S | Prisoners of Love | Finale | The convicts stage Max and Leo's new show in prison, delighting inmates and warden alike
+A2 | B | - | Final Image | Pardoned and reunited with Roger and Ulla, Leo and Max return to Broadway as full partners
+NOTES: Midpoint (Along Came Bialy's fundraising triumph) lands right at the Act One curtain. Catalyst and Break into Two are spoken; the Midpoint, Finale, and 'Til Him are sung, while All Is Lost and the Dark-Night-to-Break-into-Three turn are entirely book scenes. B Story (Leo/Ulla) doesn't engage until Act Two, well after the classical position.

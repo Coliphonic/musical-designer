@@ -1,0 +1,34 @@
+### Hairspray (2002) | protagonist: Tracy Turnblad | sources: https://stageagent.com/shows/musical/1286/hairspray, https://en.wikipedia.org/wiki/Hairspray_(musical) | version: original 2002 Broadway | confidence: high
+
+A1 | / | - | - | Baltimore, June 1962
+A1 | S | Good Morning Baltimore | Opening Image | Tracy wakes thrilled about her ordinary, big-haired life in her beloved city
+A1 | S | The Nicest Kids in Town | Set-Up | The Corny Collins Show and its favored, slim in-crowd are established as the dream and the gate
+A1 | B | - | Catalyst | A vacancy opens for a new dancer on the Corny Collins Show
+A1 | S | Mama, I'm a Big Girl Now | Debate | Tracy begs to audition; Edna refuses, fearing ridicule, but Wilbur encourages her
+A1 | B | - | Theme Stated | Wilbur tells Tracy not to let anyone's small-mindedness shrink her big dreams
+A1 | B | - | Break into Two | With her father's backing, Tracy goes to audition for the show
+A1 | S | I Can Hear the Bells | Fun and Games | Tracy, smitten with heartthrob Link, dreams up a whole future with him
+A1 | S | Miss Baltimore Crabs | Fun and Games | Producer Velma rejects Tracy for her size, and Little Inez for her race
+A1 | B | - | Fun and Games | In detention, Tracy meets Seaweed, who teaches her his dance moves
+A1 | B | - | Fun and Games | Tracy dances her way into a spot on the show at the Sophomore Hop
+A1 | S | It Takes Two | B Story | On air, Link sings to Tracy directly, publicly choosing her over Amber
+A1 | B | - | Bad Guys Close In | Stung, Velma complains to the sponsor and starts plotting to remove Tracy
+A1 | S | Welcome to the 60's | Bad Guys Close In | Edna gets a makeover and becomes Tracy's agent, even as the pressure builds
+A1 | B | - | Bad Guys Close In | Jealous, Amber deliberately knocks Tracy out during a dodgeball game
+A1 | S | Run and Tell That | Bad Guys Close In | Seaweed rallies the group at his mother's record shop after school
+A1 | B | - | Bad Guys Close In | Tracy pushes to march against the show's segregation; Link refuses, protecting his contract
+A1 | S | Big, Blonde and Beautiful | Bad Guys Close In | The march goes ahead with Motormouth Maybelle's blessing and full-throated pride
+A1 | B | - | All Is Lost | Police storm the march and arrest nearly everyone, Tracy included
+A2 | / | - | - | The Women's House of Detention, Baltimore
+A2 | S | The Big Dollhouse | Dark Night of the Soul | Velma's interference keeps Tracy locked up after everyone else is bailed out
+A2 | B | - | Dark Night of the Soul | Alone in her cell, Tracy wonders if she's lost Link and everything else
+A2 | S | (You're) Timeless to Me | Dark Night of the Soul | Wilbur and Edna affirm their marriage even as bail costs ruin them financially
+A2 | S | Without Love | Break into Three | Link sneaks into jail to reunite with Tracy; both young couples declare their love
+A2 | S | I Know Where I've Been | Finale (Gathering the Team) | The group unites at the record shop; Tracy commits to integrating the show for good
+A2 | / | - | - | The television studio, Miss Teenage Hairspray finals
+A2 | S | Hairspray | Finale (Executing the Plan) | Corny Collins opens the live finals as the group's plan gets underway
+A2 | S | Cooties | Finale (Executing the Plan) | Amber performs for the crowd's vote, still expecting an easy win
+A2 | B | - | Finale (High Tower Surprise) | Tracy wins the crown and declares the show integrated, now and forever
+A2 | S | You Can't Stop the Beat | Final Image | The whole cast, now integrated, celebrates a Baltimore that has genuinely changed
+
+NOTES: Midpoint is essentially absent as a single beat; the story runs as one long build from Catalyst to the All-Is-Lost mass arrest that closes Act One right at intermission. Catalyst and Break into Two are spoken book beats; Break into Three and the Finale twist are sung and spoken respectively. Unusual: the antagonist (Velma) never truly "closes in" until after the hero already has what she wanted, reversing the usual pressure curve.

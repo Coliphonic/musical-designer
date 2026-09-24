@@ -1,0 +1,32 @@
+### Wicked (2003) | protagonist: Elphaba | sources: https://en.wikipedia.org/wiki/Wicked_(musical), https://stageagent.com/shows/musical/1289/wicked | version: original 2003 Broadway | confidence: high
+
+A1 | / | - | - | The Emerald City, then Shiz University, years earlier (flashback frame)
+A1 | S | No One Mourns the Wicked | Opening Image | Oz celebrates the Witch's death while Glinda recalls how it all began
+A1 | S | Dear Old Shiz | Set-Up | Elphaba arrives at Shiz University and is ostracized instantly for her green skin
+A1 | B | - | Catalyst | Headmistress Morrible discovers Elphaba's raw magic and offers to mentor her toward the Wizard
+A1 | S | The Wizard and I | Set-Up | Elphaba dares to dream the Wizard will finally make her belong
+A1 | S | What Is This Feeling? | Debate | Elphaba and her glamorous roommate Galinda openly despise each other
+A1 | S | Something Bad | Theme Stated | Dr. Dillamond warns Elphaba that Oz is silencing and persecuting talking animals like him
+A1 | S | Dancing Through Life | B Story | After a cruel prank backfires into sympathy, Galinda and Elphaba become unlikely friends
+A1 | S | Popular | Fun and Games | Galinda gives Elphaba a full makeover, cementing their new bond
+A1 | B | - | Break into Two | Furious at Dillamond's dismissal, Elphaba frees a caged lion cub in defiance and flees with Fiyero
+A1 | S | I'm Not That Girl | Fun and Games | Alone, Elphaba mourns that Fiyero will always choose golden Galinda over her
+A1 | S | One Short Day | Fun and Games | Elphaba and Galinda marvel together at the wonders of the Emerald City
+A1 | S | A Sentimental Man | Fun and Games | Meeting the Wizard at last, they discover he's just an ordinary man playing a part
+A1 | B | - | Bad Guys Close In | Tricked into casting a spell, Elphaba unwittingly gives the Wizard's monkeys agonizing wings
+A1 | S | Defying Gravity | Midpoint (false victory) | Realizing the Wizard's tyranny, Elphaba flies off alone to fight him, daring to be called wicked
+A2 | S | Thank Goodness | Bad Guys Close In | Now branded the Wicked Witch, Elphaba is Oz's enemy while Glinda plays the Wizard's spokeswoman
+A2 | B | - | Bad Guys Close In | Elphaba secretly visits Nessarose, now Munchkinland's governor, and accidentally costs Boq his heart
+A2 | S | The Wicked Witch of the East | Bad Guys Close In | Elphaba saves Boq's life by turning him into a tin man, deepening her monstrous reputation
+A2 | S | Wonderful | Bad Guys Close In | The Wizard nearly wins Elphaba back with his charming self-justification, but she recommits to fighting him
+A2 | S | I'm Not That Girl (Reprise) | Bad Guys Close In | Heartbroken that Fiyero loves Elphaba, Glinda spreads a rumor meant to expose her
+A2 | S | As Long as You're Mine | Bad Guys Close In | Hiding together in the forest, Elphaba and Fiyero finally declare their love
+A2 | B | - | All Is Lost | A tornado-dropped house kills Nessarose; guards capture and torture Fiyero while helping Elphaba escape
+A2 | S | No Good Deed | Dark Night of the Soul | Convinced she's lost everything and can never be seen as good, Elphaba embraces her wicked reputation
+A2 | S | March of the Witch Hunters | Bad Guys Close In | All of Oz mobilizes to hunt down and destroy the Witch
+A2 | S | For Good | Break into Three | Glinda finds Elphaba and warns her of the trap closing in; the two forgive and thank each other
+A2 | B | - | Finale | Dorothy's water seemingly dissolves Elphaba, leaving only her hat and a bottle of green elixir
+A2 | B | - | Finale (High Tower Surprise) | Glinda learns from the Wizard that he fathered Elphaba and banishes him from Oz
+A2 | B | - | Finale | Fiyero, transformed into a scarecrow, finds Elphaba alive in a hidden trapdoor; they escape together
+A2 | S | Finale | Final Image | Glinda proclaims the Witch dead and leads a wary Oz in celebration, the truth known only to a few
+NOTES: Midpoint (Defying Gravity, a soaring false victory) lands exactly at the Act One curtain — one of the clearest cases of intermission-as-midpoint in this set. Catalyst and Break into Two are spoken/staged, not sung; All Is Lost is spoken while the Dark Night (No Good Deed) and Break into Three (For Good) are both sung. Bad Guys Close In dominates nearly all of Act Two.

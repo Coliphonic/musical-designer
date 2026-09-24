@@ -1,0 +1,30 @@
+### Little Shop of Horrors (1982) | protagonist: Seymour Krelborn | sources: https://en.wikipedia.org/wiki/Little_Shop_of_Horrors_(musical), https://stageagent.com/shows/musical/228/little-shop-of-horrors | version: original 1982 Off-Broadway production | confidence: high (Da-Doo's exact dramatic placement is inferred from the running order; the fetched synopsis jumped past it)
+
+A1 | / | - | - | Mushnik's Skid Row Flower Shop
+A1 | S | Little Shop of Horrors | Opening Image | A doo-wop trio warns of a nameless horror that crept out of Skid Row
+A1 | S | Skid Row (Downtown) | Set-Up + Theme Stated | Seymour and Audrey lament a dead-end life; Mushnik makes clear Seymour will never be more
+A1 | B | - | Catalyst | During a sudden solar eclipse, Seymour discovers and buys a strange new plant at a stall
+A1 | S~ | Da-Doo | Debate | Seymour tries and fails to work up the nerve to say anything real to Audrey
+A1 | B | - | Debate | Back at the shop, Seymour pricks his finger; the ailing plant perks up at the taste of blood
+A1 | S | Grow for Me | Break into Two | Realizing the plant wants blood, Seymour chooses to keep feeding it from his own finger
+A1 | S | Somewhere That's Green | B Story | Audrey dreams of a tacky suburban escape with Seymour, if only he'd notice her
+A1 | S | Closed for Renovation | Fun and Games | The oddity plant draws crowds; the failing shop is transformed by sudden success
+A1 | S | Dentist! | Fun and Games | Audrey's sadistic dentist boyfriend Orin is introduced in all his menace
+A1 | S | Mushnik and Son | Fun and Games | Mushnik, smelling profit, offers to adopt Seymour as a full business partner
+A1 | S | Feed Me (Git It) | Bad Guys Close In | Starving, the plant promises Seymour fame and Audrey's love if he'll just keep feeding it
+A1 | B | - | Bad Guys Close In | Desperate for blood, Seymour lures cruel dentist Orin into a late-night "extraction"
+A1 | S | Now (It's Just the Gas) | Midpoint (false victory) | Orin dies accidentally on his own laughing gas; Seymour feeds his body to the plant
+A2 | S | Call Back in the Morning | Bad Guys Close In | Business booms, but reporters and fame start circling the shop
+A2 | S | Suddenly, Seymour | Bad Guys Close In | Seymour and Audrey finally confess their love for each other
+A2 | B | - | Bad Guys Close In | Mushnik, suspicious about Orin's disappearance, threatens to go to the police
+A2 | B | - | Bad Guys Close In | The plant demands Mushnik be silenced too; Seymour tricks him into its waiting mouth
+A2 | S | Suppertime | Bad Guys Close In | Mushnik is devoured while Seymour, now a killer twice over, spirals deeper
+A2 | S | The Meek Shall Inherit | Bad Guys Close In | Agents and reporters chase Seymour's sudden fame while guilt eats at him in private
+A2 | S | Sominex | All Is Lost | Sleepless, Audrey wanders to the shop at night, drawn toward the plant
+A2 | S | Suppertime (Rep) | All Is Lost | The plant lures Audrey in and mortally wounds her
+A2 | S | Somewhere That's Green (Rep) | Dark Night of the Soul | Dying, Audrey asks to be fed to the plant so she and Seymour can stay together
+A2 | B | - | Break into Three | Grief-stricken, Seymour grants her wish, then resolves to destroy the plant once and for all
+A2 | B | - | Finale | Bullets, knives, and poison all fail; a salesman offers to sell the plant's cuttings nationwide
+A2 | B | - | Finale (High Tower Surprise) | Realizing the plant plans to conquer the world, Seymour charges into its mouth and is devoured too
+A2 | S | Finale (Don't Feed the Plants) | Final Image | Years later, monstrous Audrey II blooms everywhere, warning the audience it already won
+NOTES: Midpoint (Orin's death, a "clean" false victory) lands as the Act One curtain; nearly everything from Feed Me onward is one continuous Bad-Guys-Close-In escalation. Catalyst is spoken, Break into Two and the Midpoint are sung, and Break into Three is entirely spoken/silent action. All Is Lost is unusually doubled within one sequence (Sominex into Suppertime Rep) as Audrey herself becomes the "whiff of death," rather than a supporting character.

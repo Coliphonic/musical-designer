@@ -366,6 +366,14 @@ const TEMPLATES = [ { id, label, sub, mode: 'full'|'oneact', basis, cards } ]
 
 ### 7b · The nine (eleven since 2026-08-17 — Contemporary is 3½, Family Spectacle 7½)
 
+> **Story Board (`full-board`, 2026-09-24).** The twelfth full-length shape and
+> the first not cut from the song corpus: 40 book beats around 19 songs, built
+> from 20 beat sheets drawn from the shows' published synopses. Spec, findings
+> and the card-by-card board: MUSICAL-BEAT-BOARD.md. Two things only this
+> shape does: its lanes follow Snyder's act boundaries (13/18/18/10 cards, not
+> an even split), and its song seats ship working titles that carry into a
+> created show. `test/story-board.test.js` pins both.
+
 Seat lists are the deliverable; minutes may shift ±0.5 at build time to hit
 each cohort's measured A1 share (noted per template).
 

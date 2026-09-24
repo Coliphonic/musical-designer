@@ -1,0 +1,36 @@
+### The Outsiders (2024) | protagonist: Ponyboy Curtis | sources: https://en.wikipedia.org/wiki/The_Outsiders_(musical), https://stageagent.com/shows/musical/32833/the-outsiders | version: original 2024 Broadway | confidence: high
+
+A1 | / | - | - | Tulsa, Oklahoma, 1967
+A1 | S | Tulsa '67 | Opening Image | Ponyboy introduces 1967 Tulsa and the deep divide between Greasers and Socs
+A1 | B | - | Catalyst | Walking home alone, Ponyboy is jumped by Socs led by Bob; he bites Bob and blacks out
+A1 | S | Grease Got a Hold | Set-Up | Waking safe at home, Ponyboy is declared an official Greaser by Dally and the gang
+A1 | S | Runs in the Family | Set-Up | Darrel, raising his brothers alone since their parents' death, carries the family's whole burden
+A1 | S | Great Expectations | Theme Stated | Ponyboy and Sodapop compare themselves to characters in the novel, hinting at their own story's shape
+A1 | B | - | Debate | Ponyboy asks a wary Darrel for permission to go to the drive-in with Johnny, Two-Bit, and Dally
+A1 | B | - | Break into Two | Darrel relents; the boys head out, crossing into Soc territory for the night
+A1 | S | Friday at the Drive-In | Fun and Games | At the movies, the boys meet Soc girls Cherry and Marcia as Bob tries to reclaim Cherry
+A1 | S | I Could Talk to You All Night | B Story | Cherry and Ponyboy discover they don't fit their gangs' stereotypes at all
+A1 | B | - | Bad Guys Close In | A drunk, threatening Bob corners Ponyboy; Cherry warns she can't acknowledge him at school
+A1 | S | Runs in the Family (Rep) | Bad Guys Close In | Ponyboy comes home late; a furious, frightened Darrel slaps him
+A1 | S | Far Away from Tulsa | Bad Guys Close In | Devastated, Ponyboy and Johnny run off into the night, imagining escape
+A1 | B | - | Midpoint (false defeat) | The Socs, led by Bob, ambush the boys and try to drown Ponyboy; Johnny stabs and kills Bob
+A1 | S | Run Run Brother | Bad Guys Close In | Shell-shocked, the boys flee to Dally for help and then into hiding, forever changed
+A2 | B | - | Bad Guys Close In | Police and Socs hunt the boys, framed for murder; hiding at a church, Ponyboy cuts and dyes his hair
+A2 | S | Justice for Tulsa | Bad Guys Close In | The Socs declare war, beat up Two-Bit as a warning, and set a rumble for Saturday
+A2 | S | Death's at My Door | Bad Guys Close In | Hiding out, Ponyboy spirals into guilt, feeling he brings death wherever he goes
+A2 | S | Throwing in the Towel | Bad Guys Close In | At home, Darrel nearly gives up hope of ever getting his brother back safely
+A2 | S | Soda's Letter | Bad Guys Close In | Dally delivers a letter from Sodapop; the family's love reaches Ponyboy in hiding
+A2 | B | - | Bad Guys Close In | Johnny decides to turn himself in and end the running, over Dally's furious objections
+A2 | B | - | Bad Guys Close In | Before they can leave, a dropped cigarette sets the church ablaze with children trapped inside
+A2 | S | Hoods Turned Heroes | Finale (High Tower Surprise) | Ponyboy and Johnny rush into the fire to save the children and become local heroes
+A2 | B | - | Bad Guys Close In | Johnny survives, but a falling beam has broken his back; Cherry visits and clears both boys of murder charges
+A2 | S | Hopeless War | Bad Guys Close In | Cherry begs Ponyboy not to fight in the coming rumble; he won't be swayed
+A2 | S | Trouble | Bad Guys Close In | All three Curtis brothers prepare to fight together in the rumble
+A2 | B | - | All Is Lost | The Greasers win the brutal rumble, but Johnny dies of his injuries just after telling Ponyboy to "stay gold"
+A2 | S | Little Brother | Dark Night of the Soul | Grief-stricken, Dally storms off after Johnny's death and is deliberately struck and killed by a train
+A2 | B | - | Dark Night of the Soul | Two weeks later, a numb Ponyboy lashes out at his brothers before Sodapop begs them to hold together
+A2 | S | Stay Gold | Break into Three | Cherry brings Johnny's last note, urging Ponyboy to remember there's good in the world worth holding onto
+A2 | B | - | Finale | Ponyboy tells his brothers that being a Greaser doesn't have to be all he is; they share a quiet dinner
+A2 | B | - | Finale | Sodapop discovers Ponyboy's notebook and realizes it's the very story we've just watched, told from the start
+A2 | S | Finale (Tulsa '67) | Final Image | The company reprises the opening number, Ponyboy's written story now complete
+NOTES: Midpoint (Bob's killing, a false-defeat "escape" that becomes a manhunt clock) lands at the Act One curtain; Act Two is one almost unbroken Bad-Guys-Close-In stretch until the rumble. Catalyst, the Midpoint, and All Is Lost are all spoken/staged rather than sung; Break into Two and Break into Three are sung or spoken respectively. The high-tower rescue (Hoods Turned Heroes) sits well before the true climax, an unusually early placement.

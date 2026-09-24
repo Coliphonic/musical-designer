@@ -1,0 +1,45 @@
+### Sweeney Todd (1979) | protagonist: Sweeney Todd (Benjamin Barker) | sources: https://stageagent.com/shows/musical/835/sweeney-todd, https://en.wikipedia.org/wiki/Sweeney_Todd:_The_Demon_Barber_of_Fleet_Street_(musical) | version: original 1979 Broadway | confidence: high
+
+A1 | / | - | - | A graveyard, then the London docks
+A1 | S | The Ballad of Sweeney Todd | Opening Image + Theme Stated | The company frames the tale upfront: revenge consumes everyone who tries it
+A1 | S | No Place Like London | Set-Up | Sweeney, bitter after exile, hints at the judge who destroyed his old life
+A1 | S | The Barber and His Wife | Set-Up | Sweeney tells Anthony how a corrupt judge had him transported to steal his wife
+A1 | / | - | - | Mrs. Lovett's pie shop
+A1 | S | The Worst Pies in London | B Story | Mrs. Lovett complains of business while sizing up her strange new tenant
+A1 | S | Poor Thing | Catalyst | Mrs. Lovett reveals Lucy is presumed dead and daughter Johanna is the judge's ward
+A1 | B | - | Debate | Stunned, Sweeney reels silently at how completely his old life was destroyed
+A1 | S | My Friends | Break into Two | Sweeney reclaims his silver razors, recommitting to the barber's trade to reach the judge
+A1 | / | - | - | A London street below Johanna's window
+A1 | S | Green Finch and Linnet Bird | Fun and Games | Johanna, kept like a caged bird by the judge, longs to be free
+A1 | S | Johanna | Fun and Games | Anthony, smitten at first sight, vows to win Johanna's freedom
+A1 | / | - | - | A London marketplace
+A1 | S | Pirelli's Miracle Elixir | Fun and Games | Fraudulent barber Pirelli and his boy Tobias hawk a fake hair tonic
+A1 | S | The Contest | Fun and Games | Sweeney publicly out-shaves Pirelli, winning the crowd as London's best barber
+A1 | B | - | Bad Guys Close In | Alone, Judge Turpin resolves to marry his own ward Johanna himself
+A1 | / | - | - | Sweeney's barbershop above the pie shop
+A1 | S | Wait | Midpoint | Mrs. Lovett urges patience as Sweeney's impatience for revenge builds
+A1 | B | - | Midpoint (false victory) | Pirelli recognizes and blackmails Sweeney; Sweeney kills him, hiding the body, seemingly clean
+A1 | S | Kiss Me | Bad Guys Close In | Anthony and Johanna plan to elope, complicating Sweeney's use of the shop
+A1 | S | Ladies in Their Sensitivities | Bad Guys Close In | The Beadle unwittingly recommends Sweeney's shop to Judge Turpin for a shave
+A1 | S | Pretty Women | Bad Guys Close In | Sweeney savors the moment as Turpin finally sits in his chair
+A1 | B | - | Bad Guys Close In | Anthony bursts in announcing the elopement; the enraged judge flees before Sweeney can strike
+A1 | S | Epiphany | All Is Lost | His one chance blown, Sweeney snaps and vows to kill everyone, not just Turpin
+A1 | B | - | Dark Night of the Soul | Sweeney stands shattered, his single focused purpose in ruins
+A1 | S | A Little Priest | Break into Three | Mrs. Lovett's dark solution: bake the bodies into pies and profit from the murders
+A2 | / | - | - | The pie shop and barbershop, weeks later
+A2 | S | God, That's Good! | Finale (Gathering the Team) | The pie business booms; Sweeney's chair now drops victims straight to the bakehouse
+A2 | S | Johanna (Quartet) | Finale (Executing the Plan) | Anthony searches London for Johanna, who is now locked in a madhouse
+A2 | S | By the Sea | Finale (Executing the Plan) | Mrs. Lovett fantasizes about a quiet seaside life together, oblivious to the danger closing in
+A2 | B | - | Finale (Executing the Plan) | Sweeney sends Turpin a false letter to lure him back for one more shave
+A2 | S | Not While I'm Around | Finale (High Tower Surprise) | Tobias, protective of Mrs. Lovett, finds evidence of murder; she locks him in the bakehouse
+A2 | S | Parlor Songs | Finale (Executing the Plan) | Mrs. Lovett distracts the suspicious Beadle with music while Sweeney kills him upstairs
+A2 | B | - | Finale (Dig Deep Down) | Tobias finds human remains in a pie and flees into the sewers, forcing a hunt for him
+A2 | S | City on Fire! | Finale (Dig Deep Down) | Anthony rescues Johanna from the asylum as freed lunatics roam the burning streets
+A2 | / | - | - | Sweeney's barbershop
+A2 | S | Final Scene | Finale (Execution of the New Plan) | Sweeney unknowingly kills the Beggar Woman, then finally kills Judge Turpin in revenge
+A2 | B | - | Finale (High Tower Surprise) | Sweeney discovers the Beggar Woman he just killed was his wife Lucy all along
+A2 | B | - | Finale | Enraged at Mrs. Lovett's lie, Sweeney kills her by hurling her into her own oven
+A2 | B | - | Finale | Tobias, driven mad, crawls from the sewer and slits Sweeney's throat with his own razor
+A2 | S | The Ballad of Sweeney Todd (Rep) | Final Image | The company returns to warn that anyone, even the audience, could become Sweeney
+
+NOTES: Midpoint (Pirelli's murder) falls mid-Act-One, well before intermission; "A Little Priest," the true Break into Three, closes Act One instead. Catalyst and All Is Lost are sung; Break into Two and Break into Three are sung too. Unusual: almost the whole of Act Two functions as one extended Finale (no fresh Bad-Guys/All-Is-Lost cycle), stacking multiple High Tower Surprises before the real one (Lucy's identity).

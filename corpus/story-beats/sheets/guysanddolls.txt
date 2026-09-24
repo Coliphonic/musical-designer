@@ -1,0 +1,39 @@
+### Guys and Dolls (1950) | protagonist: Sky Masterson | sources: https://en.wikipedia.org/wiki/Guys_and_Dolls, https://stageagent.com/shows/musical/1263/guys-and-dolls | version: original 1950 Broadway | confidence: high
+
+A1 | / | - | - | Times Square, New York City
+A1 | S | Runyonland | Opening Image | Hustlers, tourists, and touts crisscross Broadway before Sky's story begins
+A1 | S | Fugue for Tinhorns | Opening Image | Three small-time gamblers argue over which horse to bet on
+A1 | S | Follow the Fold | Theme Stated | Sarah's mission band preaches salvation to gamblers who ignore them
+A1 | S~ | The Oldest Established | Set-Up | Nathan, Nicely, and Benny scramble for a venue for the floating crap game
+A1 | B | - | Catalyst | Nathan bets Sky $1,000 he can't take Sarah Brown to Havana for dinner
+A1 | S | I'll Know | Debate | Sky propositions Sarah at the mission; they clash over what love should look like
+A1 | S | A Bushel and a Peck | B Story | Adelaide performs at the Hot Box; Nathan watches, dodging her marriage demands
+A1 | S | Adelaide's Lament | Debate | Adelaide blames her cold on Nathan's fourteen-year refusal to marry her
+A1 | S | Guys and Dolls | Debate | Nicely and Benny needle the men they know who've been undone by women
+A1 | B | - | Break into Two | General Cartwright threatens to shut the mission; Sarah agrees to Havana to save it
+A1 | B | - | Break into Two | Brannigan nearly raids the relocated game; gamblers pose as Nathan's bachelor party
+A1 | / | - | - | A nightclub in Havana, Cuba
+A1 | S | If I Were a Bell | Fun and Games | Drunk on rum, Sky and Sarah dodge a brawl and she impulsively kisses him
+A1 | S | My Time of Day | Fun and Games | Back in New York before dawn, Sky shares his love of the empty streets with Sarah
+A1 | S | I've Never Been in Love Before | Midpoint (false victory) | Sky and Sarah both admit, startled, that they've fallen for each other
+A1 | B | - | Midpoint (false victory) | A police siren reveals Nathan ran his crap game inside the mission itself
+A1 | B | - | Midpoint (false victory) | Sarah assumes Sky arranged Havana to enable Nathan's scheme and storms off
+A2 | S | Take Back Your Mink | Bad Guys Close In | Adelaide performs at the Hot Box, still waiting on Nathan to commit
+A2 | S | Adelaide's Lament (Rep) | Bad Guys Close In | Nicely and Sky tell Adelaide that Nathan has stood her up yet again
+A2 | B | - | Bad Guys Close In | At the mission, Sarah confesses to Arvide she loves Sky but won't see him
+A2 | S | More I Cannot Wish You | Bad Guys Close In | Arvide gently blesses Sarah's unspoken love and urges her toward it
+A2 | B | - | All Is Lost | Sky arrives promising a dozen sinners for the revival; Sarah rejects him outright
+A2 | B | - | Dark Night of the Soul | Arvide's quiet encouragement is all Sky has left as he walks away rejected
+A2 | / | - | - | The sewer under Fifty-Second Street
+A2 | B | - | Break into Three | Unable to talk the gamblers into it, Sky bets $1,000 a head against Big Jule
+A2 | S | Luck Be a Lady | Finale (High Tower Surprise) | Sky risks everything on one roll of Big Jule's blank dice, and wins
+A2 | S | Sue Me | Finale (Gathering the Team) | Adelaide corners Nathan en route to the mission; he finally admits he loves her
+A2 | / | - | - | The Save-a-Soul Mission
+A2 | B | - | Finale (Gathering the Team) | Sky delivers the gamblers as promised; Sarah is stunned they actually came
+A2 | S | Sit Down, You're Rockin' the Boat | Finale (Executing the Plan) | Nicely's invented conversion dream sends the gamblers into revivalist fervor
+A2 | B | - | Finale (Executing the Plan) | Brannigan comes to arrest the gamblers; Nathan confesses the game was his, clearing them
+A2 | B | - | Finale (Executing the Plan) | Nathan reveals he actually won the Havana bet; Sarah realizes Sky protected her name
+A2 | S | Marry the Man Today | Finale (Executing the Plan) | Sarah and Adelaide agree to marry their men now and reform them later
+A2 | B | - | Final Image | Weeks later: Nathan runs a legitimate newsstand, Sky plays in the mission band
+A2 | S | Guys and Dolls (Rep) | Final Image | The company reprises the opening number as both couples marry
+NOTES: Midpoint (the mutual love confession, instantly soured by the mission-game reveal) lands right at the Act One curtain — the intermission sits at the false-victory/reversal, not mid-Act-Two. Catalyst and Break into Two are spoken book scenes; the Midpoint, Break into Three's payoff, and Finale are sung. "The Oldest Established"'s exact placement is inferred from the given running order rather than spelled out in the source prose.

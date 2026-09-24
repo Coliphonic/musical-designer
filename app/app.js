@@ -363,10 +363,14 @@ function templateMinutes(t) { return t.cards.reduce((s, c) => s + (c.min || 0), 
 // A template seat's *preview* title: its function label plus the voicing prefill
 // ("Opening — Company", "I Want — Solo", a bare "Ballad" where the corpus is
 // genuinely mixed) so the previewed board reads as a shape instead of a wall of
-// blanks. Preview only — created shows get the registry's own title: ''.
+// blanks. Preview only — created shows get the registry's own title, which is
+// '' for every corpus-cut shape. A seat that ships a working title (the Story
+// Board's "Candy dish", "Tent pole") leads with it, and that title carries into
+// the created show as-is.
 function templateSeatLabel(c) {
   const label = (FN[c.fn] || {}).label || c.fn || 'Song';
-  return c.voicing ? label + ' — ' + c.voicing : label;
+  const seat = c.voicing ? label + ' — ' + c.voicing : label;
+  return c.title ? c.title + ' · ' + seat : seat;
 }
 
 // Open a template read-only on the board — the same posture as a reference show

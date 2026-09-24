@@ -1,0 +1,35 @@
+### West Side Story (1957) | protagonist: Tony | sources: https://en.wikipedia.org/wiki/West_Side_Story, https://stageagent.com/shows/musical/993/west-side-story | version: original 1957 Broadway | confidence: high
+
+A1 | / | - | - | A street on the West Side of Manhattan
+A1 | S | Prologue | Opening Image | Jets and Sharks stake out turf through dance and rivalry, no words needed
+A1 | S | Jet Song | Theme Stated + Catalyst | Riff preaches lifelong gang loyalty and talks reluctant Tony into tonight's dance
+A1 | S | Something's Coming | Set-Up | Tony, hoping for something better than gang life, senses change is close
+A1 | B | - | Debate | Tony shows up at the gym dance uneasy, unsure he still belongs with the Jets
+A1 | / | - | - | A neighborhood gym, that night
+A1 | S | The Dance at the Gym | Break into Two | Tony and Maria lock eyes across the floor; Bernardo furiously pulls them apart
+A1 | S | Maria | B Story | Smitten, Tony seeks out her building instead of going home
+A1 | / | - | - | A back alley and fire escape behind Maria's tenement
+A1 | S | Tonight | Fun and Games | Maria appears on the fire escape; the two declare love in secret
+A1 | S | America | Fun and Games | The Shark girls, Anita included, spar over Puerto Rico versus their new home
+A1 | S | Cool | Fun and Games | The Jets work off nerves before tonight's war council with the Sharks
+A1 | / | - | - | The bridal shop where Maria works
+A1 | S | One Hand, One Heart | Midpoint (false victory) | Tony and Maria privately vow themselves to each other in a mock wedding
+A1 | S | Tonight (Quintet) | Bad Guys Close In | Both gangs and the lovers converge on the same night from different motives
+A1 | / | - | - | Under the highway, after dark
+A1 | S | The Rumble | All Is Lost | Bernardo kills Riff; Tony, enraged, kills Bernardo as police sirens close in
+A2 | / | - | - | Maria's bedroom, the next morning
+A2 | S | I Feel Pretty | Dark Night of the Soul | Unaware of the deaths, Maria sings of her happiness, with cruel irony
+A2 | B | - | Dark Night of the Soul | Chino arrives and tells Maria that Tony killed her brother Bernardo
+A2 | B | - | Dark Night of the Soul | Tony comes to confess; Maria's fury gives way to a love she can't deny
+A2 | S | Somewhere | Break into Three | Together they dream of a place free of gangs where they could actually live
+A2 | / | - | - | A back alley near Doc's drugstore
+A2 | S | Gee, Officer Krupke | Bad Guys Close In | Jets mock the cop hunting them, masking that Chino now has a gun
+A2 | / | - | - | Maria's bedroom
+A2 | S | A Boy Like That | Bad Guys Close In | Grieving Anita rages at Maria for loving her brother's killer
+A2 | S | I Have a Love | Bad Guys Close In | Maria's devotion moves Anita, who agrees to warn Tony at Doc's
+A2 | / | - | - | Doc's drugstore
+A2 | B | - | All Is Lost | Jets corner and taunt Anita there; humiliated, she lies that Chino shot Maria dead
+A2 | B | - | All Is Lost | Doc repeats the false story to Tony, who runs out begging Chino to kill him too
+A2 | B | - | Finale | Tony finds Maria alive an instant before Chino shoots him dead
+A2 | S | Finale | Final Image | Maria can't fire Chino's gun in fury; Jets and Sharks unite to carry Tony's body off
+NOTES: Midpoint (One Hand One Heart's false-victory "wedding") falls late in Act One, with All Is Lost (the Rumble) landing right at the curtain — intermission sits between them. Catalyst and Break into Two are sung; the real Finale is tragic, Tony's death standing in for the hero "acting," with the lesson's payoff displaced onto the ensemble reconciling. Bad Guys Close In recurs in both acts, an unusual doubling.

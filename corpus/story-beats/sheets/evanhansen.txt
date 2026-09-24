@@ -1,0 +1,26 @@
+### Dear Evan Hansen (2015) | protagonist: Evan Hansen | sources: https://stageagent.com/shows/musical/7745/dear-evan-hansen, https://en.wikipedia.org/wiki/Dear_Evan_Hansen | version: original 2016 Broadway | confidence: high
+
+A1 | / | - | - | A suburban high school and the Hansen and Murphy homes
+A1 | S | Anybody Have a Map? | Opening Image | Two mothers, Heidi and Cynthia, quietly struggle to reach their isolated sons
+A1 | B | - | Theme Stated | Evan's therapist has him write daily letters arguing why today will be a good day
+A1 | S | Waving Through a Window | Set-Up | Evan describes feeling invisible, desperate to connect but too anxious to try
+A1 | B | - | Catalyst | Connor shoves Evan, then takes Evan's own self-letter from the printer; Connor is later found dead with it
+A1 | B | - | Debate | Confronted by the grieving Murphys, who assume the letter proves a secret friendship, Evan freezes
+A1 | S | For Forever | Break into Two | Put on the spot, Evan invents a whole fabricated day of friendship with Connor
+A1 | S | Sincerely, Me | Fun and Games | Evan and Jared fake a backdated email trail to make the friendship look real
+A1 | S | Requiem | Bad Guys Close In | Zoe, Cynthia, and Larry grieve Connor in sharply different, unresolved ways
+A1 | S | If I Could Tell Her | B Story | Using "Connor's" supposed words, Evan finally tells Zoe how he really feels
+A1 | S | Disappear | Fun and Games | The group channels grief into "The Connor Project," restoring an orchard in his name
+A1 | S | You Will Be Found | Midpoint (false victory) | Evan's viral assembly speech makes him a symbol of hope, built entirely on the lie
+A2 | / | - | - | The same school and homes, weeks later
+A2 | S | Sincerely, Me (Reprise) | Bad Guys Close In | More fake correspondence has to be invented to keep the growing story consistent
+A2 | S | To Break in a Glove | Bad Guys Close In | Evan bonds with Larry over Connor's old baseball glove, deepening his guilt
+A2 | S | Only Us | B Story | Evan and Zoe become a real couple, even as the lie beneath them grows heavier
+A2 | S | Good for You | Bad Guys Close In | Heidi, Alana, and Jared all confront Evan; his support system fractures at once
+A2 | B | - | Bad Guys Close In | Alana posts Connor's private letter online without consent; it goes viral and turns scrutiny onto the Murphys
+A2 | B | - | All Is Lost | Evan confesses the entire fabrication to the Murphys, who banish him for good
+A2 | S | Words Fail | Dark Night of the Soul | Evan admits to his mother why he lied: he couldn't stand being no one
+A2 | S | So Big/So Small | Break into Three | Heidi recommits to Evan unconditionally, giving him a place to rebuild from
+A2 | S | Finale (You Will Be Found reprise) | Finale + Final Image | A year later, Evan reconciles with Zoe at the orchard and writes one honest letter to himself
+
+NOTES: Midpoint ("You Will Be Found") lands right at intermission, a textbook false-victory act-break. Catalyst is spoken/implied off-page (Connor's death); Break into Two, All Is Lost, and Break into Three are sung or paired with a short spoken beat. Unusual: "Requiem" reads as Bad-Guys-Close-In material (unresolved grief, family fracture) even though it falls early in Act One, well before that zone officially starts.

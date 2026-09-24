@@ -1,0 +1,30 @@
+### Into the Woods (1987) | protagonist: The Baker | sources: https://stageagent.com/shows/musical/1284/into-the-woods, https://en.wikipedia.org/wiki/Into_the_Woods | version: original 1987 Broadway | confidence: high
+
+A1 | / | - | - | A village and the edge of the woods, "once upon a time"
+A1 | S | Prologue: Into the Woods | Opening Image + Set-Up | Cinderella, Jack, Little Red, and the childless Baker and his Wife each state a wish
+A1 | B | - | Catalyst + Theme Stated | The Witch reveals she cursed the Baker's family after his father stole from her garden
+A1 | B | - | Debate | The Wife insists they must go; the Baker doubts he's capable of fixing it
+A1 | B | - | Break into Two | The Baker and his Wife set out into the woods to gather the Witch's four items
+A1 | / | - | - | Deeper into the woods
+A1 | S | Hello, Little Girl | Fun and Games | The Wolf charms Little Red off her path to Grandmother's house
+A1 | S | I Know Things Now | Fun and Games | Rescued from the Wolf, Red reflects on losing her innocence
+A1 | S | Giants in the Sky | Fun and Games | Jack returns from the beanstalk describing a terrifying, wondrous giant's world
+A1 | S | Agony | Fun and Games | Two princes lament that wanting someone unattainable is its own pleasure
+A1 | S | Stay with Me | Fun and Games | The Witch begs Rapunzel, locked in her tower, never to leave her
+A1 | S | It Takes Two | B Story | The Baker and Wife discover they gather the items faster working as a team
+A1 | S | On the Steps of the Palace | Fun and Games | Cinderella flees the ball, leaving a pitch-covered slipper the Wife retrieves
+A1 | S | Ever After | Midpoint (false victory) | Every wish seems granted at once: a child, riches, a prince, a slipper
+A2 | / | - | - | The village and woods, some time later
+A2 | S | So Happy | Bad Guys Close In | New discontents surface as a second, vengeful Giant descends toward the kingdom
+A2 | S | Agony (Rep) | Bad Guys Close In | Bored with their prizes, the princes already crave someone new
+A2 | S | Any Moment | Bad Guys Close In | The Baker's Wife and Cinderella's Prince share an impulsive tryst in the woods
+A2 | S | Moments in the Woods | Bad Guys Close In | The Wife savors and rationalizes the memory of the affair
+A2 | B | - | All Is Lost | The Giant's rampage kills the Narrator, Jack's mother, and the Baker's Wife
+A2 | S | Your Fault | Dark Night of the Soul | The survivors blame each other in a frantic round instead of grieving
+A2 | S | Last Midnight | Dark Night of the Soul | Out of options and out of magic, the Witch curses them all and vanishes forever
+A2 | S | No More | Dark Night of the Soul | The Baker confronts his dead father's ghost about running from responsibility
+A2 | S | No One Is Alone | Break into Three | The Baker and Cinderella decide facing the Giant together beats going it alone
+A2 | S | Finale: Children Will Listen | Finale | The makeshift family works together and brings down the Giant for good
+A2 | B | - | Final Image | The Baker, present at last, begins telling his son their story himself
+
+NOTES: Midpoint ("Ever After") lands right at intermission as a deliberately ironic false-victory act-break, since the show exists partly to deconstruct that very convention. Catalyst and Break into Two are spoken book beats; All Is Lost is spoken but Dark Night and Break into Three are sung. Unusual: the Prologue number itself musically runs through Opening Image, Set-Up, Catalyst, Debate, and Break into Two without a break.

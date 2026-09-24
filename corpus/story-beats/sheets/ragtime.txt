@@ -1,0 +1,43 @@
+### Ragtime (1996; Broadway 1998) | protagonist: Coalhouse Walker Jr. | sources: https://stageagent.com/shows/musical/1418/ragtime, https://en.wikipedia.org/wiki/Ragtime_(musical) | version: original 1998 Broadway | confidence: high (plot/order); ensemble structure makes zone calls more interpretive
+
+A1 | / | - | - | New Rochelle, Harlem, and the Lower East Side, turn-of-the-century New York
+A1 | S | Prologue: Ragtime | Opening Image + Theme Stated | Three separate Americas — white upper class, Black Harlem, Jewish immigrants — are introduced converging
+A1 | S | Goodbye, My Love | Set-Up | Mother sees Father off on a long Arctic expedition, left alone with the household
+A1 | S | Journey On | Set-Up | Tateh and his daughter arrive as immigrants as Father's ship departs; the threads cross
+A1 | S | The Crime of the Century | Set-Up | Younger Brother obsesses over showgirl Evelyn Nesbit and a lurid celebrity murder
+A1 | S | What Kind of Woman | Set-Up | Mother finds an abandoned Black infant in her garden and takes in the baby and Sarah
+A1 | S | A Shtetl Iz Amereke | Set-Up | Immigrants are processed at Ellis Island, disoriented by their new country
+A1 | S | Success | Set-Up | Tateh struggles to find steady work, brushing against the era's famous names
+A1 | S | His Name Was Coalhouse Walker | Catalyst | Coalhouse, a proud Harlem pianist, learns Sarah, who once left him, is nearby with his baby
+A1 | S | Gettin' Ready Rag | Debate | Coalhouse and his friends celebrate his resolve, though Sarah still refuses to see him
+A1 | S | Henry Ford | Set-Up | Ford's assembly line embodies the era's mechanized, impersonal progress
+A1 | S | Nothing Like the City | Set-Up | Tateh and his daughter meet Mother and young Edgar in New Rochelle
+A1 | S | Your Daddy's Son | B Story | Sarah explains to her baby, in anguish, why she abandoned him out of shame and fear
+A1 | S | The Courtship | Break into Two | Coalhouse visits every week, patiently working to win back Sarah's trust
+A1 | S | New Music | B Story | Sarah finally forgives Coalhouse; they reunite as a couple with their son
+A1 | S | Wheels of a Dream | Fun and Games | Coalhouse and Sarah dream aloud of a dignified, prosperous future for their family
+A1 | S | The Night That Goldman Spoke at Union Square | Fun and Games | Younger Brother, radicalizing, imagines a connection with activist Emma Goldman
+A1 | S | Gliding | Fun and Games | Tateh, fleeing labor violence, reinvents himself making flip-book "movies"
+A1 | S | The Trashing of the Car | Midpoint (false defeat) | Racist firemen destroy Coalhouse's new car, his proudest symbol of success
+A1 | S | Justice | Bad Guys Close In | Coalhouse demands the fire chief be punished; official channels stall on him
+A1 | S | President | All Is Lost | Pleading Coalhouse's case at a campaign rally, Sarah is beaten and killed by security
+A1 | S | Till We Reach That Day | Dark Night of the Soul | The community mourns Sarah at her grave and demands real justice
+A2 | / | - | - | New Rochelle, Harlem, and Atlantic City, months later
+A2 | S | Harry Houdini, Master Escapist | Bad Guys Close In | Houdini's escape act underscores a wider sense of danger and unease (cut in some revivals)
+A2 | S | Coalhouse's Soliloquy | Dark Night of the Soul | Grieving Sarah, Coalhouse hardens his resolve into a plan of open resistance
+A2 | S | Coalhouse Demands | Dark Night of the Soul | Booker T. Washington and the press publicly condemn Coalhouse's growing militancy
+A2 | S | What a Game | Bad Guys Close In | Father, alienated from his own family and country, watches a baseball game uneasily
+A2 | S | Atlantic City | Bad Guys Close In | Father moves the family to the shore as Evelyn Nesbit's fame fades
+A2 | S | Buffalo Nickel Photoplay, Inc. | Bad Guys Close In | Tateh, now a wealthy filmmaker, unexpectedly reunites with Mother
+A2 | S | Our Children | Bad Guys Close In | Tateh and Mother bond over their children, a gentler counter-thread to the unrest
+A2 | S | Sarah Brown Eyes | Dark Night of the Soul | Watching a carefree couple, Coalhouse aches over his memories of Sarah
+A2 | S | He Wanted to Say | Dark Night of the Soul | Younger Brother, unable to articulate his purpose, resolves to join Coalhouse's cause
+A2 | / | - | - | The Morgan Library
+A2 | B | - | Break into Three | Coalhouse and Younger Brother occupy the Morgan Library, demanding the car restored and Conklin punished
+A2 | S | Back to Before | Finale (Gathering the Team) | Mother realizes nothing can simply return to how it was before
+A2 | S | Look What You've Done | Finale | Father confronts Mother over how much she and the world have changed without him
+A2 | S | Make Them Hear You | Finale (Dig Deep Down) | Booker T. Washington persuades Coalhouse to surrender peacefully instead of dying in a firefight
+A2 | B | - | Finale (Execution of the New Plan) | Coalhouse surrenders and is shot dead by police anyway
+A2 | S | Epilogue: Ragtime / Wheels of a Dream | Final Image | The ghosts of Coalhouse and Sarah watch their son grow up in a changed America
+
+NOTES: Ragtime front-loads Set-Up across three families for most of Act One; Coalhouse's Midpoint through Dark Night compress into its final four numbers, right before intermission. The show is almost entirely sung-through, so nearly every plot beat above rides inside a musical number rather than spoken dialogue; only the Library occupation and Coalhouse's death are pure book beats. Break into Three and All Is Lost are both unusually collective/political rather than personal turns.
