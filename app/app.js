@@ -1795,6 +1795,22 @@ function makeBeatFnPill(c) {
   return pill;
 }
 
+// Turning contenteditable on and calling focus() drops the caret at the start
+// of the text. Put it where the click landed instead, so a double-click selects
+// the word under the pointer the way it does in any text field.
+function caretToPoint(elm, e) {
+  let r = null;
+  if (document.caretPositionFromPoint) {
+    const p = document.caretPositionFromPoint(e.clientX, e.clientY);
+    if (p) { r = document.createRange(); r.setStart(p.offsetNode, p.offset); }
+  } else if (document.caretRangeFromPoint) {
+    r = document.caretRangeFromPoint(e.clientX, e.clientY);
+  }
+  if (!r || !elm.contains(r.startContainer)) return;
+  r.collapse(true);
+  const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+}
+
 // Inline-edit a card-face element (title, voicing, note) in place. Saves on blur,
 // commits on Enter, reverts on Escape. Guards against starting a drag while editing.
 function makeCardEditable(elm, getter, setter, placeholder) {
@@ -1810,6 +1826,7 @@ function makeCardEditable(elm, getter, setter, placeholder) {
     if (elm.getAttribute('contenteditable') !== 'true') {
       elm.setAttribute('contenteditable', 'true');
       elm.focus();
+      caretToPoint(elm, e);
     }
   });
   elm.addEventListener('keydown', (e) => {
@@ -9237,7 +9254,7 @@ function buildManuscriptPage(sceneId) {
     elm.addEventListener('mousedown', (e) => e.stopPropagation());
     elm.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (elm.getAttribute('contenteditable') !== 'true') { elm.setAttribute('contenteditable', 'true'); elm.focus(); }
+      if (elm.getAttribute('contenteditable') !== 'true') { elm.setAttribute('contenteditable', 'true'); elm.focus(); caretToPoint(elm, e); }
     });
     elm.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); elm.blur(); }
