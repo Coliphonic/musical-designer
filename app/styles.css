@@ -3210,3 +3210,80 @@ body.dark {
    to move the lock somewhere else by name. */
 .rg-svg.rg-locked .rg-ridge:not(.sel) { opacity: .14; }
 .rg-svg.rg-locked .rg-margin:not(.sel) { opacity: .45; }
+
+/* ---- Text-message threads (Prose Plot) ---------------------------------
+   Edit view: the transcript as typed, or bubbles, flipped per thread from a
+   switch in the right margin that shows on hover. Manuscript: a labelled,
+   indented block. Book: printable bubbles in the book's own face. */
+.msg-thread { position: relative; margin: 0.5em 0; }
+.msg-thread-body { border-left: 2px solid transparent; padding-left: 14px; margin-left: -16px; transition: border-color .15s; }
+.msg-thread:hover .msg-thread-body { border-left-color: var(--energy-line); }
+.msg-line .msg-who { color: var(--energy); }
+.msg-line.msg-st { color: var(--muted); }
+.msg-thread::after { content: ''; position: absolute; top: 0; bottom: 0; right: -72px; width: 72px; }
+.msg-flip { position: absolute; top: 2px; right: -58px; z-index: 2; display: flex; flex-direction: column; gap: 2px; padding: 3px; border-radius: 8px; background: var(--panel); box-shadow: var(--shadow-pop); opacity: 0; pointer-events: none; transition: opacity .15s; }
+.msg-thread:hover .msg-flip, .msg-flip:focus-within { opacity: 1; pointer-events: auto; }
+.msg-flip-btn { all: unset; cursor: pointer; width: 28px; height: 26px; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.msg-flip-btn:hover { color: var(--ink); background: var(--hover); }
+.msg-flip-btn:focus-visible { outline: 2px solid var(--energy-focus); }
+.msg-flip-btn.on { color: var(--panel); background: var(--energy); }
+.msg-flip-btn svg { width: 16px; height: 16px; }
+.msg-thread.is-bubbles .msg-thread-body { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; padding-bottom: 6px; font-family: var(--ui-font); font-size: calc(14px * var(--msz, 1)); line-height: 1.4; }
+.msg-row { display: flex; flex-direction: column; max-width: 64%; }
+.msg-row.msg-me { align-self: flex-end; align-items: flex-end; }
+.msg-row.msg-them { align-self: flex-start; align-items: flex-start; }
+.msg-name { font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 2px 8px; }
+.msg-b { padding: 7px 13px; border-radius: 17px; }
+.msg-me .msg-b { background: var(--energy); color: var(--panel); border-bottom-right-radius: 5px; }
+.msg-them .msg-b { background: var(--btn); color: var(--ink); border-bottom-left-radius: 5px; }
+.msg-b.unsent { background: transparent; color: var(--muted); border: 1px dashed var(--faint); text-decoration: line-through; }
+.msg-status { font-size: 11px; color: var(--muted); }
+.msg-status.align-me { align-self: flex-end; margin: -3px 6px 0 0; }
+.msg-status.align-them { align-self: flex-start; margin: -3px 0 0 8px; }
+.msg-status.align-center { align-self: center; margin: 4px 0; }
+
+.ms-sheet-content .lw-msg { margin-left: 48px; }
+.ms-sheet-content .lw-msg.msg-first { margin-top: 1em; }
+.ms-sheet-content .lw-msg.msg-last { margin-bottom: 1em; }
+
+.book-msg { display: flex; flex-direction: column; max-width: 62%; margin: 0.25em 0; font-size: 0.8em; line-height: 1.3; }
+.book-msg-me { margin-left: auto; align-items: flex-end; }
+.book-msg-them { margin-right: auto; align-items: flex-start; }
+.book-msg-who { font-size: 0.72em; letter-spacing: 0.12em; text-transform: uppercase; color: #666; margin: 0 0 1px 0.6em; }
+.book-msg-b { padding: 0.3em 0.8em; border-radius: 1em; text-align: left; hyphens: manual; }
+.book-msg-me .book-msg-b { background: #2b2b2b; color: #fff; border-bottom-right-radius: 0.3em; }
+.book-msg-them .book-msg-b { border: 0.75px solid #555; border-bottom-left-radius: 0.3em; }
+.book-msg-b.unsent { background: transparent !important; color: #888 !important; border: 0.75px dashed #888; }
+.book-msg-status { font-size: 0.65em; letter-spacing: 0.06em; color: #666; margin: 0.1em 0 0.3em; }
+.book-msg-status.align-me { text-align: right; margin-right: 0.4em; }
+.book-msg-status.align-them { text-align: left; margin-left: 0.6em; }
+.book-msg-status.align-center { text-align: center; text-transform: uppercase; margin: 0.5em 0; }
+.book-msg.msg-first, .book-msg-status.msg-first { margin-top: 0.9em; }
+.book-msg.msg-last, .book-msg-status.msg-last { margin-bottom: 0.9em; }
+/* A transcript line is not a paragraph: no first-line indent or paragraph gap. */
+body.app-prose .ms-sheet-content .msg-thread .msg-line { text-indent: 0; margin-top: 0; }
+/* Manuscript: a thread keeps the page's double spacing (Shunn). */
+body.app-prose .ms-sheet-content .lw-msg { line-height: 2; }
+
+/* ---- Shortcuts list (⌘/) -----------------------------------------------
+   Manuscript: a right-edge drawer in the Page setup slot, so the page moves
+   over rather than being covered. Card editor: a panel floating over the
+   right of the window. Same content in both, built by buildHelpPanel. */
+.ms-help-drawer.open { width: 300px; }
+.help-panel { width: 300px; flex: 1; min-height: 0; overflow-y: auto; font-family: var(--ui-font); font-size: 12.5px; line-height: 1.4; color: var(--ink); }
+.help-top { position: sticky; top: 0; z-index: 2; background: var(--panel); display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 10px; border-bottom: 1px solid var(--line); }
+.help-title { font-size: 13px; font-weight: 600; }
+.help-body { padding: 0 16px 22px; }
+.help-head { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 700; margin: 16px 0 4px; }
+.help-row { display: grid; grid-template-columns: 104px 1fr; gap: 10px; padding: 5px 0; border-top: 1px solid var(--line); }
+.help-head + .help-row { border-top: 0; }
+.help-a { display: flex; flex-wrap: wrap; gap: 3px; align-items: baseline; color: var(--muted); font-size: 11px; }
+.help-b { color: var(--note); }
+.help-panel code { font-family: 'Courier Prime', 'Courier New', monospace; font-size: 12px; color: var(--ink); background: var(--btn); padding: 1px 5px; border-radius: 4px; white-space: nowrap; }
+.help-panel kbd { font-family: var(--ui-font); font-size: 11px; color: var(--ink); padding: 1px 5px; border-radius: 5px; background: var(--btn); border: 1px solid var(--line); border-bottom-width: 2px; white-space: nowrap; }
+.lyricwin { position: relative; }
+.lw-help { position: absolute; top: 56px; right: 14px; bottom: 14px; z-index: 5; display: flex; background: var(--panel); border-radius: 12px; box-shadow: var(--shadow-pop); overflow: hidden; }
+.lwhelp { all: unset; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 8px; color: var(--muted); }
+.lwhelp:hover { color: var(--ink); background: var(--hover); }
+.lwhelp.active { color: #fff; background: var(--energy); }
+.lwhelp:focus-visible { outline: 2px solid var(--energy-focus); }

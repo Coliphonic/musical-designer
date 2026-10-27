@@ -2549,6 +2549,71 @@ function cardBodyTokens(c) {
   return toks;
 }
 
+// ---- Text messages (Prose Plot) -------------------------------------------
+// A thread is written as a plain transcript, one line per message:
+//   Theo: heard about the lamp. you ok?
+//   Mara: ~~no~~          (struck through = typed, then deleted)
+//   (Read 11:52 pm)       (a phone status line, only inside a thread)
+// No new element type and nothing stored but the text: threadTokens() finds
+// the runs at render time, so Fountain, word counts and the editor are
+// untouched. Each view decides the look: Edit shows the transcript or bubbles
+// (per thread, c.msgThreads[n].bubbles), Manuscript a labelled block, Book
+// bubbles. c.msgThreads[n].swap flips which sender sits on the right.
+// Words that read as a label, not a sender ("Note: …"), never start a message.
+const MSG_LABEL_WORDS = new Set(['note', 'notes', 'nb', 'ps', 'p.s.', 'update', 'warning', 'answer', 'question', 'rule', 'step', 'example', 'chapter', 'part', 'subject', 're', 'to', 'from', 'date', 'q', 'a']);
+function parseMsgLine(text) {
+  const m = (text || '').trim().match(/^([A-Z][\p{L}\p{M}'’.\-]*(?: [A-Z][\p{L}\p{M}'’.\-]*){0,2}):\s+(\S.*)$/u);
+  if (!m || MSG_LABEL_WORDS.has(m[1].toLowerCase())) return null;
+  const s = m[2].match(/^~~([^~]+)~~$/);
+  return { who: m[1], text: s ? s[1] : m[2], unsent: !!s };
+}
+function parseMsgStatus(text) {
+  const m = (text || '').trim().match(/^\((.+)\)$/);
+  return m ? m[1].trim() : null;
+}
+// Body tokens → the same tokens with each thread's lines replaced by
+// { type:'msg', who, text, unsent, side, showWho } and { type:'msg-status',
+// text, align }. Every thread token carries `thread` (its ordinal in the card)
+// and first/last flags. Non-thread tokens pass through as the same objects.
+function threadTokens(toks, c) {
+  const isLine = (t) => t.type === 'action' || t.type === 'paren';
+  const kind = (t) => !isLine(t) ? null
+    : parseMsgLine(t.text) ? 'msg'
+    : parseMsgStatus(t.type === 'paren' ? '(' + (t.text || '').replace(/^\(/, '').replace(/\)$/, '') + ')' : t.text) != null ? 'status' : null;
+  const out = [];
+  let n = 0;
+  for (let i = 0; i < toks.length;) {
+    let j = i;
+    while (j < toks.length && kind(toks[j])) j++;
+    const run = toks.slice(i, j);
+    if (!run.some((t) => kind(t) === 'msg')) { out.push(toks[i]); i++; continue; }
+    const pref = ((c && c.msgThreads) || [])[n] || {};
+    const msgs = run.map((t) => parseMsgLine(t.text));
+    const senders = [];
+    msgs.forEach((m) => { if (m && !senders.includes(m.who)) senders.push(m.who); });
+    const me = senders.find((s) => s.toLowerCase() === 'me')
+      || (senders.length >= 2 ? (pref.swap ? senders[0] : senders[1]) : (pref.swap ? senders[0] : null));
+    let lastWho = null, lastSide = 'them';
+    run.forEach((t, k) => {
+      const base = { thread: n, first: k === 0, last: k === run.length - 1, key: t.key, lastRev: t.lastRev };
+      const m = msgs[k];
+      if (m) {
+        const side = m.who === me ? 'me' : 'them';
+        out.push({ ...base, type: 'msg', who: m.who, text: m.text, unsent: m.unsent, side, showWho: side === 'them' && m.who !== lastWho });
+        lastWho = m.who; lastSide = side;
+      } else {
+        const s = parseMsgStatus(t.type === 'paren' ? '(' + (t.text || '').replace(/^\(/, '').replace(/\)$/, '') + ')' : t.text);
+        // Receipts sit under the message they belong to; anything else (a gap,
+        // a time) is centred between messages.
+        out.push({ ...base, type: 'msg-status', text: s, align: /^(read|delivered|seen|sent)\b/i.test(s) ? lastSide : 'center' });
+      }
+    });
+    n++;
+    i = j;
+  }
+  return out;
+}
+
 // ---- Step 2: persisted structured lines -----------------------------------
 // `card.lines` is the identity sidecar for the manuscript body. The text blob
 // (lyrics/note) stays canonical for the dozen readers that consume it; `lines`
@@ -2880,6 +2945,153 @@ function bodyLineEl(type, text, key) {
   const a = anchorFromKey(key);
   if (a) div.dataset.anchor = a;
   return div;
+}
+
+// One text-message thread in the Edit view (Prose Plot). Shows the transcript
+// as typed, or bubbles once the writer flips it from the switch that appears
+// in the right margin on hover. The choice is saved per thread but only
+// changes this view; clicking into the thread still opens the plain editor.
+const MSG_ICONS = {
+  plain: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4h10M3 8h10M3 12h6"/></svg>',
+  bubbles: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2.5 3.5h7a1.5 1.5 0 0 1 1.5 1.5v2.5A1.5 1.5 0 0 1 9.5 9H6l-2.5 2V9h-1A1.5 1.5 0 0 1 1 7.5V5a1.5 1.5 0 0 1 1.5-1.5z"/><path d="M13 6.5h.5A1.5 1.5 0 0 1 15 8v2.5a1.5 1.5 0 0 1-1.5 1.5H13v1.8L10.8 12H9"/></svg>',
+  swap: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.5h10M10.5 3l2.5 2.5L10.5 8M13 10.5H3M5.5 8L3 10.5 5.5 13"/></svg>',
+};
+// The ⌘/ shortcuts list: everything you can type or press while writing, for
+// the app you're in. `where` is 'ms' (the Manuscript editor) or 'card' (the
+// card editor, a plain text box: same typed markers, no element keys, and
+// cards can only be spawned from the Manuscript). Keep it in step with
+// classifyLyricLine, threadTokens and buildRichEditor's keydown handler.
+function helpSections(isProse, where) {
+  const mod = /mac/i.test((typeof navigator !== 'undefined' && navigator.platform) || '') ? '⌘' : 'Ctrl+';
+  const shift = mod === '⌘' ? '⇧' : 'Shift+';
+  const k = (...xs) => xs.map((x) => '<kbd>' + x + '</kbd>').join(' ');
+  const code = (s) => '<code>' + escHtml(s) + '</code>';
+  const ms = where === 'ms';
+  const out = [];
+  if (isProse) {
+    out.push({ head: 'Write it', rows: [
+      ['plain text', 'A paragraph. Enter starts the next one'],
+      [code('***'), 'A scene break, on its own line'],
+      [code('*italic*'), 'Italic. ' + code('**bold**') + ' for bold'],
+    ] });
+    out.push({ head: 'Text messages', rows: [
+      [code('Theo: hi'), 'A message from Theo'],
+      [code('Mara: ~~no~~'), 'Typed, then deleted'],
+      [code('(Read 9:14 pm)'), 'A status line, inside a thread'],
+      [code('Me: hi'), 'Always on the narrator’s side'],
+    ] });
+    if (ms) out.push({ head: 'New card, typed on its own line', rows: [
+      [code('.Title'), 'A chapter'],
+      [code('=Title'), 'A beat'],
+    ] });
+  } else {
+    out.push({ head: 'Write it', rows: [
+      [code('NAME'), 'A line in capitals is who sings or speaks'],
+      ['plain text', 'Under a name: lyrics in a song, dialogue in a scene'],
+      [code('!Line'), 'A stage direction'],
+      [code('(softly)'), 'A parenthetical'],
+      [code('NAME (sings)'), 'Sung, in a scene. ' + code('(spoken)') + ' is the reverse, in a song'],
+      [code('NAME ^'), 'Sings or speaks at the same time as the name above' + (ms ? '. Or ' + k(mod + 'D') : '')],
+      [code('~'), 'A gap that keeps the verse going' + (ms ? '. Or ' + k(shift + 'Enter') : '')],
+      [code('[Chorus]'), 'A section label'],
+      [code('[Scene 1: Title]'), 'A scene heading'],
+      [code('[#01 Title]'), 'A song number heading'],
+      [code('[Am]'), 'A chord, before the word it lands on'],
+      [code('*italic*'), 'Italic. ' + code('**bold**') + ' for bold'],
+    ] });
+    if (ms) out.push({ head: 'New card, typed on its own line', rows: [
+      [code('~Title'), 'A song'],
+      [code('.Title'), 'A scene'],
+      [code('=Title'), 'A beat'],
+      [code('//note'), 'This card’s note'],
+    ] });
+  }
+  const keys = [];
+  if (ms) {
+    keys.push([k('Enter'), isProse ? 'Next paragraph' : 'Next line. On an empty line, leave the block']);
+    keys.push([k('Tab'), isProse ? 'Body or scene break' : 'Change what this line is']);
+    if (!isProse) keys.push([k(mod + '1') + ' to ' + k(mod + '6'), 'Character, Dialogue, Lyrics, Parenthetical, Action, Section']);
+    keys.push([k(mod + 'B', mod + 'I', mod + 'U'), 'Bold, italic, underline']);
+    keys.push([k(mod + shift + 'X'), 'Strike through']);
+    keys.push([k(mod + shift + 'H'), 'Highlight']);
+    keys.push([k(mod + 'Z'), 'Undo. ' + k(mod + shift + 'Z') + ' to redo']);
+    keys.push([k(mod + 'F'), 'Find and replace']);
+  } else {
+    keys.push([k('Esc'), 'Close the card']);
+  }
+  keys.push([k(mod + '/'), 'Show or hide this list']);
+  out.push({ head: 'Keys', rows: keys });
+  return out;
+}
+function buildHelpPanel(isProse, where, onClose) {
+  const panel = el('div', { class: 'help-panel' });
+  const close = el('button', { class: 'xclose help-close', type: 'button', text: '✕', title: 'Close', 'aria-label': 'Close shortcuts' });
+  close.addEventListener('click', onClose);
+  panel.appendChild(el('div', { class: 'help-top' }, [el('span', { class: 'help-title', text: 'Shortcuts' }), close]));
+  const body = el('div', { class: 'help-body' });
+  helpSections(isProse, where).forEach((s) => {
+    body.appendChild(el('div', { class: 'help-head', text: s.head }));
+    s.rows.forEach(([a, b]) => body.appendChild(el('div', { class: 'help-row' }, [
+      el('div', { class: 'help-a', html: a }), el('div', { class: 'help-b', html: b }),
+    ])));
+  });
+  panel.appendChild(body);
+  return panel;
+}
+const HELP_ICON = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.2-2.4 3.8"/><circle cx="12" cy="17" r="0.6" fill="currentColor"/></svg>';
+// ⌘/ toggles whichever list belongs to what's in front: the card editor's
+// when it's open, else the Manuscript's. Each sets its toggle while mounted.
+let msHelpToggle = null;
+let cardHelpToggle = null;
+
+function msgThreadBox(c, n, rerender) {
+  const pref = ((c.msgThreads || [])[n]) || {};
+  const bubbles = !!pref.bubbles;
+  const box = el('div', { class: 'msg-thread' + (bubbles ? ' is-bubbles' : '') });
+  const body = el('div', { class: 'msg-thread-body' });
+  box.appendChild(body);
+  const setPref = (patch) => {
+    const all = (c.msgThreads || []).slice();
+    while (all.length <= n) all.push(null);
+    all[n] = Object.assign({}, all[n], patch);
+    c.msgThreads = all;
+    doSave();
+    rerender();
+  };
+  if (!state.readonly) {
+    const btn = (icon, title, on, run) => {
+      const b = el('button', { type: 'button', class: 'msg-flip-btn' + (on ? ' on' : ''), title, 'aria-label': title, html: MSG_ICONS[icon] });
+      b.addEventListener('click', run);
+      return b;
+    };
+    const flip = el('div', { class: 'msg-flip' }, [
+      btn('plain', 'Show as text', !bubbles, () => { if (bubbles) setPref({ bubbles: false }); }),
+      btn('bubbles', 'Show as bubbles', bubbles, () => { if (!bubbles) setPref({ bubbles: true }); }),
+    ]);
+    if (bubbles) flip.appendChild(btn('swap', 'Swap sides', false, () => setPref({ swap: !pref.swap })));
+    // The section opens the editor on mousedown; the switch is not the text.
+    flip.addEventListener('mousedown', (e) => { e.stopPropagation(); e.preventDefault(); });
+    box.appendChild(flip);
+  }
+  box._add = (tok) => {
+    let row;
+    if (!bubbles) {
+      const html = tok.type === 'msg'
+        ? '<span class="msg-who">' + escHtml(tok.who) + ':</span> ' + emphToHtml(tok.unsent ? '~~' + tok.text + '~~' : tok.text)
+        : '(' + emphToHtml(tok.text) + ')';
+      row = el('div', { class: 'ms-el lw-action msg-line' + (tok.type === 'msg-status' ? ' msg-st' : ''), html });
+    } else if (tok.type === 'msg') {
+      row = el('div', { class: 'msg-row msg-' + tok.side });
+      if (tok.showWho) row.appendChild(el('div', { class: 'msg-name', text: tok.who }));
+      row.appendChild(el('div', { class: 'msg-b' + (tok.unsent ? ' unsent' : ''), html: emphToHtml(tok.text) }));
+    } else {
+      row = el('div', { class: 'msg-status align-' + tok.align, html: emphToHtml(tok.text) });
+    }
+    const a = anchorFromKey(tok.key);
+    if (a) row.dataset.anchor = a;
+    body.appendChild(row);
+  };
+  return box;
 }
 
 // `detachBar`: don't mount the style ribbon inside the editor — the caller mounts
@@ -3639,6 +3851,9 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   // name still live-infers it up to a cue when it actually is one.
   if (!seed.some((t) => t.type !== 'blank')) { const first = mkLine(isSong ? 'sung' : 'action', ''); if (!isProse) first.dataset.neutral = '1'; lineEd.appendChild(first); }
   else seed.forEach((l) => {
+    // Prose has no parenthetical element: a line in parens (a text-message
+    // status like "(Read 11:52 pm)") is Body text that keeps its parens.
+    if (isProse && l.type === 'paren') l = { ...l, type: 'action', text: '(' + (l.text || '').replace(/^\(/, '').replace(/\)$/, '') + ')' };
     const r = mkLine(l.type, l.text, l.dual, l.id, l.subtype, l.stanza);
     // A SAVED empty row is just as unidentified as a fresh one — without the
     // stamp, a card whose body ends in an empty action row parks the caret at
@@ -4105,7 +4320,7 @@ function buildContentTokens(sceneId) {
       // cue/dialogue, and in Prose Plot, Body/Scene break), and a chapter in
       // Prose Plot IS a scene card, so it needs real paragraph-by-paragraph
       // rendering here, not a single glob of text.
-      if (c.note && c.note.trim()) { toks.push({ type: 'blank' }); cardBodyTokens(c).forEach(pushLyric); toks.push({ type: 'blank' }); }
+      if (c.note && c.note.trim()) { toks.push({ type: 'blank' }); (state.format === 'prose' ? threadTokens(cardBodyTokens(c), c) : cardBodyTokens(c)).forEach(pushLyric); toks.push({ type: 'blank' }); }
     } else if (c.type === 'beat') {
       // The beat's Beatline ("what it's about") is an outline reference, not
       // script — render it as a distinct note (sage), gated by its own
@@ -4456,6 +4671,14 @@ function renderPageToken(tok, container) {
   } else if (tok.type === 'action')   { container.appendChild(el('div', { class: 'lw-action', html: emphToHtml(tok.text) }));
   } else if (tok.type === 'scenebreak') { container.appendChild(el('div', { class: 'lw-scenebreak', text: '⁂' })); // ⁂ divider, centered — text itself isn't meaningful
   } else if (tok.type === 'note')     { container.appendChild(el('div', { class: 'lw-note-ms', html: emphToHtml(tok.text) }));
+  } else if (tok.type === 'msg' || tok.type === 'msg-status') {
+    // Submission manuscripts set texts as a plain labelled block: SENDER: text,
+    // an unsent draft named as one (a strikethrough would read as an edit),
+    // status lines in brackets.
+    const html = tok.type === 'msg'
+      ? escHtml(tok.who.toUpperCase()) + (tok.unsent ? ' (unsent): ' : ': ') + emphToHtml(tok.text)
+      : '[' + emphToHtml(tok.text) + ']';
+    container.appendChild(el('div', { class: 'lw-msg' + (tok.first ? ' msg-first' : '') + (tok.last ? ' msg-last' : ''), html }));
   } else if (tok.type === 'dual') {
     // Side-by-side columns. Each column renders its own token list; the row's
     // height is naturally max(column heights), which the placer measures.
@@ -4495,7 +4718,7 @@ function bookChapters() {
   return order
     .map((i) => state.cards[i])
     .filter((c) => c.type === 'scene')
-    .map((c) => ({ id: c.id, key: 'sc:' + c.id, title: c.title || 'Chapter', tokens: cardBodyTokens(c) }));
+    .map((c) => ({ id: c.id, key: 'sc:' + c.id, title: c.title || 'Chapter', tokens: threadTokens(cardBodyTokens(c), c) }));
 }
 
 // Flat chapters → atomic blocks. Paragraphs and scene breaks are not split
@@ -4573,6 +4796,16 @@ function renderBookToken(tok, container) {
     const p = el('p', { class: 'book-para', html: emphToHtml(tok.text) });
     if (tok.firstPara && theme.opener && theme.opener !== 'plain') applyChapterOpener(p, theme.opener);
     container.appendChild(p);
+  } else if (tok.type === 'msg') {
+    // Printed bubbles: the narrator's side filled, everyone else outlined, an
+    // unsent draft dashed. One row per message so a long thread can break
+    // across pages like paragraphs do.
+    const row = el('div', { class: 'book-msg book-msg-' + tok.side + (tok.first ? ' msg-first' : '') + (tok.last ? ' msg-last' : '') });
+    if (tok.showWho) row.appendChild(el('div', { class: 'book-msg-who', text: tok.who }));
+    row.appendChild(el('div', { class: 'book-msg-b' + (tok.unsent ? ' unsent' : ''), html: emphToHtml(tok.text) }));
+    container.appendChild(row);
+  } else if (tok.type === 'msg-status') {
+    container.appendChild(el('div', { class: 'book-msg-status align-' + tok.align + (tok.first ? ' msg-first' : '') + (tok.last ? ' msg-last' : ''), html: emphToHtml(tok.text) }));
   } else if (tok.type === 'scenebreak') {
     const div = el('div', { class: 'book-scenebreak bk-break-' + theme.sceneBreak });
     const g = sceneBreakGlyph(theme.sceneBreak);
@@ -5192,6 +5425,8 @@ function epubChapterXhtml(chapter, num) {
       else body.push('<p class="scene-break">' + escHtml(sceneBreakGlyph(sb)) + '</p>');
       return;
     }
+    if (t.type === 'msg') { body.push('<p class="msg' + (t.first ? ' msg-first' : '') + (t.last ? ' msg-last' : '') + '"><span class="msg-who">' + escHtml(t.who) + (t.unsent ? ' (unsent)' : '') + ':</span> ' + emphToXhtml(t.text) + '</p>'); return; }
+    if (t.type === 'msg-status') { body.push('<p class="msg msg-status' + (t.first ? ' msg-first' : '') + (t.last ? ' msg-last' : '') + '">' + emphToXhtml(t.text) + '</p>'); return; }
     if (t.type !== 'action') return; // prose chapters carry only action/scenebreak
     const cls = (!firstDone) ? ' class="first-para"' : '';
     if (!firstDone) firstDone = true;
@@ -5233,6 +5468,10 @@ function epubBookCss(fontMeta, haveFonts) {
     ".ch-label{display:block;font-size:1.5em;letter-spacing:0.12em;text-transform:uppercase;}\n" +
     ".ch-name{display:block;margin-top:0.5em;font-size:1.05em;font-style:italic;}\n" +
     ".first-para{text-indent:0;}\n" +
+    "p.msg{text-indent:0;text-align:left;margin:0 0 0.2em 1.5em;font-size:0.9em;}\n" +
+    "p.msg-first{margin-top:0.9em;}\np.msg-last{margin-bottom:0.9em;}\n" +
+    ".msg-who{font-variant:small-caps;letter-spacing:0.04em;}\n" +
+    ".msg-status{opacity:0.7;font-style:italic;}\n" +
     ".scene-break{text-align:center;text-indent:0;margin:1.5em 0;letter-spacing:0.3em;}\n" +
     ".scene-break-space{margin:2.2em 0;}\n" +
     ".scene-break-rule{margin:1.8em 0;}\n" +
@@ -7894,6 +8133,26 @@ function createPdf(meta) {
         page.ops.push('q ' + fmt(c[0]) + ' ' + fmt(c[1]) + ' ' + fmt(c[2]) + ' rg ' +
           fmt(x) + ' ' + fmt(y) + ' ' + fmt(w) + ' ' + fmt(h) + ' re f Q');
       },
+      // Rounded rectangle (x,y = bottom-left, in pt), filled and/or stroked —
+      // the text-message bubbles in a book. Corners are quarter-circle Béziers.
+      roundRect(x, y, w, h, r, opt) {
+        opt = opt || {};
+        r = Math.max(0, Math.min(r, w / 2, h / 2));
+        const k = r * 0.5523, x1 = x + w, y1 = y + h;
+        const path = fmt(x + r) + ' ' + fmt(y) + ' m ' + fmt(x1 - r) + ' ' + fmt(y) + ' l ' +
+          fmt(x1 - r + k) + ' ' + fmt(y) + ' ' + fmt(x1) + ' ' + fmt(y + r - k) + ' ' + fmt(x1) + ' ' + fmt(y + r) + ' c ' +
+          fmt(x1) + ' ' + fmt(y1 - r) + ' l ' +
+          fmt(x1) + ' ' + fmt(y1 - r + k) + ' ' + fmt(x1 - r + k) + ' ' + fmt(y1) + ' ' + fmt(x1 - r) + ' ' + fmt(y1) + ' c ' +
+          fmt(x + r) + ' ' + fmt(y1) + ' l ' +
+          fmt(x + r - k) + ' ' + fmt(y1) + ' ' + fmt(x) + ' ' + fmt(y1 - r + k) + ' ' + fmt(x) + ' ' + fmt(y1 - r) + ' c ' +
+          fmt(x) + ' ' + fmt(y + r) + ' l ' +
+          fmt(x) + ' ' + fmt(y + r - k) + ' ' + fmt(x + r - k) + ' ' + fmt(y) + ' ' + fmt(x + r) + ' ' + fmt(y) + ' c h';
+        let ops = 'q ';
+        if (opt.fill) ops += fmt(opt.fill[0]) + ' ' + fmt(opt.fill[1]) + ' ' + fmt(opt.fill[2]) + ' rg ';
+        if (opt.stroke) ops += fmt(opt.stroke[0]) + ' ' + fmt(opt.stroke[1]) + ' ' + fmt(opt.stroke[2]) + ' RG ' + fmt(opt.lineWidth || 0.75) + ' w ';
+        if (opt.dash) ops += '[2 1.5] 0 d ';
+        page.ops.push(ops + path + ' ' + (opt.fill && opt.stroke ? 'B' : opt.fill ? 'f' : 'S') + ' Q');
+      },
     };
     pages.push(page);
     return api;
@@ -8287,6 +8546,20 @@ function pdfTranscribeBookSheet(pdf, sheet, fonts, fontId) {
   const page = pdf.addPage(sr.width * PDF_PX_TO_PT, pageHpx * PDF_PX_TO_PT);
   const xPt = (cssLeft) => (cssLeft - sr.left) * PDF_PX_TO_PT;
   const yPt = (topFromSheet) => (pageHpx - topFromSheet) * PDF_PX_TO_PT;
+
+  // Text-message bubbles: draw each shape first so its text lands on top.
+  sheet.querySelectorAll('.book-msg-b').forEach((b) => {
+    const r = b.getBoundingClientRect();
+    const cs = getComputedStyle(b);
+    const bgAlpha = /rgba\([^)]*,\s*0\)/.test(cs.backgroundColor) || cs.backgroundColor === 'transparent';
+    const bw = parseFloat(cs.borderTopWidth) || 0;
+    page.roundRect(xPt(r.left), yPt(r.bottom - sr.top), r.width * PDF_PX_TO_PT, r.height * PDF_PX_TO_PT,
+      (parseFloat(cs.borderTopLeftRadius) || 0) * PDF_PX_TO_PT, {
+        fill: bgAlpha ? null : pdfParseColor(cs.backgroundColor),
+        stroke: bw > 0 && cs.borderTopStyle !== 'none' ? pdfParseColor(cs.borderTopColor) : null,
+        lineWidth: bw * PDF_PX_TO_PT, dash: cs.borderTopStyle === 'dashed',
+      });
+  });
 
   const walker = document.createTreeWalker(sheet, NodeFilter.SHOW_TEXT, {
     acceptNode(n) {
@@ -8968,6 +9241,8 @@ function buildManuscriptPage(sceneId) {
   // and the Edit | Print View toggle never shifts when you tab between views.
   tbRight.appendChild(focusBtn);
   tbRight.appendChild(exportBtn);
+  const helpBtn = el('button', { class: 'ms-settings-btn ms-help-btn', title: 'Shortcuts (' + (navigator.platform.toUpperCase().includes('MAC') ? '⌘' : 'Ctrl+') + '/)', 'aria-label': 'Shortcuts', html: HELP_ICON });
+  tbRight.appendChild(helpBtn);
   tbRight.appendChild(el('span', { class: 'ms-tb-divider' }));
   tbRight.appendChild(settingsBtn); // settings last — it opens the right-edge drawer
   toolbar.appendChild(tbRight);
@@ -9329,7 +9604,17 @@ function buildManuscriptPage(sceneId) {
     } else {
       // Render with the same .ms-el markup the editor uses, so clicking in swaps
       // to an identical box layout — no reflow.
-      cardBodyTokens(c).forEach((tok) => inner.appendChild(bodyLineEl(tok.type, tok.text, tok.key)));
+      if (state.format !== 'prose') cardBodyTokens(c).forEach((tok) => inner.appendChild(bodyLineEl(tok.type, tok.text, tok.key)));
+      else {
+        // Text-message threads gather into one box with a hover switch; the
+        // rest of the chapter renders exactly as before.
+        let box = null;
+        threadTokens(cardBodyTokens(c), c).forEach((tok) => {
+          if (tok.type !== 'msg' && tok.type !== 'msg-status') { box = null; inner.appendChild(bodyLineEl(tok.type, tok.text, tok.key)); return; }
+          if (tok.first) { box = msgThreadBox(c, tok.thread, () => renderCardSection(sec, c)); inner.appendChild(box); }
+          box._add(tok);
+        });
+      }
     }
     sec.appendChild(inner);
   };
@@ -10297,7 +10582,27 @@ function buildManuscriptPage(sceneId) {
   msWrap.appendChild(msNav);
   msWrap.appendChild(drawer);
   if (bookDrawer) msWrap.appendChild(bookDrawer);
+  // Shortcuts drawer: the same right-edge slot as Page setup, so the page moves
+  // over instead of being covered while you write. One drawer open at a time.
+  const helpDrawer = el('div', { class: 'ms-hd-drawer ms-help-drawer' });
+  const setHelp = (open) => {
+    helpDrawer.classList.toggle('open', open);
+    helpBtn.classList.toggle('active', open);
+    if (open) {
+      [drawer, bookDrawer].forEach((d) => { if (d) d.classList.remove('open'); });
+      settingsBtn.classList.remove('active');
+    }
+  };
+  helpDrawer.appendChild(buildHelpPanel(state.format === 'prose', 'ms', () => setHelp(false)));
+  msWrap.appendChild(helpDrawer);
+  helpBtn.addEventListener('click', () => setHelp(!helpDrawer.classList.contains('open')));
+  msHelpToggle = (force) => {
+    if (!helpDrawer.isConnected) { msHelpToggle = null; return false; }
+    setHelp(force === undefined ? !helpDrawer.classList.contains('open') : force);
+    return true;
+  };
   settingsBtn.addEventListener('click', () => {
+    setHelp(false);
     // Book view gets its own drawer; every other mode gets the manuscript one.
     const active = (msMode === 'book' && bookDrawer) ? bookDrawer : drawer;
     const inactive = active === drawer ? bookDrawer : drawer;
@@ -10720,12 +11025,26 @@ function buildLyricWindow(c) {
     : el('span', { class: 'pill beat-pill', text: (c.beatFn || '').trim() || 'Beat' });
 
   const lwtitleEl = el('span', { class: 'lwtitle', text: c.title || 'Untitled' });
+  // Shortcuts list for this editor, floating over the right of the window.
+  const helpBtn = el('button', { class: 'lwhelp', type: 'button', title: 'Shortcuts (' + (navigator.platform.toUpperCase().includes('MAC') ? '⌘' : 'Ctrl+') + '/)', 'aria-label': 'Shortcuts', html: HELP_ICON });
+  const setCardHelp = (open) => {
+    const cur = win.querySelector('.lw-help');
+    if (cur && !open) { cur.remove(); helpBtn.classList.remove('active'); }
+    if (!cur && open) { win.appendChild(el('div', { class: 'lw-help' }, [buildHelpPanel(state.format === 'prose', 'card', () => setCardHelp(false))])); helpBtn.classList.add('active'); }
+  };
+  helpBtn.addEventListener('click', () => setCardHelp(!win.querySelector('.lw-help')));
+  cardHelpToggle = (force) => {
+    if (!win.isConnected) { cardHelpToggle = null; return false; }
+    setCardHelp(force === undefined ? !win.querySelector('.lw-help') : force);
+    return true;
+  };
   const head = el('div', { class: 'lwhead' }, [
     pillEl,
     lwtitleEl,
     summary,
     el('span', { style: 'flex:1' }),
     pushBtn,
+    helpBtn,
     closeBtn,
   ]);
 
@@ -11298,12 +11617,20 @@ function initControls() {
     dmBtn.addEventListener('click', () => { dark = !dark; applyDark(dark); try { localStorage.setItem('md-dark', dark ? '1' : '0'); } catch (_) {} });
   }
   document.addEventListener('keydown', (e) => {
+    // ⌘/ — the shortcuts list for whatever is in front (card editor first).
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key === '/') {
+      if ((state.lyricWinId && cardHelpToggle && cardHelpToggle()) || (msHelpToggle && msHelpToggle())) e.preventDefault();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.key === 'f' || e.key === 'F') && !state.readonly) {
       e.preventDefault();
       openFindModal();
       return;
     }
     if (e.key === 'Escape') {
+      // An open shortcuts list closes first, before anything it sits over.
+      if (state.lyricWinId && cardHelpToggle && document.querySelector('.lw-help')) { cardHelpToggle(false); return; }
+      if (!state.lyricWinId && msHelpToggle && document.querySelector('.ms-help-drawer.open')) { msHelpToggle(false); return; }
       if (msFocusExit) { msFocusExit(); return; }
       const exd = document.getElementById('exp-drawer');
       if (exd) { closeExportDrawer(); return; }
