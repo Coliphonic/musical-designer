@@ -106,7 +106,7 @@ const EXPORTS = [
   'mergeLineIds', 'stampRevisions', 'emphToHtml', 'emphFromNode', 'escHtml',
   'migrateDna', 'migrateLegacyIds', 'cardFromStored', 'serialize', 'applyShowData',
   'cardBodyField', 'b64encode', 'b64decode',
-  'parseMsgLine', 'threadTokens', 'cardBodyTokens', 'helpSections',
+  'parseMsgLine', 'threadTokens', 'cardBodyTokens', 'helpSections', 'emphToHtml',
   // From data.js, so a test can assert the harness really loaded it rather than
   // running against stubs (see harness.test.js).
   'SHOWS', 'NOVELS', 'TEMPLATES',

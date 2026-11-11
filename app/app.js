@@ -2832,8 +2832,13 @@ function sanitizeHtmlFragment(html) {
   }
   return out.innerHTML;
 }
+// A script dash (--) or em dash belongs to the word before it: "word --" must
+// never wrap with the dashes alone at the start of the next line. Display swaps
+// that one space for a no-break space; emphFromNode turns it back on save, so
+// stored text never carries it.
+function glueDashes(s) { return s.replace(/(\S) (?=--|\u2014)/g, '$1\u00A0'); }
 function emphToHtml(text) {
-  let s = escHtml(text);
+  let s = glueDashes(escHtml(text));
   s = s.replace(/\*\*\*([^*]+?)\*\*\*/g, '<b><i>$1</i></b>')
        .replace(/\*\*([^*]+?)\*\*/g, '<b>$1</b>')
        .replace(/\*([^*]+?)\*/g, '<i>$1</i>')
@@ -2854,7 +2859,7 @@ function emphToHtml(text) {
 function emphFromNode(node) {
   let out = '';
   node.childNodes.forEach((n) => {
-    if (n.nodeType === 3) { out += n.nodeValue; return; }
+    if (n.nodeType === 3) { out += n.nodeValue.replace(/\u00A0/g, ' '); return; } // glueDashes' no-break space (and any pasted one) saves as a plain space
     if (n.nodeType !== 1) return;
     const tag = n.nodeName.toLowerCase();
     // Chord tags are empty markers (no child text) — resolve before the
@@ -3481,6 +3486,19 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       sel.collapse(node, offset);
     }
   };
+  // Live version of glueDashes: the moment "word --" is typed, swap the space
+  // before the dashes for a no-break space so the line wraps the same way the
+  // page will. Same length, so the caret offset doesn't move.
+  const tryGlueDash = () => {
+    const sel = window.getSelection();
+    if (!sel || !sel.isCollapsed || !sel.anchorNode || sel.anchorNode.nodeType !== 3) return;
+    const node = sel.anchorNode, offset = sel.anchorOffset, text = node.nodeValue || '';
+    const head = text.slice(0, offset);
+    const m = head.match(/\S (--|\u2014)$/);
+    if (!m) return;
+    node.replaceData(offset - m[1].length - 1, 1, '\u00A0');
+    sel.collapse(node, offset);
+  };
   // Bookmark the caret by line-id + offset so it survives a normalize pass.
   const caretBookmark = () => { const line = getFocusedLine(lineEd); return line ? { id: line.dataset.id, off: caretOffsetIn(line) } : null; };
   const restoreBookmark = (bm) => {
@@ -3939,7 +3957,7 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
   lineEd.addEventListener('keyup', syncPicker);
   lineEd.addEventListener('click', syncPicker);
   lineEd.addEventListener('input', () => {
-    tryAutoConvertChord(); trySmartTypography();
+    tryAutoConvertChord(); trySmartTypography(); tryGlueDash();
     if (needsNormalize()) normalize(true);
     const cl = getFocusedLine(lineEd);
     if (cl) { cl.dataset.dirty = '1'; liveInferRow(cl); } // dirty: eligible for commit inference; live: restyle as the text identifies itself
