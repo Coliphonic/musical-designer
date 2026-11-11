@@ -3013,7 +3013,8 @@ function helpSections(isProse, where) {
   }
   const keys = [];
   if (ms) {
-    keys.push([k('Enter'), isProse ? 'Next paragraph' : 'Next line. On an empty line, leave the block']);
+    keys.push([k('Enter'), isProse ? 'Next paragraph' : 'Next line. After a scene’s dialogue, Action or a new character. On an empty line, leave the block']);
+    if (!isProse) keys.push([k(shift + 'Enter'), 'Keep going: more of the same speech or verse']);
     keys.push([k('Tab'), isProse ? 'Body or scene break' : 'Change what this line is']);
     if (!isProse) keys.push([k(mod + '1') + ' to ' + k(mod + '6'), 'Character, Dialogue, Lyrics, Parenthetical, Action, Section']);
     keys.push([k(mod + 'B', mod + 'I', mod + 'U'), 'Bold, italic, underline']);
@@ -3126,7 +3127,8 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
     if (type === 'paren') return isSong ? 'sung' : 'dialogue';
     if (type === 'section') return isSong ? 'cue' : 'action';
     if (type === 'scenebreak' || type === 'blank' || type === 'action') return isSong ? 'sung' : 'action';
-    return type; // sung → sung, dialogue → dialogue
+    if (type === 'dialogue' && !isSong) return 'action'; // a scene's speech ends at Return (Shift+Return continues it); the Enter handler closes the block
+    return type; // sung → sung, a song's spoken line → its next line
   };
   const tabNext   = (type) => { const i = elCycle.indexOf(type); return elCycle[(i + 1) % elCycle.length]; };
   // Each row carries data-id so an edited line keeps its identity across saves
@@ -4190,10 +4192,20 @@ function buildRichEditor({ text, lines, isSong, onSave, autofocus, detachBar, on
       // row — styled at the likely next element's indent but uncommitted, and
       // marked fresh so what's typed into it decides what it really is.
       const newType = (e.shiftKey || carried.trim()) ? curType : predictNext(cur);
+      // Return at the end of a scene's dialogue closes the speech the way a
+      // screenplay does: a block-closing blank, then a fresh row that reads as
+      // Action (or a Character, if a caps name is typed). Without the blank,
+      // blockCtxBefore would still see the open block and pull the text back
+      // to Dialogue. Shift+Return (above) is the way to keep talking.
+      let anchor = cur;
+      if (!e.shiftKey && !carried.trim() && !isSong && !isProse && curType === 'dialogue' && (cur.textContent || '').trim()) {
+        anchor = mkLine('blank', '');
+        cur.after(anchor);
+      }
       const newLine = mkLine(newType, carried);
       newLine.dataset.dirty = '1'; // carries user text into a new row this session
       if (!carried.trim()) { newLine.dataset.fresh = '1'; if (!isProse) newLine.dataset.neutral = '1'; } // born empty — full inference freedom, caps → Character; renders flush-left until the text identifies (musical only; prose Body is already flush-left)
-      cur.after(newLine);
+      anchor.after(newLine);
       placeCursorAt(newLine, false);
       styleSel.value = newType;
       syncPicker();
